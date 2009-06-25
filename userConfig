@@ -1,0 +1,10 @@
+#
+# tkLOR user configuration file
+#
+
+# you can define behaviour for running tkLOR on different OSes. For example:
+#if {[ string first Windows $tcl_platform(os) ] != -1} {
+#    set useProxy 1
+#} else {
+#    set useProxy 0
+#}

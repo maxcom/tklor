@@ -1,0 +1,66 @@
+############################################################################
+#    Copyright (C) 2008 by Alexander Galanin                               #
+#    gaa.nnov@mail.ru                                                      #
+#                                                                          #
+#    This program is free software; you can redistribute it and#or modify  #
+#    it under the terms of the GNU General Public License as published by  #
+#    the Free Software Foundation; either version 3 of the License, or     #
+#    (at your option) any later version.                                   #
+#                                                                          #
+#    This program is distributed in the hope that it will be useful,       #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#    GNU General Public License for more details.                          #
+#                                                                          #
+#    You should have received a copy of the GNU General Public License     #
+#    along with this program; if not, write to the                         #
+#    Free Software Foundation, Inc.,                                       #
+#    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
+############################################################################
+
+## tkLOR
+
+This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
+
+## To use it you must install:
+
+*   Tcl 8.4 or 8.5
+*   Tk
+*   Tile (not in Tk 8.5)
+*   Tcllib
+
+## Hints:
+
+*   Install Tk 8.5 to get better look of fonts on X11
+
+*   You can specify variables in a command-line. For example, command:
+
+    # wish8.5 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR -cacheDir=/home/jopa/prog/tkLOR/cache
+
+    Will run tkLOR with specified config directory to /home/jopa/prog/tkLOR.
+
+*   If you have problems like "Error in startup script: can't find package
+    gaa_lambda 1.0", try to run in the following way:
+
+    # wish tkLOR.tcl -libDir=/home/jopa/prog/tkLOR/lib
+
+*   If on your system 'tclsh' executable located outside $PATH, use -tclshPath command-line key.
+
+    # /usr/local/tcltk/wish85 tkLOR.tcl -tclshPath=/usr/local/tcltk/tclsh85
+
+## For Debian GNU/Linux:
+
+# aptitude install tcl8.5 tk8.5 tcllib
+or
+# aptitude install tcl8.4 tk8.4 tcllib tk-tile
+
+## For Micro$oft Window$:
+
+Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile installed separately.
+
+## For Mac OS X:
+
+*   install ActiveTcl from http://www.activestate.com/store/freedownload.aspx?prdGuid=f0cd6399-fefb-466e-ba17-220dcd6f4078
+*   install tcllib from http://sourceforge.net/project/showfiles.php?group_id=12883
+*   add a symlink to /usr/local/bin/wish8.5 in any directory in $PATH or add /usr/local/bin into PATH environment variable.
+*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib -tclshPath=//usr/local/bin/tclsh8.5"

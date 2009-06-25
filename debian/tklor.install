@@ -1,0 +1,17 @@
+userConfig usr/share/doc/tklor/examples
+config usr/share/doc/tklor/examples
+README usr/share/doc/tklor
+UPGRADE usr/share/doc/tklor
+tklor.xpm usr/share/pixmaps
+tklor.desktop usr/share/applications
+lib/gaa_httpTools.tcl usr/lib/tkLOR
+lib/gaa_lambda.tcl usr/lib/tkLOR
+lib/gaa_mbox.tcl usr/lib/tkLOR
+lib/gaa_tileDialogs.tcl usr/lib/tkLOR
+lib/gaa_tools.tcl usr/lib/tkLOR
+lib/lorParser.tcl usr/lib/tkLOR
+lib/pkgIndex.tcl usr/lib/tkLOR
+lib/taskManager.tcl usr/lib/tkLOR
+lib/msgs/ru.msg usr/lib/tkLOR/msgs
+lib/gui_mailEditor.tcl usr/lib/tkLOR
+lib/mailUtils.tcl usr/lib/tkLOR
