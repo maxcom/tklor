@@ -112,6 +112,11 @@ array set fontPart {
     ignored "-overstrike 1"
 }
 
+array set color {
+    htmlFg "black"
+    htmlBg "white"
+}
+
 set options {
     "Global" {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
@@ -147,6 +152,8 @@ set options {
     }
     "Message text" {
         "font"  font    messageTextFont ""
+        "Font color"    color   color(htmlFg) ""
+        "Background"    color   color(htmlBg) ""
     }
 }
 
@@ -333,9 +340,7 @@ proc initTopicText {} {
 
     set f [ ttk::frame $mf.textFrame ]
     set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 10 ]
-    catch {
-        $topicTextWidget configure -font $messageTextFont
-    }
+
     ttk::scrollbar $f.scroll -command "$topicTextWidget yview"
     pack $f.scroll -side right -fill y
     pack $topicTextWidget -expand yes -fill both
@@ -394,9 +399,6 @@ proc initMessageWidget {} {
     pack $f -fill x
 
     set messageWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 10 ]
-    catch {
-        $messageWidget configure -font $messageTextFont
-    }
     ttk::scrollbar $mf.scroll -command "$messageWidget yview"
     pack $mf.scroll -side right -fill y
     pack $messageWidget -expand yes -fill both
@@ -426,8 +428,6 @@ proc initMainWindow {} {
     .vertPaned add [ initTopicText ] -weight 3
     .vertPaned add [ initTopicTree ] -weight 1
     .vertPaned add [ initMessageWidget ] -weight 3
-
-    ttk::style theme use $tileTheme
 }
 
 proc helpAbout {} {
@@ -1372,7 +1372,7 @@ proc clearTopicCache {w item} {
     }
 }
 
-proc packOptionsItem {name item type var opt} {
+proc packOptionsItem {w name item type var opt} {
     if { $type != "check" } {
         pack [ ttk::label [ join [ list $name Label ] "" ] -text "$item:" ] -anchor w -fill x
     }
@@ -1402,6 +1402,9 @@ proc packOptionsItem {name item type var opt} {
         password {
             pack [ ttk::entry $name -textvariable $var -show * ] -anchor w -fill x
         }
+        color {
+            pack [ ttk::button $name -text "Choose..." -command [ list "chooseColor" $w $var ] ] -anchor w -fill x
+        }
         string -
         default {
             pack [ ttk::entry $name -textvariable $var ] -anchor w -fill x
@@ -1429,11 +1432,11 @@ proc showOptionsDialog {} {
 
         set i 0
         foreach {item type var opt} $optList {
-            set f [ ttk::frame "$page.item$i" -relief flat -borderwidth 1 -padding 1 ]
+            set f [ ttk::frame "$page.item$i" -padding 1 ]
 
             if { $type != "font" && $type != "fontPart" } {
                 array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                packOptionsItem $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
+                packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
             } else {
                 array set ff [ set ::$var ]
                 set names [ array names ff ]
@@ -1446,12 +1449,12 @@ proc showOptionsDialog {} {
                 }
                 array unset ff
 
-                packOptionsItem $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
-                packOptionsItem $f.size "Size" string "optionsTmp($n.$i.size)" ""
-                packOptionsItem $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
-                packOptionsItem $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
-                packOptionsItem $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
-                packOptionsItem $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
+                packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
+                packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
+                packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
+                packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
+                packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
+                packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
             }
 
             pack $f -anchor w -fill x
@@ -1512,15 +1515,21 @@ proc applyOptions {} {
     global tileTheme
     global topicTextWidget messageWidget
     global messageTextFont
+    global color
 
     initHttp
 
     configureTags $allTopicsWidget
     configureTags $topicWidget
+
     ttk::style theme use $tileTheme
 
-    $topicTextWidget configure -font $messageTextFont
-    $messageWidget configure -font $messageTextFont
+    catch {$topicTextWidget configure -font $messageTextFont}
+    catch {$topicTextWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
+
+    catch {$messageWidget configure -font $messageTextFont}
+    catch {$messageWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
+
 
     initBindings
 }
@@ -1957,6 +1966,13 @@ proc initBindings {} {
     bind . <Control-F> find
 }
 
+proc chooseColor {parent var} {
+    set color [ tk_chooseColor -initialcolor [ set ::$var ] -parent $parent ]
+    if { $color != "" } {
+        set ::$var $color
+    }
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -1965,12 +1981,12 @@ processArgv
 loadConfig
 
 initDirs
-initHttp
 
 initMenu
 initPopups
 initMainWindow
-initBindings
+
+applyOptions
 
 update
 
