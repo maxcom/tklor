@@ -98,6 +98,7 @@ set lastId -1
 set waitDeep 0
 
 set messageTextFont [ font actual system ]
+set messageTextMonospaceFont "-family Courier"
 
 set forumGroups {
     126     General
@@ -164,9 +165,10 @@ set options {
         "Ignored font"  font    fontPart(ignored) ""
     }
     "Message text" {
-        "font"  font    messageTextFont ""
-        "Font color"    color   color(htmlFg) ""
-        "Background"    color   color(htmlBg) ""
+        "Normal font"       font    messageTextFont ""
+        "Monospace font"    font    messageTextMonospaceFont ""
+        "Font color"        color   color(htmlFg) ""
+        "Background"        color   color(htmlBg) ""
     }
 }
 
@@ -404,6 +406,8 @@ proc exitProc {} {
 }
 
 proc renderHtml {w msg} {
+    global messageTextMonospaceFont
+
     set msg [ string trim $msg ]
     $w configure -state normal
     $w delete 0.0 end
@@ -415,7 +419,7 @@ proc renderHtml {w msg} {
     $w tag configure br -background white
     $w tag configure i -font {-slant italic}
     $w tag configure hyperlink
-    $w tag configure pre -font {-family Courier}
+    $w tag configure pre -font $messageTextMonospaceFont
 
     $w tag bind hyperlink <Enter> "$w configure -cursor hand1"
     $w tag bind hyperlink <Leave> "$w configure -cursor {}"
@@ -609,6 +613,7 @@ proc setTopic {topic} {
     focus $messageTree
     update
     updateWindowTitle
+    setFocusedItem $messageTree "topic"
     if { $expandNewMessages == "1" } {
         nextUnread $messageTree ""
     }
