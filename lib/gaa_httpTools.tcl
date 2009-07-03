@@ -24,6 +24,7 @@ package require Tcl 8.4
 package require http 2.0
 package require cmdline 1.2.5
 package require gaa_lambda 1.0
+package require autoproxy
 
 namespace eval ::gaa {
 namespace eval httpTools {
