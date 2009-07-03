@@ -1461,7 +1461,28 @@ proc clearTopicCache {w item} {
 }
 
 proc showOptionsDialog {} {
-    tabbedOptionsDialog
+    global appName
+    global options
+
+    set opts ""
+    foreach {category optList} $options {
+        set sub ""
+        foreach {item type var opt} $optList {
+            lappend sub $item $type $var [ set ::$var ] $opt
+        }
+        lappend opts $category
+        lappend opts $sub
+    }
+
+    tabbedOptionsDialog \
+        -title "$appName options" \
+        -options $opts \
+        -pageScript [ lambda {opts} {
+            foreach {var val} $opts {
+                set ::$var $val
+            }
+        } ] \
+        -script applyOptions
 }
 
 proc applyOptions {} {

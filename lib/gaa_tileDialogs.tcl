@@ -162,41 +162,53 @@ proc getOptionsItemValue {name type} {
     }
 }
 
-proc tabbedOptionsDialog {} {
-    global options
-    global appName
+proc tabbedOptionsDialog {args} {
+    array set param [ ::cmdline::getoptions args {
+        {title.arg      "Options" "Window title"}
+        {options.arg    ""        "Options list in format {category {title type id value opt}}"}
+        {pageScript.arg ""        "Script to execute on each page"}
+        {script.arg     ""        "Script to execute on OK click"}
+    } ]
+    foreach item {options pageScript script } {
+        if { $param($item) == "" } {
+            error "Parameter -$item is mandatory!"
+        }
+    }
 
-    set d .optionsDialog
+    set d [ gaa::tools::generateUniqueWidgetId ".tabbedOptionsDialog" ]
     catch {destroy $d}
     toplevel $d
-    wm title $d "$appName options"
+    wm title $d $param(title)
     set notebook [ ttk::notebook $d.notebook ]
     pack $notebook -fill both
 
     set n 0
     set okList ""
-    foreach {category optList} $options {
+    foreach {category optList} $param(options) {
         set page [ ttk::frame "$notebook.page$n" ]
 
-        set o ""
-        foreach {item type var opt} $optList {
-            lappend o $item $type [ set ::$var ] $opt
+        set genList ""
+        set fetchList ""
+        foreach {item type var value opt} $optList {
+            lappend genList $item $type $value $opt
+            lappend fetchList $item $type $var $opt
         }
 
-        lappend okList [ ::gaa::lambda::lambda {optList page ws} {
+        lappend okList [ ::gaa::lambda::lambda {optList page ws script} {
                 set vals [ ::gaa::tileDialogs::fetchOptionsFrameValues $optList $page $ws ]
+                set var ""
                 for {set i 0} {$i < [ llength $vals ]} {incr i} {
-                    set var [ lindex $optList [ expr $i*4+2 ] ]
-                    set ::$var [ lindex $vals $i ]
+                    lappend var [ lindex $optList [ expr $i*4+2 ] ] [ lindex $vals $i ]
                 }
-            } $optList $page [ generateOptionsFrame $d $o $page ] \
+                eval [ concat $script [ list $var ] ]
+            } $fetchList $page [ generateOptionsFrame $d $genList $page ] $param(pageScript) \
         ]
 
         $notebook add $page -sticky nswe -text $category
         incr n
     }
     lappend okList [ list "destroy" $d ]
-    lappend okList "applyOptions"
+    lappend okList $param(script)
     set okScript [ join $okList ";" ]
     set cancelScript [ list "destroy" $d ]
 
