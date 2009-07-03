@@ -126,7 +126,7 @@ array set color {
 set options {
     "Global" {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
-        "Start in autonomous mode"  check   autonomousMode ""
+        "Autonomous mode"   check   autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
         "Use double-click to open topic"    check   doubleClickAllTopics ""
         "Confirm exit"  check   exitConfirmation ""
@@ -144,13 +144,13 @@ set options {
     "Reading" {
         "Expand new messages"   check   expandNewMessages   ""
         "Mark messages from ignored users as read"  check   markIgnoredMessagesAsRead ""
-        "Ignore list"   ignoreList    ignoreList { list "Nick" }
+        "Ignore list"   list    ignoreList { list [ list "Nick" ] "addIgnoreListItem" "modifyIgnoreListItem" }
     }
     "User tags" {
-        "Tags"  userTagList userTagList { list "Nick" "Tag" }
+        "Tags"  list    userTagList { list [ list "Nick" "Tag" ] "addUserTagListItem" "modifyUserTagListItem" }
     }
     "Colors" {
-        "Colors"    colorList   colorList { list "Regexp" "Color" "Element" }
+        "Colors"    list    colorList { list [ list "Regexp" "Color" "Element" ] "addColorListItem" "modifyColorListItem" }
     }
     "Normal font" {
         "font"  fontPart    fontPart(item) ""
@@ -1486,10 +1486,38 @@ proc packOptionsItem {w name item type val opt} {
                 [ list -text "Add..." -command [ concat $addScript [ list $v ] ] ] \
                 [ list -text "Modify..." -command [ concat $modifyScript [ list $v ] ] ] \
                 [ list -text "Remove" -command [ list lambda {w} {
-                    foreach item [ $w selection ] {
-                        $w delete $item
-                    } } $v ] ] \
-                ] -fill x -side bottom
+                        foreach item [ $w selection ] {
+                            $w delete $item
+                        }
+                    } $v ] \
+                ] \
+                [ list -text "Move up" -command [ list lambda {w} {
+                        set item [ $w focus ]
+                        if { $item == "" } return
+                        set parent [ $w parent $item ]
+                        set childs [ $w children $parent ]
+                        set pos [ lsearch -exact $childs $item ]
+                        if { $pos > 0 } {
+                            lset childs $pos [ lindex $childs [ expr $pos - 1 ] ]
+                            lset childs [ expr $pos - 1 ] $item
+                            $w children $parent $childs
+                        }
+                    } $v ] \
+                ] \
+                [ list -text "Move down" -command [ list lambda {w} {
+                        set item [ $w focus ]
+                        if { $item == "" } return
+                        set parent [ $w parent $item ]
+                        set childs [ $w children $parent ]
+                        set pos [ lsearch -exact $childs $item ]
+                        if { $pos + 1 < [ llength $childs ] } {
+                            lset childs $pos [ lindex $childs [ expr $pos + 1 ] ]
+                            lset childs [ expr $pos + 1 ] $item
+                            $w children $parent $childs
+                        }
+                    } $v ] \
+                ] \
+            ] -fill x -side bottom
         }
         editableCombo {
             pack [ ttk::combobox $name -values $opt ] -anchor w -fill x
@@ -2179,15 +2207,6 @@ proc generateOptionsFrame {d optList page} {
                     "Overstrike" check $ff(-overstrike) "" \
                 ] $f
                 array unset ff
-            }
-            ignoreList {
-                packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
-            }
-            userTagList {
-                packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
-            }
-            colorList {
-                packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addColorListItem" "modifyColorListItem" ]
             }
             default {
                 packOptionsItem $d $f.value $item $type $val [ eval $opt ]
