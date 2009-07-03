@@ -825,6 +825,11 @@ proc stopWait {} {
 }
 
 proc loadConfigFile {fileName} {
+    global appName
+
+    if { ![ file exists $fileName ] } {
+        return
+    }
     if [ catch {
         set f [ open $fileName "r" ]
         set data [ read $f ]
