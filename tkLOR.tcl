@@ -510,6 +510,7 @@ proc initMainWindow {} {
         [ ttk::progressbar $statusBarWidget.progress -mode indeterminate -orient horizontal ] \
         [ ttk::button $statusBarWidget.button -text "^" -command toggleTaskList -width 1 ] \
         -sticky nswe
+    $statusBarWidget.progress configure -mode determinate -value 0
     $statusBarWidget.progress state disabled
     grid columnconfigure $statusBarWidget 0 -weight 1
 
@@ -1962,7 +1963,8 @@ proc initBindings {} {
     bind . <F2> updateTopicList
     bind . <F3> findNext
     bind . <F5> refreshTopic
-    bind . <Alt-F4> exitProc
+    bind . <Alt-F4> {exitProc;break}
+    bind $topicTree <Alt-F4> {exitProc;break}
 
     bind $topicTree <F4> [ list invokeMenuCommand $topicTree refreshTopicSubList ]
 
@@ -2281,10 +2283,12 @@ proc updateTaskList {} {
             $statusBarWidget.text configure -text [ mc "%s operations running" $total ]
         }
         $statusBarWidget.progress state !disabled
+        $statusBarWidget.progress configure -mode indeterminate
         $statusBarWidget.progress start
     } else {
         $statusBarWidget.text configure -text ""
         $statusBarWidget.progress stop
+        $statusBarWidget.progress configure -mode determinate -value 0
         $statusBarWidget.progress state disabled
     }
 }
@@ -2571,7 +2575,7 @@ if {! [ file exists [ file join $configDir "config" ] ] } {
     showOptionsDialog
 }
 
-if { $updateOnStart == "1" } {
+if { $updateOnStart == "1" && $autonomousMode == "0" } {
     updateTopicList
 }
 

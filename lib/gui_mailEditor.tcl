@@ -62,7 +62,7 @@ proc editMessage {title letter buttons default command} {
     }
     array set $storage [ list letter $letter ]
 
-    set f [ toplevel .messagePostWindow$id -class Dialog ]
+    set f [ toplevel .messagePostWindow$id ]
     wm withdraw $f
     wm title $f $title
  
@@ -144,7 +144,6 @@ proc editMessage {title letter buttons default command} {
     grid columnconfigure $f 0 -weight 1
     grid rowconfigure $f 1 -weight 1
 
-    wm transient $f .
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $destroyScript
     bind $f <Escape> $destroyScript
