@@ -1,0 +1,9 @@
+if {[lsearch -exact [info procs] "quoteText_orig"] eq -1} {
+    rename quoteText quoteText_orig
+    proc quoteText text {
+        set s [quoteText_orig $text]
+        append s "\n\n"
+        append s "// Подпись, нах!"
+        return $s
+    }
+}

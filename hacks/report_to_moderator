@@ -1,0 +1,104 @@
+bind . <Control-d> \
+    {invokeMenuCommand $messageTree ::user::donos::openDonosWindow}
+
+namespace eval user {
+namespace eval donos {
+
+set id 0
+
+set donosThread "2942017"
+
+set reasons {
+    {3.1 Дубль}
+    {3.2 Неверная кодировка}
+    {3.3 Некорректное форматирование}
+    {3.4 Пустое сообщение}
+    {4.1 Offtopic}
+    {4.2 Вызывающе неверная информация}
+    {4.3 Провокация flame}
+    {4.4 Обсуждение действий модераторов}
+    {4.5 Тестовые сообщения}
+    {4.6 Спам}
+    {4.7 Флуд}
+    {5.1 Нецензурные выражения}
+    {5.2 Оскорбление участников дискуссии}
+    {5.3 Национальные/политические/религиозные споры}
+    {5.4 Личная переписка}
+    {5.5 Преднамеренное нарушение правил русского языка}
+    {6 Нарушение copyright}
+    {6.2 Warez}
+    {7.1 Ответ на некорректное сообщение}
+}
+
+proc openDonosWindow {w item} {
+    if { $::rightViewState != "MESSAGE" } {
+        return
+    }
+
+    variable id
+    variable reasons
+    global currentTopic
+
+    if { $item == "topic" } {
+        set url [ ::lor::getTopicUrl $currentTopic ]
+    } else {
+        set url [ ::lor::getMessageUrl $item $currentTopic ]
+    }
+
+    set f [ toplevel ".donosWindow[ incr id ]" -class Dialog ]
+    wm withdraw $f
+    set w [ ttk::frame $f.frame ]
+    grid \
+        [ ttk::label $w.toLabel -text "Донос на: " ] \
+        [ ttk::label $w.toContent -text $url ] \
+        -sticky nswe
+    grid \
+        [ ttk::label $w.reasonLabel -text "Причина: " ] \
+        [ ttk::combobox $w.reasonContent -values $reasons ] \
+        -sticky nswe
+    $w.reasonContent current 11
+    grid columnconfigure $w 0 -weight 1
+    grid columnconfigure $w 1 -weight 1
+    grid $w -sticky nwse
+
+    set donosScript "[ namespace current ]::sendDonos $f;destroy $f"
+    set destroyScript "destroy $f"
+    grid [ ::gaa::tileDialogs::buttonBox $f \
+        [ list -text "Донести" -command $donosScript ] \
+        [ list -text "Отставить" -command $destroyScript ] \
+    ] -sticky nswe
+
+    grid columnconfigure $f 0 -weight 1
+    grid rowconfigure $f 1 -weight 1
+
+    wm transient $f .
+    wm deiconify $f
+    wm protocol $f WM_DELETE_WINDOW $destroyScript
+    bind $f <Escape> $destroyScript
+    bind $f <Return> $donosScript
+
+    update
+    focus $w.reasonContent
+}
+
+proc sendDonos {f} {
+    variable donosThread
+
+    set url [ $f.frame.toContent cget -text ]
+    set reason [ $f.frame.reasonContent get ]
+
+    putMailToQueue outcoming [ list \
+        From        $::lorLogin \
+        To          "moderators" \
+        Subject     "Робот-доносчик" \
+        In-Reply-To $donosThread \
+        X-LOR-Time  [ clock format \
+                        [ clock seconds ] -format {%d.%m.%Y %H:%M:%S} \
+                    ] \
+        body        "Ссылка: $url\n\nПричина: $reason" \
+    ]
+}
+
+}
+}
+
