@@ -54,7 +54,9 @@ if { [ string equal -length 3 $tk_patchLevel "8.4" ] && ! [catch {package requir
     set htmlRenderer "iwidgets"
 }
 
-#loadConfig
+############################################################################
+#                                 VARIABLES                                #
+############################################################################
 
 set messageWidget ""
 set topicWidget ""
@@ -79,23 +81,19 @@ array set itemValuesMap {
 ############################################################################
 #                                 FUNCTIONS                                #
 ############################################################################
+
 proc initMenu {} {
     menu .menu -type menubar
     .menu add cascade -label "Topic" -menu .menu.file
-    .menu add cascade -label "Edit" -menu .menu.edit
     .menu add cascade -label "Help" -menu .menu.help
 
-    menu .menu.file
+    menu .menu.file -tearoff 0
     .menu.file add command -label "Add..." -command addTopic
+    .menu.file add command -label "Refresh" -command refreshTopic
     .menu.file add separator
     .menu.file add command -label "Exit" -command exitProc
 
-    menu .menu.edit
-    .menu.edit add command -label "Cut" -command editCut
-    .menu.edit add command -label "Copy" -command editCopy
-    .menu.edit add command -label "Paste" -command editPaste
-
-    menu .menu.help
+    menu .menu.help -tearoff 0
     .menu.help add command -label "About" -command helpAbout
 
     .  configure -menu .menu
@@ -288,6 +286,8 @@ proc setTopic {topic} {
     set url "http://pingu/lor.html"
     #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
+    startWait
+
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
 
@@ -304,6 +304,7 @@ proc setTopic {topic} {
     if $err {
         tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
     }
+    stopWait
 }
 
 proc parseTopicText {topic data} {
@@ -396,6 +397,14 @@ proc updateItemState {item} {
 
 proc addTopic {} {
     #TODO
+}
+
+proc refreshTopic {} {
+    global currentTopic
+
+    if { $currentTopic != "" } {
+        setTopic $currentTopic
+    }
 }
 
 proc initHttp {} {
@@ -563,10 +572,12 @@ proc saveTopicRecursive {topic item} {
 }
 
 proc saveTopicToCache {topic} {
+    startWait
     if { $topic != "" } {
         clearDiskCache $topic
         saveTopicRecursive $topic ""
     }
+    stopWait
 }
 
 proc processArgv {} {
@@ -579,11 +590,24 @@ proc processArgv {} {
     }
 }
 
+proc startWait {} {
+    . configure -cursor clock
+}
+
+proc stopWait {} {
+    . configure -cursor ""
+}
+
+proc loadConfig {} {
+    # TODO
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
 
 processArgv
+loadConfig
 
 initDirs
 
