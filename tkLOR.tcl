@@ -786,7 +786,7 @@ proc setTopic {topic} {
             if { $autonomousMode && ! [ $w exists "topic" ] } {
                 goOnline
             }
-            after idle getNewMessages $topic
+            getNewMessages $topic
         } ] ]
     } else {
         getNewMessages $topic
