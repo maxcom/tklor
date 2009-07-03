@@ -2285,11 +2285,19 @@ proc postMessage {topic {item ""}} {
 }
 
 proc makeReplyHeader {header} {
-    if [ regexp -lineanchor -nocase -- {^(re(?:\^\d+){0,1}):\s*(.*)} $header dummy re text ] {
-        if { ![ regexp -nocase -- {re\^(\d+)} $re dummy2 count ] } {
-            set count 1
+    set re {^re(?:\^(\d+)|()):\s+}
+    set count 0
+
+    while { [ regexp -nocase -lineanchor -- $re $header dummy c ] != 0 } {
+        if { $c == "" } {
+            set c 1
         }
-        return "Re^[ expr $count + 1 ]: $text"
+        incr count $c
+        regsub -nocase -lineanchor -- $re $header {} header
+    }
+
+    if { $count != 0 } {
+        return "Re^[ expr $count + 1 ]: $header"
     } else {
         return "Re: $header"
     }
