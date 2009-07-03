@@ -187,7 +187,7 @@ proc initAllTopicsTree {} {
 
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
-    $allTopicsWidget heading unreadChild -text "Messages" -anchor w
+    $allTopicsWidget heading unreadChild -text "Threads" -anchor w
     $allTopicsWidget column #0 -width 250
     $allTopicsWidget column unreadChild -width 30 -stretch 0
 
@@ -413,17 +413,18 @@ proc setTopic {topic} {
         saveTopicToCache $currentTopic
     }
 
-    foreach item [ $topicWidget children "" ] {
-        $topicWidget delete $item
+    if { $topic != $currentTopic } {
+        foreach item [ $topicWidget children "" ] {
+            $topicWidget delete $item
+        }
+        set currentHeader ""
+        set currentNick ""
+        set currentPrevNick ""
+        set currentTime ""
+        set topicNick ""
+        set topicTime ""
+        renderHtml $messageWidget ""
     }
-
-    set currentHeader ""
-    set currentNick ""
-    set currentPrevNick ""
-    set currentTime ""
-    set topicNick ""
-    set topicTime ""
-    renderHtml $messageWidget ""
 
     set currentTopic $topic
     set err 1
@@ -509,15 +510,13 @@ proc messageClick {} {
     global currentMessage
 
     set item [ $w focus ]
-    if { $item != $currentMessage } {
-        set currentMessage $item
-        updateMessage $item
-        if [ getItemValue $w $item unread ] {
-            setItemValue $w $item unread 0
-            addUnreadChild $w [ getItemValue $w $item parent ] -1
-        }
-        updateItemState $w $item
+    set currentMessage $item
+    updateMessage $item
+    if [ getItemValue $w $item unread ] {
+        setItemValue $w $item unread 0
+        addUnreadChild $w [ getItemValue $w $item parent ] -1
     }
+    updateItemState $w $item
 }
 
 proc addUnreadChild {w item {count 1}} {
@@ -1194,6 +1193,7 @@ proc replaceHtmlEntities {text} {
         "<img [^>]*>" "[image]"
         "<!--.*?-->" ""
         "</{0,1}pre>" ""
+        "\n<br>" "\n"
         "<br>\n" "\n"
         "<br>" "\n"
         "<p>" "\n"
