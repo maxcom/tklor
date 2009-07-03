@@ -87,6 +87,10 @@ proc loadAppLibs {} {
     namespace import ::gaa::lambda::*
 }
 
+proc errorProcCallback {err {extInfo ""}} {
+    send tkLOR [ list errorProc $err $extInfo ]
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################

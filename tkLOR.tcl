@@ -30,6 +30,7 @@ package require struct::stack 1.3
 
 set appName "tkLOR"
 set backendId "tkLOR-backend"
+
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 set appHome "http://code.google.com/p/tklor/"
@@ -1916,10 +1917,6 @@ proc errorProc {err {extInfo ""}} {
         puts stderr "$appName: $extInfo"
     }
     tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
-}
-
-proc errorProcCallback {err {extInfo ""}} {
-    send tkLOR [ list errorProc $err $extInfo ]
 }
 
 proc sortChildrens {w parent} {

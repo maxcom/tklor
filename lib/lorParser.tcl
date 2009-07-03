@@ -75,7 +75,7 @@ proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
             eval $onComplete
         } $topicTextCommand $messageCommand $onError $onComplete ]
     } err ] {
-        eval [ concat $onError [ list $err ] ]
+        eval [ concat $onError [ list $err $::errorInfo ] ]
         eval $onComplete
     }
 }
@@ -169,7 +169,7 @@ proc parseGroup {command section group onError onComplete} {
             eval $onComplete
         } $processRssItem $onError $onComplete ]
     } err ] } {
-        eval [ concat $onError [ list $err ] ]
+        eval [ concat $onError [ list $err $::errorInfo ] ]
         eval $onComplete
     }
 }
