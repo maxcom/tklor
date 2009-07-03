@@ -85,6 +85,8 @@ set tileTheme "default"
 set findString ""
 set findPos ""
 
+set messageTextFont [ font actual system ]
+
 set forumGroups {
     126     General
     1339    Desktop
@@ -156,16 +158,19 @@ set options {
         "Ignore list"   list    ignoreList ""
     }
     "Normal font" {
-        "font"  font    fontPart(item) ""
+        "font"  fontPart    fontPart(item) ""
     }
     "Unread font" {
-        "font"  font    fontPart(unread) ""
+        "font"  fontPart    fontPart(unread) ""
     }
     "Unread childs font" {
-        "font"  font    fontPart(child) ""
+        "font"  fontPart    fontPart(child) ""
     }
     "Ignored font" {
-        "font"  font    fontPart(ignored) ""
+        "font"  fontPart    fontPart(ignored) ""
+    }
+    "Message text(!iwidgets)" {
+        "font"  font    messageTextFont ""
     }
 }
 
@@ -331,6 +336,7 @@ proc initTopicText {} {
     global topicTextWidget
     global htmlRenderer
     global topicNick topicTime
+    global messageTextFont
 
     set mf [ ttk::frame .topicTextFrame ]
     pack [ ttk::label $mf.header -textvariable topicHeader -font "-size 14 -weight bold" ] -fill x
@@ -349,6 +355,9 @@ proc initTopicText {} {
     switch -exact $htmlRenderer {
         "local" {
             set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 15 ]
+            catch {
+                $topicTextWidget configure -font $messageTextFont
+            }
             ttk::scrollbar $f.scroll -command "$topicTextWidget yview"
             pack $f.scroll -side right -fill y
             pack $topicTextWidget -expand yes -fill both
@@ -397,6 +406,7 @@ proc initMessageWidget {} {
     global messageWidget
     global htmlRenderer
     global currentHeader currentNick currentPrevNick currentTime
+    global messageTextFont
 
     set mf [ ttk::frame .msgFrame ]
 
@@ -421,6 +431,9 @@ proc initMessageWidget {} {
     switch -exact $htmlRenderer {
         "local" {
             set messageWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 15 ]
+            catch {
+                $messageWidget configure -font $messageTextFont
+            }
             ttk::scrollbar $mf.scroll -command "$messageWidget yview"
             pack $mf.scroll -side right -fill y
             pack $messageWidget -expand yes -fill both
@@ -537,7 +550,7 @@ proc configureTags {w} {
     foreach a { none unread } {
         foreach b { none child } {
             foreach c { none ignored } {
-                set id [ join [list "item" $a $b $c ] "_" ]
+                set id [ join [ list "item" $a $b $c ] "_" ]
                 regsub -all {_none} $id "" id
 
                 $w tag configure $id -font [ join [ list $fontPart(item) $fontPart($a) $fontPart($b) $fontPart($c) ] " " ]
@@ -1354,7 +1367,7 @@ proc showOptionsDialog {} {
         foreach {item type var opt} $optList {
             set f [ ttk::frame "$page.item$i" -relief raised -borderwidth 1 -padding 1 ]
 
-            if { $type != "font" } {
+            if { $type != "font" && $type != "fontPart" } {
                 array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
                 packOptionsItem $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
             } else {
@@ -1395,8 +1408,6 @@ proc showOptionsDialog {} {
 
 proc acceptOptions {} {
     global options optionsTmp
-    global allTopicsWidget topicWidget
-    global tileTheme
 
     catch {destroy .optionsDialog}
 
@@ -1404,7 +1415,7 @@ proc acceptOptions {} {
     foreach {category optList} $options {
         set i 0
         foreach {item type var opt} $optList {
-            if { $type != "font" } {
+            if { $type != "font" && $type != "fontPart" } {
                 set ::$var [ set "optionsTmp($n.$i)" ]
             } else {
                 set s ""
@@ -1414,7 +1425,11 @@ proc acceptOptions {} {
                         lappend s [ list "-$param" $v ]
                     }
                 }
-                set ::$var [ join $s ]
+                set res [ join $s ]
+                if { $type == "font" && $res == "" } {
+                    set res [ font actual system ]
+                }
+                set ::$var $res
             }
             incr i
         }
@@ -1422,10 +1437,26 @@ proc acceptOptions {} {
     }
     array unset optionsTmp
 
+    applyOptions
+}
+
+proc applyOptions {} {
+    global allTopicsWidget topicWidget
+    global tileTheme
+    global topicTextWidget messageWidget
+    global messageTextFont
+    global htmlRenderer
+
+    initHttp
+
     configureTags $allTopicsWidget
     configureTags $topicWidget
     ttk::style theme use $tileTheme
-    initHttp
+
+    if { $htmlRenderer == "local" } {
+        $topicTextWidget configure -font $messageTextFont
+        $messageWidget configure -font $messageTextFont
+    }
 }
 
 proc saveOptions {} {
