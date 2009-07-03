@@ -1681,15 +1681,13 @@ proc modifyIgnoreListItem {w} {
 }
 
 proc nextUnread {w item} {
-    set cur [ processItems $w $item [ list matchUnreadItem $w ] ]
+    set cur [ processItems $w $item [ list lambda {w item} {
+        return [ expr [ getItemValue $w $item unread ] != "1" ]
+    } $w ] ]
     if { $cur != "" } {
         setFocusedItem $w $cur
         click $w $cur
     }
-}
-
-proc matchUnreadItem {w item} {
-    return [ expr [ getItemValue $w $item unread ] != "1" ]
 }
 
 proc openContextMenu {w menu} {
@@ -1722,8 +1720,10 @@ proc inputStringDialog {title label script {val ""}} {
 
     set okScript [ join \
         [ list \
-            [ list "eval" [ concat $script [ list "\[ $f.entry get \]" ] ] ] \
-            [ list "destroy" "$f" ] \
+            [ list lambda {f script} {
+                eval [ concat $script [ list [ $f.entry get ] ] ]
+            } $f $script ] \
+            [ list destroy $f ] \
         ] ";" \
     ]
     set cancelScript [ list "destroy" $f ]
@@ -1764,17 +1764,15 @@ proc findNext {} {
     if { ![$w exists $findPos] } {
         set findPos ""
     }
-    set cur [ processItems $w $findPos [ list matchItemText $w $findString ] ]
+    set cur [ processItems $w $findPos [ list lambda {w findString item} {
+        return [ expr [ regexp -nocase -- $findString [ getItemValue $w $item msg ] ] == "0" ]
+    } $w $findString ] ]
     set findPos $cur
 
     if { $cur != "" } {
         setFocusedItem $w $cur
         click $w $cur
     }
-}
-
-proc matchItemText {w sub item} {
-    return [ expr [ regexp -nocase -- $sub [ getItemValue $w $item msg ] ] == "0" ]
 }
 
 proc processItems {w item script} {
@@ -1937,13 +1935,6 @@ proc generateId {} {
     return $lastId
 }
 
-proc copyFavoritesCategory {from to item} {
-    if { ![ regexp -lineanchor {^\d+$} $item ] } {
-        $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
-    }
-    return 1
-}
-
 proc addToFavorites {w id} {
     global allTopicsWidget
 
@@ -1977,7 +1968,12 @@ proc fillCategoryWidget {categoryWidget parent} {
     global allTopicsWidget
 
     $categoryWidget insert {} end -id favorites -text Favorites
-    processItems $allTopicsWidget "favorites" [ list copyFavoritesCategory $allTopicsWidget $categoryWidget ]
+    processItems $allTopicsWidget "favorites" [ list lambda {from to item} {
+        if { ![ regexp -lineanchor {^\d+$} $item ] } {
+            $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
+        }
+        return 1
+    } $allTopicsWidget $categoryWidget ]
     if [ catch {setFocusedItem $categoryWidget $parent} ] {
         setFocusedItem $categoryWidget "favorites"
     }
