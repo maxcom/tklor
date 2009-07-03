@@ -2314,13 +2314,27 @@ proc sendReply {f topic message} {
     defCallbackLambda finish {type} {
         taskCompleted $type
     } postMessage
-    addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl errorProcCallback $finish ]
+    addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
 }
 
 proc normalizeText {text} {
     regsub -all {\n+} $text "\n" text
     set text [ join [ split $text "\n" ] "\n\n" ]
     return $text
+}
+
+proc deliveryError {topic message header text preformattedText autoUrl errStr errExtInfo} {
+    global appName backendId
+
+    logger::log "message delivery error: $errStr"
+    logger::log "extended info: $errExtInfo"
+
+    if { [ tk_messageBox -title $appName -message [ mc "An error occured while posting '%s':\n%s" $header $errStr ] -type retrycancel ] == "retry" } {
+        defCallbackLambda finish {type} {
+            taskCompleted $type
+        } postMessage
+        addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
+    }
 }
 
 ############################################################################

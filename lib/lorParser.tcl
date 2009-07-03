@@ -336,8 +336,10 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
     variable loggedIn
 
     if { !$loggedIn } {
-        eval [ concat $onError [ list "You must be logged in before sending messages" ] ]
+        eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl "You must be logged in before sending messages" ] ]
         eval $onComplete
+
+        return
     }
 
     array set param $cookies
@@ -363,8 +365,10 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
         "texttype"  0 \
     ]
     if [ catch {lappend queryList "session" $param(JSESSIONID)} err ] {
-        eval [ concat $onError [ list $err "$::errorInfo\ncookies=$cookies" ] ]
+        eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl $err "$::errorInfo\ncookies=$cookies" ] ]
         eval $onComplete
+
+        return
     }
     if { $message != "" } {
         lappend queryList "replyto" $message
@@ -387,10 +391,9 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
             eval $onComplete
         } $onError $onComplete ]
     } err ] {
-        eval [ concat $onError [ list $err $::errorInfo ] ]
+        eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl $err $::errorInfo ] ]
         eval $onComplete
     }
-
 }
 
 }
