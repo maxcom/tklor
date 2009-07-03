@@ -882,14 +882,11 @@ proc startWait {} {
     set f .waitWindow
     catch {destroy $f}
     toplevel $f
-    pack [ ttk::label $f.label -text "Please, wait..." ]
+    pack [ ttk::label $f.label -text "Please, wait..." ] -fill both
     update
-    wm withdraw $f
-
     catch {
         centerToParent $f .
         update
-        wm deiconify $f
         grab $f
     }
 }
