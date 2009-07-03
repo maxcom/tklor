@@ -43,7 +43,7 @@ array set fontPart {
     none ""
     item "-family Sans"
     unread "-weight bold"
-    child "-weight bold -slant italic"
+    child "-slant italic"
     ignored "-overstrike 1"
 }
 
@@ -67,16 +67,6 @@ set currentTopic ""
 
 set topicNick ""
 set topicHeader ""
-
-array set itemValuesMap {
-    header 0
-    time 1
-    msg 2
-    unread 3
-    unreadChild 4
-    parent 5
-    parentNick 6
-}
 
 set forumGroups {
     126     General
@@ -125,19 +115,19 @@ proc initAllTopicsTree {} {
     global allTopicsWidget
     global forumGroups
 
-    set allTopicsWidget [ ttk::treeview .allTopicsTree -columns {unread unreadChild} -displaycolumns {unreadChild} ]
+    set allTopicsWidget [ ttk::treeview .allTopicsTree -columns {nick unread unreadChild parent} -displaycolumns {unreadChild} ]
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Messages" -anchor w
 
-    $allTopicsWidget insert "" end -id news -text "News" -values [ list 0 0 ]
+    $allTopicsWidget insert "" end -id news -text "News" -values [ list 0 0 0 "" ]
 
-    $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list 0 0 ]
+    $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list 0 0 0 "" ]
     foreach {id title} $forumGroups {
-        $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list 0 0 ]
+        $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list 0 0 0 "forum" ]
     }
 
-    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list 0 0 ]
+    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list 0 0 0 "" ]
 
     return $allTopicsWidget
 }
@@ -292,12 +282,13 @@ proc updateTopicText {header msg} {
 proc updateMessage {item} {
     global messageWidget
     global currentHeader currentNick currentPrevNick currentTime
+    upvar #0 topicWidget w
 
-    set msg [ getMessageValue $item msg ]
-    set currentHeader [ getMessageValue $item header ]
-    set currentNick [ getMessageValue $item nick ]
-    set currentPrevNick [ getMessageValue $item parentNick ]
-    set currentTime [ getMessageValue $item time ]
+    set msg [ getItemValue $w $item msg ]
+    set currentHeader [ getItemValue $w $item header ]
+    set currentNick [ getItemValue $w $item nick ]
+    set currentPrevNick [ getItemValue $w $item parentNick ]
+    set currentTime [ getItemValue $w $item time ]
 
     renderHtml $messageWidget $msg
 }
@@ -369,32 +360,22 @@ proc parseTopicText {topic data} {
 }
 
 proc parsePage {topic data} {
-    global topicWidget
+    upvar #0 topicWidget w
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 parent parentNick id header msg nick time ] {
-            if { ! [ $topicWidget exists $id ] } {
-                $topicWidget insert $parent end -id $id -text $nick
+            if { ! [ $w exists $id ] } {
+                $w insert $parent end -id $id -text $nick
                 foreach i {nick header time msg parent parentNick} {
-                    setMessageValue $id $i [ set $i ]
+                    setItemValue $w $id $i [ set $i ]
                 }
-                setMessageValue $id unread 1
-                setMessageValue $id unreadChild 0
-                addUnreadChild $parent
-                updateItemState $id
+                setItemValue $w $id unread 1
+                setItemValue $w $id unreadChild 0
+                addUnreadChild $w $parent
+                updateItemState $w $id
             }
         }
     }
-}
-
-proc getMessageValue {item valueName} {
-    global topicWidget
-    return [ getItemValue $topicWidget $item $valueName ]
-}
-
-proc setMessageValue {item valueName value} {
-    global topicWidget
-    setItemValue $topicWidget $item $valueName $value
 }
 
 proc getItemValue {w item valueName} {
@@ -414,42 +395,41 @@ proc setItemValue {w item valueName value} {
 }
 
 proc messageClick {tree} {
-    global topicWidget
+    upvar #0 topicWidget w
 
     set item [ $tree focus ]
     updateMessage $item
-    if [ getMessageValue $item unread ] {
-        setMessageValue $item unread 0
-        addUnreadChild [ getMessageValue $item parent ] -1
+    if [ getItemValue $w $item unread ] {
+        setItemValue $w $item unread 0
+        addUnreadChild $w [ getItemValue $w $item parent ] -1
     }
-    updateItemState $item
+    updateItemState $w $item
 }
 
-proc addUnreadChild {item {count 1}} {
+proc addUnreadChild {w item {count 1}} {
     if { $item != "" } {
-        setMessageValue $item unreadChild [ expr [ getMessageValue $item unreadChild ] + $count ]
-        if { [ getMessageValue $item parent ] != "" } {
-            addUnreadChild [ getMessageValue $item parent ] $count
+        setItemValue $w $item unreadChild [ expr [ getItemValue $w $item unreadChild ] + $count ]
+        if { [ getItemValue $w $item parent ] != "" } {
+            addUnreadChild $w [ getItemValue $w $item parent ] $count
         }
-        updateItemState $item
+        updateItemState $w $item
     }
 }
 
-proc updateItemState {item} {
-    global topicWidget
+proc updateItemState {w item} {
     global ignoreList
 
     set tag "item"
-    if [ getMessageValue $item unread ] {
+    if [ getItemValue $w $item unread ] {
         append tag "_unread"
     }
-    if [ getMessageValue $item unreadChild ] {
+    if [ getItemValue $w $item unreadChild ] {
         append tag "_child"
     }
-    if { [ lsearch -exact $ignoreList [ getMessageValue $item nick ] ] != -1 } {
+    if { [ lsearch -exact $ignoreList [ getItemValue $w $item nick ] ] != -1 } {
         append tag "_ignored"
     }
-    $topicWidget item $item -tags [ list $tag ]
+    $w item $item -tags [ list $tag ]
 }
 
 proc addTopic {} {
@@ -585,7 +565,7 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
 proc loadCachedMessages {topic} {
     global appName
     global configDir threadSubDir
-    global topicWidget
+    upvar #0 topicWidget w
 
     catch {
     foreach letter [ parseMbox [ file join $configDir $threadSubDir $topic ] ] {
@@ -605,15 +585,15 @@ proc loadCachedMessages {topic} {
             set msg $res(body)
             set unread $res(X-LOR-Unread)
 
-            $topicWidget insert $parent end -id $id -text $nick
+            $w insert $parent end -id $id -text $nick
             foreach i {nick header time msg parent parentNick unread} {
-                setMessageValue $id $i [ set $i ]
+                setItemValue $w $id $i [ set $i ]
             }
-            setMessageValue $id unreadChild 0
+            setItemValue $w $id unreadChild 0
             if $unread {
-                addUnreadChild $parent
+                addUnreadChild $w $parent
             }
-            updateItemState $id
+            updateItemState $w $id
         }
         array unset res
     }
@@ -629,10 +609,10 @@ proc clearDiskCache {topic} {
 }
 
 proc saveTopicRecursive {topic item} {
-    global topicWidget
+    upvar #0 topicWidget w
 
-    foreach id [ $topicWidget children $item ] {
-        saveMessage $topic $id [ getMessageValue $id header ] [ getMessageValue $id msg ] [ getMessageValue $id nick ] [ getMessageValue $id time ] [ getMessageValue $id parentNick ] [ getMessageValue $id parent ] [ getMessageValue $id unread ]
+    foreach id [ $w children $item ] {
+        saveMessage $topic $id [ getItemValue $w $id header ] [ getItemValue $w $id msg ] [ getItemValue $w $id nick ] [ getItemValue $w $id time ] [ getItemValue $w $id parentNick ] [ getItemValue $w $id parent ] [ getItemValue $w $id unread ]
         saveTopicRecursive $topic $id
     }
 }
@@ -718,18 +698,22 @@ proc parseForum {forum} {
 }
 
 proc parseTopicList {forum data} {
-    global allTopicsWidget
+    upvar #0 allTopicsWidget w
 
     foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\(стр\.(?: <a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+&amp;page=\d+">\d+</a>)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
-                $allTopicsWidget insert "forum$forum" end -id $id -text $header
+                $w insert "forum$forum" end -id $id -text $header
+                setItemValue $w $id parent "forum$forum"
+                setItemValue $w $id nick $nick
+                setItemValue $w $id unread 1
+                setItemValue $w $id unreadChild 0
+                addUnreadChild $w "forum$forum"
+                updateItemState $w $id
             }
         }
-        #addUnreadChild $prev
-        #updateItemState $id
     }
-    $allTopicsWidget see "forum$forum"
+    $w see "forum$forum"
 }
 
 ############################################################################
