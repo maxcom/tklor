@@ -1982,9 +1982,9 @@ proc updateForumGroups {} {
 }
 
 proc runBackend {} {
-    global backend configDir libDir appId wishPath
+    global backend configDir libDir appId wishPath debug
 
-    exec $wishPath [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId &
+    exec $wishPath [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId -debug $debug &
 }
 
 proc defCallbackLambda {name params script args} {

@@ -129,7 +129,7 @@ if {$debug != "0"} {
 }
 
 if { [ remoting::startServer $processId ] != $processId } {
-    puts stderr "$processId: Backend process is already running. Exitting."
+    logger::log "$processId: Backend process is already running. Exitting."
     exit
 }
 
