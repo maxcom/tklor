@@ -68,7 +68,7 @@ set proxyPassword ""
 set browser ""
 
 set ignoreList ""
-set userTagList [ list [ list anonymous JOPA ] ]
+set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
 set messageMenu ""
 set topicMenu ""
