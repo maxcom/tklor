@@ -36,10 +36,10 @@ struct::queue getMessageList
 struct::queue getTopicList
 struct::queue postMessage
 
-proc addTask {queue script} {
+proc addTask {queue args} {
     variable stopped
 
-    $queue put $script
+    $queue put $args
     if { [ $queue size ] == 1 } {
         runFromQueue $queue
     }

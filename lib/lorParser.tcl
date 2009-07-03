@@ -69,9 +69,9 @@ proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
                     error [ ::http::code $token ]
                 }
             } err ] {
-                eval [ concat $onError [ list $err ] ]
+                eval [ concat $onError [ list $err $::errorInfo ] ]
             }
-            ::http::cleanup $token
+            catch {::http::cleanup $token}
             eval $onComplete
         } $topicTextCommand $messageCommand $onError $onComplete ]
     } err ] {
@@ -163,9 +163,9 @@ proc parseGroup {command section group onError onComplete} {
                     error [ ::http::code $token ]
                 }
             } err ] {
-                eval [ concat $onError [ list $err ] ]
+                eval [ concat $onError [ list $err $::errorInfo ] ]
             }
-            ::http::cleanup $token
+            catch {::http::cleanup $token}
             eval $onComplete
         } $processRssItem $onError $onComplete ]
     } err ] } {

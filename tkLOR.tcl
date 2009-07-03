@@ -29,6 +29,7 @@ package require htmlparse 1.1
 package require struct::stack 1.3
 
 set appName "tkLOR"
+set backendId "tkLOR-backend"
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 set appHome "http://code.google.com/p/tklor/"
@@ -94,9 +95,6 @@ set tileTheme "default"
 
 set findString ""
 set findPos ""
-
-set backend ""
-set messageSlave ""
 
 set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
@@ -409,11 +407,14 @@ proc exitProc {} {
     global appName
     global currentTopic
     global exitConfirmation
+    global backendId
 
     if { $exitConfirmation == "0" || [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
         saveTopicToCache $currentTopic
         saveTopicListToCache
         saveOptions
+        catch {send -async $backendId exit}
+
         exit
     }
 }
@@ -581,8 +582,7 @@ proc setTopic {topic} {
     global currentHeader currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
-    global backend
-    global messageSlave
+    global backendId
 
     setPerspective reading
     focus $messageTree
@@ -606,13 +606,14 @@ proc setTopic {topic} {
         loadCachedMessages $topic
     }
     if { ! $autonomousMode } {
-        deflambda processText {topic nick header text time approver approveTime} {
+        defCallbackLambda processText {topic nick header text time approver approveTime} {
+            saveTopicTextToCache topic header text nick time approver approveTime
             saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
             set header [ htmlToText $header ]
             updateTopicText $topic $header $nick
-            insertMessage "topic" $nick $header $time $text "" "" 1 force
+            insertMessage topic $nick $header $time $text {} {} 1 force
         } $topic
-        deflambda processMessage {w id nick header time msg parent parentNick} {
+        defCallbackLambda processMessage {w id nick header time msg parent parentNick} {
             global appName
 
             if [ catch {
@@ -631,7 +632,7 @@ proc setTopic {topic} {
                 errorProc "Error while inserting item $id:\n$err"
             }
         } $messageTree
-        deflambda finish {messageTree expandNewMessages} {
+        defCallbackLambda finish {messageTree expandNewMessages} {
             focus $messageTree
             update
             updateWindowTitle
@@ -642,7 +643,7 @@ proc setTopic {topic} {
             taskCompleted getMessageList
         } $messageTree $expandNewMessages
 
-        addTask getMessageList [ list lor::parseTopic $topic $processText $processMessage errorProc $finish ]
+        addTask getMessageList send -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProc $finish ]
     }
 }
 
@@ -927,18 +928,19 @@ proc processArgv {} {
 }
 
 proc updateStatusText {} {
-    global statusBarWidget
+#TODO: rewrite
+#    global statusBarWidget
 
-    set count [ getSlavesCount ]
-    if { $count == 0 } {
-        set text ""
-    } elseif { $count == 1 } {
-        set a [ getSlaves ]
-        set text [ lindex $a 1 ]
-    } else {
-        set text "$count background operation(s) running"
-    }
-    $statusBarWidget configure -text $text
+#    set count [ getSlavesCount ]
+#    if { $count == 0 } {
+#        set text ""
+#    } elseif { $count == 1 } {
+#        set a [ getSlaves ]
+#        set text [ lindex $a 1 ]
+#    } else {
+#        set text "$count background operation(s) running"
+#    }
+#    $statusBarWidget configure -text $text
 }
 
 proc loadConfigFile {fileName} {
@@ -974,7 +976,6 @@ proc updateTopicList {{section ""}} {
     global autonomousMode
     global appName
     global topicTree
-    global backend
     global forumVisibleGroups
 
     if { $autonomousMode } {
@@ -1033,7 +1034,7 @@ proc updateTopicList {{section ""}} {
         taskCompleted getTopicList
     } $section
 
-    addTask getTopicList [ list lor::getTopicList $section $processTopic errorProc $onComplete ]
+    addTask getTopicList lor::getTopicList $section $processTopic errorProc $onComplete
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1861,7 +1862,7 @@ proc loadAppLibs {} {
 
     lappend auto_path $libDir
 
-    package require gaa_lambda 1.0
+    package require gaa_lambda 1.1
     package require gaa_tileDialogs 1.2
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
@@ -1908,9 +1909,12 @@ proc showWindow {} {
     wm deiconify .
 }
 
-proc errorProc {err} {
+proc errorProc {err {extInfo ""}} {
     global appName
 
+    if {$extInfo != ""} {
+        puts stderr "$appName: $extInfo"
+    }
     tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
 }
 
@@ -1944,6 +1948,25 @@ proc updateForumGroups {} {
     updateItemState $w "forum"
 }
 
+proc runBackend {} {
+    global backend configDir libDir appId
+
+    exec [ auto_execok wish ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId &
+}
+
+proc defCallbackLambda {name params script args} {
+    global appName
+
+    uplevel [ list set $name \
+        [ concat \
+            [ list ::gaa::lambda::lambdaProc {params script args} {
+                send tkLOR [ concat [ list lambdaProc $params $script ] $args ]
+            } $params $script ] \
+            $args \
+        ] \
+    ]
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -1959,7 +1982,7 @@ if { [ tk appname $appName ] != $appName } {
     exit
 }
 
-set backend [ list [ auto_execok tclsh ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId ]
+runBackend
 
 initMainWindow
 initMenu

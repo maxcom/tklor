@@ -20,13 +20,14 @@
 ############################################################################
 
 # \
-exec tclsh "$0" "$@"
+exec wish "$0" "$@"
 
 package require Tcl 8.4
 package require cmdline 1.2.5
 package require base64 2.3.2
 
 set appName tkLOR
+set processId tkLOR-backend
 
 set configDir [ file join $::env(HOME) ".$appName" ]
 
@@ -82,15 +83,24 @@ proc loadAppLibs {} {
     package require gaa_lambda 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
-    package require gaa_remoting 1.1
+    package require gaa_remoting 1.2
+    package require tkLor_taskManager 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::remoting::*
+    namespace import tkLor::taskManager::*
 }
 
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
+
+wm withdraw .
+
+if { [ tk appname $processId ] != $processId } {
+    puts stderr "$processId: Backend process is already running. Exitting."
+    exit
+}
 
 array set param [ ::cmdline::getoptions argv [ list \
     [ list configDir.arg  $configDir    "Config directory" ] \
@@ -118,9 +128,3 @@ gaa::httpTools::init \
     -proxyuser      $proxyUser \
     -proxypassword  $proxyPassword \
     -charset        "utf-8"
-
-enableErrorStub
-
-eval [ ::gaa::remoting::decode [ read stdin ] ]
-
-exit

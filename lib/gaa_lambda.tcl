@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_lambda 1.0
+package provide gaa_lambda 1.1
 
 package require Tcl 8.4
 
@@ -27,7 +27,8 @@ namespace eval lambda {
 
 namespace export \
     lambda \
-    deflambda
+    deflambda \
+    lambdaProc
 
 proc lambdaLowlevel {paramsVar scriptVar argsVar} {
     set params [ uplevel [ list set $paramsVar ] ]
@@ -35,14 +36,19 @@ proc lambdaLowlevel {paramsVar scriptVar argsVar} {
     set args [ uplevel [ list set $argsVar ] ]
     uplevel [ list unset $paramsVar $scriptVar $argsVar ]
     for {set i 0} {$i < [ llength $params ]} {incr i} {
-        uplevel [ list set [ lindex $params $i ] [ lindex $args $i ] ]
+        if { [ lindex $params $i ] != "args" } {
+            uplevel [ list set [ lindex $params $i ] [ lindex $args $i ] ]
+        } else {
+            uplevel [ list set [ lindex $params $i ] [ lrange $args $i end ] ]
+        }
     }
     uplevel [ list eval $script ]
 }
 
 proc lambdaProc {params script args} {
-    if { [ llength $params ] != [ llength $args ] } {
-        error "Arguments count mismatch: expected [ llength $params ], but [ llength $args ] passed."
+    if {( [ lindex $params end ] == "args" && [ llength $params ] > [ llength $args ] ) || \
+        ( [ lindex $params end ] != "args" && [ llength $params ] != [ llength $args ] )} {
+        error "Arguments count mismatch: expected $params, but $args passed."
     }
     ::gaa::lambda::lambdaLowlevel params script args
 }
