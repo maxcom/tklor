@@ -611,12 +611,18 @@ proc setTopic {topic} {
             insertMessage "topic" $nick $header $time $text "" "" 1 force
         } $topic
         defMasterLambda processMessage {w id nick header time msg parent parentNick} {
-            if { $parent == "" } {
-                set parent "topic"
-                set parentNick [ getItemValue $w "topic" nick ]
-            }
-            if { ![ $w exists $id ] } {
-                insertMessage $id $nick $header $time $msg $parent $parentNick 1
+            global appName
+
+            if [ catch {
+                if { $parent == "" } {
+                    set parent "topic"
+                    set parentNick [ getItemValue $w "topic" nick ]
+                }
+                if { ![ $w exists $id ] } {
+                    insertMessage $id $nick $header $time $msg $parent $parentNick 1
+                }
+                } ] {
+                tk_messageBox -message "Error inserting item $id not found!" -title "$appName warning" -icon warning
             }
         } $messageTree
 
@@ -981,7 +987,11 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    if {$section == "" } {
+    if { $section == "favorites" } {
+        return
+    }
+
+    if { $section == "" } {
         updateTopicList news
         updateTopicList gallery
         updateTopicList votes
@@ -990,7 +1000,7 @@ proc updateTopicList {{section ""}} {
         return
     }
     if { $section == "forum" } {
-        foreach {id title} $forumVisibleGroups {
+        foreach id $forumVisibleGroups {
             updateTopicList "forum$id"
         }
         return
