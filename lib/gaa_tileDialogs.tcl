@@ -139,7 +139,7 @@ proc packOptionsItem {w name item type val opt} {
                 onePageOptionsDialog \
                     -title "Choose font" \
                     -options [ list \
-                        "Family" editableCombo family $ff(-family) { font families } \
+                        "Family" editableCombo family $ff(-family) { lsort [ font families ] } \
                         "Size" string size $ff(-size) "" \
                         "Weight" readOnlyCombo weight $ff(-weight) { list "" normal bold } \
                         "Slant" readOnlyCombo slant $ff(-slant) { list "" roman italic } \

@@ -585,14 +585,13 @@ proc setTopic {topic} {
         set currentHeader ""
         set currentNick ""
         renderHtml $messageTextWidget ""
+
+        set currentTopic $topic
+
+        loadTopicTextFromCache $topic
+        setFocusedItem $messageTree "topic"
+        loadCachedMessages $topic
     }
-
-    set currentTopic $topic
-
-    loadTopicTextFromCache $topic
-    setFocusedItem $messageTree "topic"
-    loadCachedMessages $topic
-
     if { ! $autonomousMode } {
         defMasterLambda processText {topic nick header text time approver approveTime} {
             saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
