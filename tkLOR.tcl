@@ -33,6 +33,7 @@ set threadSubDir "threads"
 
 #---------------- debug start --------------
 set currentTopic 2412284
+#set currentTopic 2418741
 set ignoreList {HEBECTb_KTO adminchik anonymous}
 #---------------- debug end ----------------
 
@@ -306,7 +307,7 @@ proc setTopic {topic} {
 proc parseTopicText {topic data} {
     global topicNick topicHeader
 
-    if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(\w+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w]+">\*</a>\) \(([^)]+)\)<br><i>[^ ]+ (\w+) \(<a href="whois.jsp\?nick=\w+">\*</a>\) ([^<]+)</i></div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
+    if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i></div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         set topicText $msg
         set topicNick $nick
         set topicHeader $header
@@ -324,7 +325,7 @@ proc parsePage {topic data} {
     global topicWidget
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ (\w+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>(\w+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 prev prevNick id header msg nick time ] {
+        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 prev prevNick id header msg nick time ] {
             if { ! [ $topicWidget exists $id ] } {
                 $topicWidget insert $prev end -id $id -text $nick -values [ list $header $time $msg 1 0 $prev $prevNick ]
                 addUnreadChild $prev
@@ -434,7 +435,7 @@ proc parseMbox {fileName} {
 
     set f [ open $fileName "r" ]
     while { [ gets $f s ] >=0 } {
-        if [ regexp -lineanchor -- {^From (\w+)$} $s dummy nick ] {
+        if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
             break
         }
     }
@@ -456,7 +457,7 @@ proc parseMbox {fileName} {
 
         set body ""
         while { [ gets $f s ] >=0 } {
-            if [ regexp -lineanchor -- {^From (\w+)$} $s dummy nick ] {
+            if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
                 break
             } else {
                 append body "$s\n"
