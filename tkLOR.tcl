@@ -100,10 +100,10 @@ set messageTextMenu ""
 set autonomousMode 0
 set expandNewMessages 1
 set updateOnStart 0
-set doubleClickAllTopics 0
+set doubleClickAllTopics 1
 set markIgnoredMessagesAsRead 0
 set threadListSize 20
-set perspectiveAutoSwitch 0
+set perspectiveAutoSwitch 1
 set currentPerspective navigation
 set navigationSashPos 50
 set readingSashPos 20
