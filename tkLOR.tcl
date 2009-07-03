@@ -37,6 +37,7 @@ set backendId "tkLOR-backend"
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 set appHome "http://code.google.com/p/tklor/"
+set bugzillaURL "http://code.google.com/p/tklor/issues/list"
 
 set xdg_config_home ""
 catch {set xdg_config_home $::env(XDG_CONFIG_HOME)}
@@ -281,6 +282,7 @@ proc initMenu {} {
 
     set m [ menu .menu.help -tearoff 0 ]
     $m add command -label [ mc "Project home" ] -command {openUrl $appHome}
+    $m add command -label [ mc "Report bug" ] -command {openUrl $bugzillaURL}
     $m add command -label [ mc "About LOR" ] -command {openUrl "$::lor::lorUrl/server.jsp"}
     $m add separator
     $m add command -label [ mc "About" ] -command helpAbout -accelerator "F1"
