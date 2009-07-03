@@ -27,7 +27,7 @@ package require tile 0.8
 package require http 2.0
 
 set appName "tkLOR"
-set appVersion "0.2.1"
+set appVersion "0.2.2"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 
 set configDir [ file join $::env(HOME) ".$appName" ]
