@@ -84,6 +84,8 @@ set exitConfirmation 1
 set threadListSize 20
 set perspectiveAutoSwitch 0
 set currentPerspective navigation
+set navigationSashPos 50
+set readingSashPos 20
 
 set colorList {{tklor blue foreground}}
 set colorCount [ llength $colorList ]
@@ -142,6 +144,8 @@ set options {
         "Mark messages from ignored users as read"  check   markIgnoredMessagesAsRead ""
         "Auto-switch perspective"   check   perspectiveAutoSwitch ""
         "Current perspective"   hidden  currentPerspective ""
+        "Sash position(navigation), %" string navigationSashPos ""
+        "Sash position(reading), %" string readingSashPos ""
     }
     "Connection" {
         "Use proxy" check   useProxy ""
@@ -1837,16 +1841,16 @@ proc setPerspective {mode {force ""}} {
         return
     }
     set currentPerspective $mode
+    upvar #0 [ join [ list $mode "SashPos" ] "" ] pos
     switch -exact -- $mode {
         navigation {
-            $horPane sashpos 0 [ expr [ winfo width . ] / 2 ]
             focus $topicTree
         }
         reading {
-            $horPane sashpos 0 [ expr [ winfo width . ] / 5 ]
             focus $messageTree
         }
     }
+    $horPane sashpos 0 [ expr [ winfo width . ] * $pos / 100 ]
 }
 
 proc showWindow {} {
