@@ -55,10 +55,10 @@ proc sendRemote {args} {
 
 proc safeEval {args} {
     if [ catch {set res [ eval "uplevel #0 $args" ]} err ] {
-        puts stderr "err: $err"
-        puts stderr "errinfo: $::errorInfo"
+        set errInfo $::errorInfo
         logger::log "error while executing remote command: $err"
-        logger::log "extended info: $::errorInfo"
+        logger::log "extended info: $::errInfo"
+        error $err $errInfo
     } else {
         return $res
     }

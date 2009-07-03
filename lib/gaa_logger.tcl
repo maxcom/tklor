@@ -40,9 +40,11 @@ proc log {msg} {
     variable appName
 
     if {$appName != ""} {
-        set f [ open "$appName.log" "a" ]
-        puts $f "[ clock format [ clock seconds ] ]: $msg"
-        close $f
+        catch {
+            set f [ open "$appName.log" "a" ]
+            puts $f "[ clock format [ clock seconds ] ]: $msg"
+            close $f
+        }
     }
 }
 
