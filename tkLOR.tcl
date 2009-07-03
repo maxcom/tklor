@@ -658,10 +658,10 @@ proc setTopic {topic} {
         update
         loadCachedMessages $topic
     }
-#    if { ! $autonomousMode } { ...}
+    if { ! $autonomousMode } {
         #TODO here
-        loadMessagesFromFile 2903217 "|$::plugin 2903217"
-#{...    }
+        #loadMessagesFromFile $topic
+    }
 
 
 #    if { ! $autonomousMode } {
@@ -905,6 +905,7 @@ proc loadTopicTextFromCache {topic} {
             updateTopicText $topic $res(Subject) $res(From)
             insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
         } $topic
+#TODO: do via addTask
         ::mbox::parse $fname $script -encoding utf-8 -noasync
     }
 }
@@ -954,6 +955,7 @@ proc loadMessagesFromFile {fname topic} {
         array unset res
     }
 #    catch { ...}
+#TODO: do via addTask
         ::mbox::parse $fname $processLetter -encoding utf-8
 #{...    }
 }
@@ -1061,33 +1063,23 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-error "TODO: temporary disabled"
-    defCallbackLambda processTopic {parent id nick header} {
+    deflambda fun {section letter} {
         global cacheDir
 
-        set header [ htmlToText $header ]
-        update
-        if [ tkLor::taskManager::isTaskStopped getTopicList ] {
-            return
-        }
-        addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
+        array set lt $letter
+        set header [ htmlToText $lt(Subject) ]
+        set id $lt(X-LOR-Id)
+        addTopicFromCache $section $id $lt(From) $header \
+            [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
     } $section
-
-    defCallbackLambda onComplete {section} {
-        upvar #0 topicTree w
-        global threadListSize
-
-        foreach item [ lrange [ $w children $section ] $threadListSize end ] {
-            set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-            if { $count != "0" } {
-                addUnreadChild $w $section "-$count"
-            }
-            $w delete $item
-        }
-        taskCompleted getTopicList
-    } $section
-
-    addTask getTopicList remoting::sendRemote -async $backendId [ list lor::getTopicList $section $processTopic errorProcCallback $onComplete ]
+    set id [ ::mbox::initParser $fun ]
+    set f [ callPlugin list [ list $section ] \
+        -title [ mc "Fetching new topics" ] \
+        -onoutput [ list ::mbox::parseLine $id ] \
+        -oncomplete [ list ::mbox::closeParser $id ] \
+        -onerror [ list errorProc [ mc "Fetching topics list failed" ] ] \
+    ]
+    return
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -2403,5 +2395,5 @@ setPerspective $currentPerspective
 #update
 #setTopic 2903217
 
-login
+#login
 

@@ -74,7 +74,7 @@ proc printTopic {id nick header date content} {
     ]
 }
 
-proc printTopicText {id header msg nick date approver approveTime} {
+proc printTopicText {id nick header msg date approver approveTime} {
     ::mbox::writeToStream stdout [ list \
         "From"          $nick \
         "X-LOR-Id"      $id \
@@ -86,7 +86,7 @@ proc printTopicText {id header msg nick date approver approveTime} {
     ]
 }
 
-proc printMessage {parent parentNick id header msg nick date} {
+proc printMessage {id nick header date msg parent parentNick} {
     ::mbox::writeToStream stdout [ list \
         "From"          $nick \
         "To"            $parentNick \
@@ -119,6 +119,7 @@ array set p [ ::cmdline::getoptions argv [ list \
     {proxyauth                  "Proxy authorization"} \
     {proxyuser.arg      ""      "Proxy user"} \
     {proxypassword.arg  ""      "Proxy password"} \
+    {debug.secret               "Turn on debug mode"} \
 ] ]
 
 loadAppLibs $p(libDir)
@@ -126,9 +127,9 @@ loadAppLibs $p(libDir)
 set httpParams {-charset "utf-8"}
 foreach key {useproxy autoproxy useragent proxyhost proxyport 
         proxyauth proxyuser proxypassword} {
-    lappend httpParams $p($key)
+    lappend httpParams -$key $p($key)
 }
-eval [ concat gaa::httpTools::init $httpParams ]
+eval [ concat ::httpTools::init $httpParams ]
 
 if [ catch {
     if { $p(get) != "" } {
@@ -145,7 +146,11 @@ if [ catch {
         exit 0
     }
 } err ] {
-    puts stderr $err
+    if $p(debug) {
+        puts stderr "$err $errorInfo"
+    } else {
+        puts stderr $err
+    }
     exit 1
 }
 

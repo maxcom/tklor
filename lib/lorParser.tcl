@@ -53,46 +53,77 @@ variable forumGroups {
 }
 
 variable lorUrl "http://www.linux.org.ru"
+variable id 0
 
 proc parseTopic {topic topicTextCommand messageCommand} {
     variable lorUrl
+    variable id
 
     set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
+    set datavar [ namespace current ]::[ incr id ]
+    set statevar "${datavar}_state"
+    set $datavar ""
+    set $statevar TOPIC
+
+    ::gaa::lambda::deflambda handler {datavar statevar topicCommand messageCommand socket token} {
+        upvar #0 $datavar data $statevar state
+        upvar #0 $token httpState
+
+        set httpData [ read $socket 4096 ]
+        set nbytes [ string length $data ]
+
+        append data $httpData
+        if { $state == "TOPIC" } {
+            if { ! [ catch {
+                set data [ ::lor::parseTopicText $data $topicCommand ]
+            } ] } {
+                set state MESSAGES
+            }
+        } else {
+            catch {
+                set data [ ::lor::parsePage $data $messageCommand ]
+            }
+        }
+        return $nbytes
+    } $datavar $statevar $topicTextCommand $messageCommand
     if [ catch {
-        set token [ ::http::geturl $url ]
+        set token [ ::http::geturl $url -blocksize 4096 -handler $handler ]
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
             set data [ ::http::data $token ]
-            ::lor::parseTopicText $data $topicTextCommand
-            ::lor::parsePage $data $messageCommand
+#            ::lor::parseTopicText $data $topicTextCommand
+#            ::lor::parsePage $data $messageCommand
         } else {
             set err [ ::http::code $token ]
             ::http::cleanup $token
+            unset $datavar
             error $err
         }
         ::http::cleanup $token
     } err ] {
+        unset $datavar
         error $err $::errorInfo
     }
+    unset $datavar
 }
 
 proc parseTopicText {data command} {
-    set nick ""
-    set header "Unable to parse topic header"
-    set msg "Oops, something goes wrong :("
-    set time ""
-    set approver ""
-    set approveTime ""
-    regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime
-    eval [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
+    if [ regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>(.*)$} $data dummy header msg nick time approver approveTime extra ] {
+        eval [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
+        return $extra
+    } else {
+        error "1"
+    }
 }
 
 proc parsePage {data command} {
-    foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
+    set extra $data
+    foreach {dummy1 message extra} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?(.*)} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
             eval [ concat $command [ list $id $nick $header $time $msg $parent $parentNick ] ]
         }
     }
+    return $extra
 }
 
 proc getTopicList {section command} {
@@ -131,6 +162,7 @@ proc parseGroup {command section {group ""}} {
 
     ::gaa::lambda::deflambda processRssItem {command item} {
         array set v {
+            author ""
             title ""
             link ""
             guid ""
@@ -144,8 +176,7 @@ proc parseGroup {command section {group ""}} {
         set header $v(title)
         set msg $v(description)
         set date $v(pubDate)
-        # at this moment nick field are not present in RSS feed
-        set nick ""
+        set nick $v(author)
         uplevel #0 [ concat $command [ list $id $nick $header $date $msg ] ]
     } $command
 

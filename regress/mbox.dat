@@ -1,0 +1,99 @@
+From eXOR
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 03.07.2008 21:18:02
+X-LOR-Id: 2903243
+X-LOR-Unread: 0
+To: iZEN
+X-LOR-ReplyTo-Id: topic
+
+мдее... средняя температура по больнице?
+
+From iZEN
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 03.07.2008 21:31:00
+X-LOR-Id: 2903287
+X-LOR-Unread: 0
+To: eXOR
+X-LOR-ReplyTo-Id: 2903243
+
+В какой-то мере так. ;)
+
+From Gharik
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 03.07.2008 21:18:38
+X-LOR-Id: 2903246
+X-LOR-Unread: 0
+To: iZEN
+X-LOR-ReplyTo-Id: topic
+
+А чего цомпилятор такой древний? Ветка 4.3 уже в продакшене сто лет как.
+
+From tailgunner
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 03.07.2008 21:22:12
+X-LOR-Id: 2903258
+X-LOR-Unread: 0
+To: iZEN
+X-LOR-ReplyTo-Id: topic
+
+Если бы он еще и потребление памяти померял :D
+
+From Metallic
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 03.07.2008 21:23:04
+X-LOR-Id: 2903262
+X-LOR-Unread: 0
+To: tailgunner
+X-LOR-ReplyTo-Id: 2903258
+
+<i>&gt;Если бы он еще и потребление памяти померял :D
+</i><p>
+<p>
+<p>
+В комментах его блога тоже про это говорили :-)
+
+From Ky6uk
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 03.07.2008 21:23:57
+X-LOR-Id: 2903266
+X-LOR-Unread: 0
+To: iZEN
+X-LOR-ReplyTo-Id: topic
+
+Как и ожидалось, жаба показала себя унылее некуда...
+
+From anonymous
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 04.07.2008 2:10:51
+X-LOR-Id: 2904070
+X-LOR-Unread: 0
+To: Ky6uk
+X-LOR-ReplyTo-Id: 2903266
+
+<i>&gt;Как и ожидалось, жаба показала себя унылее некуда...
+</i><p>
+???
+Java показала себя примерно на уровне С/С++. Да, в некоторых случаях она от него отстаёт. Но не смертельно. 
+<p>
+При этом, Java по факту имеет гарантированую безопасность при работе с массивами, сборщик мусора и встроеную в язык многопоточность. Если учесть всё это - то результат вполне приличный.
+
+From iBliss
+Subject: Re: C vs. JVM's benchmark
+X-LOR-Time: 04.07.2008 10:05:40
+X-LOR-Id: 2904318
+X-LOR-Unread: 0
+To: anonymous
+X-LOR-ReplyTo-Id: 2904070
+
+<i>&gt; Java по факту имеет гарантированую безопасность при работе с массивами
+</i><p>
+Этот аргумент уже плесенью порос. Напиши себе либу для работы с динамическими массивами, отладь ее, и так же безопасно пользуй скока влезет.
+<p><i>
+&gt; сборщик мусора
+</i><p>
+Это ее сильно специфичный костыль в виде расплаты за &quot;безопасность&quot;.
+<p><i>
+&gt; встроеную в язык многопоточность.
+</i><p>
+Т.е. Типа сама все распараллеливает ? 
+

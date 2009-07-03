@@ -26,7 +26,6 @@ package require cmdline 1.2.5
 package require gaa_lambda 1.0
 package require autoproxy
 
-namespace eval ::gaa {
 namespace eval httpTools {
 
 namespace export \
@@ -36,7 +35,7 @@ proc init {args} {
     array set param [ ::cmdline::getoptions args {
         {charset.arg        "utf-8" "Default charset"}
         {useragent.arg      ""      "HTTP User-Agent string"}
-        {proxy.arg          "0"     "Use proxy"}
+        {useproxy.arg       "0"     "Use proxy"}
         {autoproxy.arg      "0"     "Proxy autoconfiguration"}
         {proxyhost.arg      ""      "Proxy host"}
         {proxyport.arg      ""      "Proxy port"}
@@ -45,7 +44,7 @@ proc init {args} {
         {proxypassword.arg  ""      "Proxy password"}
     } ]
 
-    if { $param(proxy) != "0" } {
+    if { $param(useproxy) != "0" } {
         ::autoproxy::init
         if { $param(autoproxy) == "0" } {
             ::autoproxy::configure -proxy_host $param(proxyhost) -proxy_port $param(proxyport)
@@ -64,4 +63,4 @@ proc init {args} {
 }
 
 }
-}
+

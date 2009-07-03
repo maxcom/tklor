@@ -26,110 +26,170 @@ package require cmdline 1.2.5
 namespace eval mbox {
 
 namespace export \
-    parse \
+    initParser \
+    closeParser \
+    parseLine \
+    parseFile \
+    parseStream \
     writeToFile \
     writeToStream
 
 set id 0
 
-proc parseLetter {stream id command onerror oncomplete} {
+proc parseLine {id line} {
     variable letter$id
     variable state$id
+    variable command$id
 
     set letter [ set letter$id ]
     set state [ set state$id ]
     array unset lt
     array set lt $letter
 
-    if [ eof $stream ] {
-        if [ catch {close $stream} err ] {
-            eval [ concat $onerror [ list $err ] ]
-        }
-        set state EOF
-    } else {
-        gets $stream s
-    }
     if { $state == "EOF" ||
-            ( [ regexp {^From:{0,1} (.+)$} $s dummy nick ] &&
+            ( [ regexp {^From:{0,1} (.+)$} $line dummy nick ] &&
                 ( $state == "BODYSPACE" || $state == "BEGIN" ) ) } {
         if { ! [ regexp {^\s*$} $letter ] } {
-            if [ catch {eval [ concat $command [ list $letter ] ]} err ] {
-                eval [ concat $onerror [ list $err ] ]
-            }
+            uplevel #0 [ concat [ set command$id ] [ list $letter ] ]
         }
         if { $state != "EOF" } {
             set state$id HEAD
             set letter$id [ list "From" $nick ]
-            return 1
-        } else {
-            eval $oncomplete
-            return 0
         }
+        return
     }
-    if { $s == "" } {
+    if { $line == "" } {
         switch -exact $state {
             HEAD {
                 set state$id BODY
                 set lt(body) ""
-                set letter$id [ array get lt ]
             }
             BODY {
                 set state$id BODYSPACE
             }
             BODYSPACE {
                 set lt(body) "$lt(body)\n"
-                set letter$id [ array get lt ]
             }
         }
-        return 1
+        set letter$id [ array get lt ]
+        return
     }
     if { $state == "HEAD" } {
-        if [ regexp {^([\w-]+): (.+)$} $s dummy tag val ] {
+        if [ regexp {^([\w-]+): (.+)$} $line dummy tag val ] {
             set lt($tag) $val
         } else {
-            eval [ concat $onerror \
-                [ list "Invalid data in the header section: $s" ] \
-            ]
+            error "Invalid data in the header section: $line"
         }
     } else {
-        if [ regexp {^>(>*From:{0,1} .*)$} $s dummy ss ] {
-            set s $ss
+        if [ regexp {^>(>*From:{0,1} .*)$} $line dummy ss ] {
+            set line $ss
         }
-        set lt(body) "$lt(body)\n$s"
+        append lt(body) "\n$line"
     }
     set letter$id [ array get lt ]
-    return 1
 }
 
-proc parse {fileName script args} {
-    variable id
+proc outputHandler {id stream onoutput onerror oncomplete} {
+    if { [ gets $stream s ] < 0 } {
+        if [ eof $stream ] {
+            if [ catch {
+                fconfigure $stream -blocking 1
+                close $stream
+            } err ] {
+                lappend onerror $err
+                uplevel #0 $onerror
+            } else {
+                closeParser $id
+                uplevel #0 $oncomplete
+            }
+        }
+    } else {
+        lappend onoutput $s
+        uplevel #0 $onoutput
+    }
+}
 
+proc parseFile {fileName command args} {
     array set p [ ::cmdline::getoptions args {
-        {encoding.arg   ""      "Encoding"}
-        {noasync                "Parse file in synchronous mode"}
+        {mode.arg       "r"     "Stream open mode"}
+        {sync.arg       "0"     "Parse stream in synchronous mode"}
         {oncomplete.arg ""      "Script to execute on complete(async mode)"}
         {onerror.arg    "error" "Script to execute on error(async mode)"}
     } ]
-    set stream [ open $fileName "r" ]
-    if { $p(encoding) != ""} {
-        fconfigure $stream -encoding $p(encoding)
+
+    set f [ open $fileName $p(mode) ]
+    parseStream $f $command \
+        -oncomplete [ join [ list $p(oncomplete) [ list close $f ] ] ";" ] \
+        -onerror $p(onerror) \
+        -sync $p(sync)
+}
+
+proc parseStream {stream command args} {
+    array set p [ ::cmdline::getoptions args {
+        {sync.arg       "0"     "Parse stream in synchronous mode"}
+        {oncomplete.arg ""      "Script to execute on complete(async mode)"}
+        {onerror.arg    "error" "Script to execute on error(async mode)"}
+    } ]
+
+    set id [ initParser $command ]
+    if $p(sync) {
+        fconfigure $stream -blocking 1
+        if [ catch {
+            if [ catch {
+                while { [ gets $stream s ] >= 0 } {
+                    parseLine $id $s
+                }
+            } err ] {
+                closeParser $id
+                error $err $::errorInfo
+            }
+            closeParser $id
+            close $stream
+        } err ] {
+            uplevel #0 [ concat $p(onerror) [ list $err ] ]
+        }
+    } else {
+        fconfigure $stream \
+            -buffering line \
+            -blocking 0
+        fileevent $stream readable [ list \
+            [ namespace current ]::outputHandler \
+            $id \
+            $stream \
+            [ list [ namespace current ]::parseLine $id ] \
+            $p(onerror) \
+            $p(oncomplete) \
+        ]
     }
+}
+
+proc initParser {command} {
+    variable id
     incr id
 
     variable letter$id
     variable state$id
+    variable command$id
 
     set letter$id ""
     set state$id "BEGIN"
+    set command$id $command
 
-    if $p(noasync) {
-        while { [ parseLetter $stream $id $script "error" "" ] == 1 } {}
-    } else {
-        fconfigure $stream -buffering line
-        fileevent $stream readable \
-            [ list [ namespace current ]::parseLetter \
-                $stream $id $script $p(onerror) $p(oncomplete) ]
+    return $id
+}
+
+proc closeParser {id} {
+    variable letter$id
+    variable state$id
+    variable command$id
+
+    set state$id EOF
+    if [ catch {parseLine $id ""} err ] {
+        unset letter$id state$id command$id
+
+        error $err $::errorInfo
     }
+    unset letter$id state$id command$id
 }
 
 proc writeToFile {fileName letter args} {

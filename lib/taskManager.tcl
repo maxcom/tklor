@@ -55,12 +55,12 @@ proc addTask {command args} {
     variable tasks
 
     array set p [ ::cmdline::getoptions args [ list \
-        [ list title.arg      $command    "Title to display in task manager" ] \
-        [ list mode.arg       "r"         "File open mode" ] \
-        [ list encoding.arg   "utf-8"     "Encoding" ] \
-        [ list onoutput.arg   ""          "Script to execute on output(1 arg)" ] \
-        [ list onerror.arg    ""          "Script to execute on error(1 arg)" ] \
-        [ list oncomplete.arg ""          "Script to execute on command finish" ] \
+        [ list title.arg $command "Title to display in task manager" ] \
+        {mode.arg       "r"       "File open mode"} \
+        {encoding.arg   "utf-8"   "Encoding"} \
+        {onoutput.arg   ""        "Script to execute on output(1 arg)"} \
+        {onerror.arg    ""        "Script to execute on error(1 arg)"} \
+        {oncomplete.arg ""        "Script to execute on command finish"} \
     ] ]
 
     set f [ open "|$command" $p(mode) ]
