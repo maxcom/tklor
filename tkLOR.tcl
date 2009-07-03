@@ -375,30 +375,33 @@ proc initMessageWidget {} {
     global messageTextFont
 
     set mf [ ttk::frame .msgFrame -relief sunken ]
+    set f [ ttk::frame $mf.labels ]
 
-#TODO: use "grid", Luke!
-    set width 10
+    foreach {var label} [ list \
+        currentHeader   [ mc "Header: " ] \
+        currentNick     [ mc "From: " ] \
+        currentPrevNick [ mc "To: " ] \
+        currentTime     [ mc "Time: " ] \
+    ] {
+        grid \
+            [ ttk::label $f.${var}Label -text $label -anchor w ] \
+            [ ttk::label $f.${var}Text -textvariable $var ] \
+            -sticky nswe
+    }
+    grid columnconfigure $f 1 -weight 1
+    grid $f -sticky nswe
 
-    set f [ ttk::frame $mf.header ]
-    pack [ ttk::label $f.label -text [ mc "Header: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentHeader ] -side left
-    pack $f -fill x
+    set f [ ttk::frame $mf.text ]
+    set messageTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 10 ]
+    ttk::scrollbar $f.scroll -command "$messageTextWidget yview"
 
-    set f [ ttk::frame $mf.nick ]
-    pack [ ttk::label $f.label -text [ mc "From: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentNick ] -side left
-    pack $f -fill x
+    grid $messageTextWidget $f.scroll -sticky nswe
+    grid columnconfigure $f 0 -weight 1
+    grid rowconfigure $f 0 -weight 1
+    grid $f -sticky nswe
 
-    set f [ ttk::frame $mf.prevNick ]
-    pack [ ttk::label $f.label -text [ mc "To: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentPrevNick ] -side left
-    pack $f -fill x
-
-    set f [ ttk::frame $mf.time ]
-    pack [ ttk::label $f.label -text [ mc "Time: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentTime ] -side left
-    pack $f -fill x
-
-    set messageTextWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 10 ]
-    ttk::scrollbar $mf.scroll -command "$messageTextWidget yview"
-    pack $mf.scroll -side right -fill y
-    pack $messageTextWidget -expand yes -fill both
+    grid columnconfigure $mf 0 -weight 1
+    grid rowconfigure $mf 1 -weight 1
 
     return $mf
 }
@@ -898,7 +901,7 @@ proc saveTopicTextToCache {topic letter} {
 
 proc loadTopicFromCache {topic oncomplete} {
     global cacheDir
-    global messageTree
+    global messageTree topicTree
     global topicHeader
 
     set topicHeader ""
@@ -919,26 +922,31 @@ proc loadTopicFromCache {topic oncomplete} {
     set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
     if [ catch {
         ::mbox::parseFile $fname $script -sync 1
-#TODO: рассмотреть случай, когда топикстарта нет
     } err ] {
         eval [ concat $onerr [ list $err $::errorInfo ] ]
-    } else {
-        setFocusedItem $messageTree "topic"
-        update 
-        set fname [ file join $cacheDir $topic ]
-        if { ![ file exists $fname ] } {
-            uplevel #0 $oncomplete
-            return
-        }
-        return [ loadMessagesFromFile \
-            $fname \
-            $topic \
-            $oncomplete \
-            -title [ mc "Loading topic %s" $topic ] \
-            -cat \
-            -onerror $onerr \
-        ]
+        return
     }
+    if { ! [ $topicTree exists "topic" ] } {
+        # Topic text are not loaded. Ignoring this error silently...
+        uplevel #0 $oncomplete
+        return
+    }
+
+    setFocusedItem $messageTree "topic"
+    update 
+    set fname [ file join $cacheDir $topic ]
+    if { ![ file exists $fname ] } {
+        uplevel #0 $oncomplete
+        return
+    }
+    return [ loadMessagesFromFile \
+        $fname \
+        $topic \
+        $oncomplete \
+        -title [ mc "Loading topic %s" $topic ] \
+        -cat \
+        -onerror $onerr \
+    ]
 }
 
 proc saveMessage {stream id header text nick time replyTo replyToId unread} {
@@ -2433,10 +2441,4 @@ if { $updateOnStart == "1" } {
 }
 
 setPerspective $currentPerspective
-
-#TODO: remove it
-#update
-#setTopic 2903217
-
-#login
 
