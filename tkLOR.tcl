@@ -53,16 +53,13 @@ set lorUrl "www.linux.org.ru"
 set messageWidget ""
 set allTopicsWidget ""
 set topicWidget ""
-set topicTextWidget ""
 
 set currentHeader ""
 set currentNick ""
 set currentTopic ""
 set currentMessage ""
 
-set topicNick ""
 set topicHeader ""
-set topicTime ""
 
 set useProxy 0
 set proxyAutoSelect 0
@@ -79,7 +76,6 @@ set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
 set messageMenu ""
 set topicMenu ""
-set topicTextMenu ""
 set messageTextMenu ""
 
 set autonomousMode 0
@@ -253,7 +249,7 @@ proc initMenu {} {
 }
 
 proc initPopups {} {
-    global messageMenu topicMenu topicTextMenu messageTextMenu
+    global messageMenu topicMenu messageTextMenu
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
     $topicMenu add command -label "Refresh sub-tree" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
@@ -291,11 +287,6 @@ proc initPopups {} {
     $messageMenu add command -label "Ignore user" -command {invokeItemCommand $topicWidget ignoreUser}
     $messageMenu add command -label "Tag user..." -command {invokeItemCommand $topicWidget tagUser}
     $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
-
-    set m [ menu .topicTextMenu -tearoff 0 ]
-    set topicTextMenu $m
-    $m add command -label "Copy selection" -command {tk_textCopy $topicTextWidget}
-    $m add command -label "Open selection in browser" -command {tk_textCopy $topicTextWidget;openUrl [ clipboard get ]}
 
     set m [ menu .messageTextMenu -tearoff 0 ]
     set messageTextMenu $m
@@ -339,35 +330,6 @@ proc initAllTopicsTree {} {
     pack $f.scroll -side right -fill y
     pack $allTopicsWidget -expand yes -fill both
     return $f
-}
-
-proc initTopicText {} {
-    global topicTextWidget
-    global topicNick topicTime
-    global messageTextFont
-
-    set mf [ ttk::frame .topicTextFrame ]
-    pack [ ttk::label $mf.header -textvariable topicHeader -font "-size 14 -weight bold" ] -fill x
-
-    set width 10
-
-    set f [ ttk::frame $mf.nick ]
-    pack [ ttk::label $f.label -text "From: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable topicNick ] -side left
-    pack $f -fill x
-
-    set f [ ttk::frame $mf.time ]
-    pack [ ttk::label $f.label -text "Time: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable topicTime ] -side left
-    pack $f -fill x
-
-    set f [ ttk::frame $mf.textFrame ]
-    set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 5 ]
-
-    ttk::scrollbar $f.scroll -command "$topicTextWidget yview"
-    pack $f.scroll -side right -fill y
-    pack $topicTextWidget -expand yes -fill both
-    pack $f -expand yes -fill both
-
-    return $mf
 }
 
 proc initTopicTree {} {
@@ -446,7 +408,6 @@ proc initMainWindow {} {
     ttk::panedwindow .vertPaned -orient vertical
     .horPaned add .vertPaned -weight 1
 
-    .vertPaned add [ initTopicText ] -weight 0
     .vertPaned add [ initTopicTree ] -weight 0
     .vertPaned add [ initMessageWidget ] -weight 1
 }
@@ -569,15 +530,11 @@ proc renderHtmlTag {w stack tag slash param text} {
     $w insert end $text
 }
 
-proc updateTopicText {id header msg nick time} {
-    global topicTextWidget
+proc updateTopicText {id header nick} {
+    global topicHeader
     global allTopicsWidget
-    global topicHeader topicNick topicTime
 
-    renderHtml $topicTextWidget $msg
     set topicHeader $header
-    set topicNick $nick
-    set topicTime $time
 
     if { [ $allTopicsWidget exists $id ] } {
         setItemValue $allTopicsWidget $id nick $nick
@@ -632,7 +589,7 @@ proc configureTags {w} {
 proc setTopic {topic} {
     global currentTopic lorUrl appName
     global topicWidget messageWidget
-    global currentHeader currentNick currentPrevNick currentTime topicNick topicTime
+    global currentHeader currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
 
@@ -651,8 +608,6 @@ proc setTopic {topic} {
         set currentNick ""
         set currentPrevNick ""
         set currentTime ""
-        set topicNick ""
-        set topicTime ""
         renderHtml $messageWidget ""
     }
 
@@ -702,27 +657,48 @@ proc parseTopicText {topic data} {
         set topicTime ""
         saveTopicTextToCache $topic "" $topicText "" "" "" ""
     }
-    updateTopicText $topic $topicHeader $topicText $topicNick $topicTime
+    updateTopicText $topic $topicHeader $topicNick
+    insertMessage "topic" $topicNick $topicHeader $topicTime $topicText "" "" 1 force
+}
+
+proc insertMessage {id nick header time msg parent parentNick unread {force ""}} {
+    upvar #0 topicWidget w
+    global markIgnoredMessagesAsRead
+
+    if [ $w exists $id ] {
+        if { $force == ""} {
+            return
+        }
+        set unread [ expr {$msg != [ getItemValue $w $id msg ]} ]
+    } else {
+        $w insert $parent end -id $id -text $nick
+    }
+    foreach i {nick time msg parent parentNick} {
+        setItemValue $w $id $i [ set $i ]
+    }
+    setItemValue $w $id header [ htmlToText $header ]
+    setItemValue $w $id unread 0
+    setItemValue $w $id unreadChild 0
+    if { $unread && ( ![ isUserIgnored $nick ] || $markIgnoredMessagesAsRead != "1" ) } {
+        mark $w $id item 1
+    }
+    updateItemState $w $id
+    if { $id == "topic" } {
+        $w item $id -open 1
+    }
 }
 
 proc parsePage {topic data} {
     upvar #0 topicWidget w
-    global markIgnoredMessagesAsRead
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
+            if { $parent == "" } {
+                set parent "topic"
+                set parentNick [ getItemValue $w "topic" nick ]
+            }
             if { ! [ $w exists $id ] } {
-                $w insert $parent end -id $id -text $nick
-                foreach i {nick time msg parent parentNick} {
-                    setItemValue $w $id $i [ set $i ]
-                }
-                setItemValue $w $id header [ htmlToText $header ]
-                setItemValue $w $id unread 0
-                setItemValue $w $id unreadChild 0
-                if { ![ isUserIgnored $nick ] || $markIgnoredMessagesAsRead != "1" } {
-                    mark $w $id item 1
-                }
-                updateItemState $w $id
+                insertMessage $id $nick $header $time $msg $parent $parentNick 1
             }
         }
     }
@@ -943,10 +919,14 @@ proc loadTopicTextFromCache {topic} {
     global appName
     global configDir threadSubDir
 
-    updateTopicText "" "" "" "" ""
-    catch {
+    updateTopicText "" "" ""
+    if [ catch {
         array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] ] 0 ]
-        updateTopicText $topic $res(Subject) $res(body) $res(From) $res(X-LOR-Time)
+        updateTopicText $topic $res(Subject) $res(From)
+        # cached topic text always assumed read :)
+        insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
+    } ] {
+        insertMessage "topic" "" "Unable to load subject :(" "" "Unable to load text :(" "" "" 0
     }
 }
 
@@ -994,21 +974,11 @@ proc loadCachedMessages {topic} {
                 set parentNick ""
                 set parent ""
             }
-            set id $res(X-LOR-Id)
-            set nick $res(From)
-            set header $res(Subject)
-            set time $res(X-LOR-Time)
-            set msg $res(body)
-            set unread $res(X-LOR-Unread)
-
-            $w insert $parent end -id $id -text $nick
-            foreach i {nick header time msg parent parentNick unread} {
-                setItemValue $w $id $i [ set $i ]
+            #for all items without parent it assumed to "topic"
+            if { $parent == "" } {
+                set parent "topic"
             }
-            setItemValue $w $id unreadChild 0
-            setItemValue $w $id unread 0
-            mark $w $id item $unread
-            updateItemState $w $id
+            insertMessage $res(X-LOR-Id) $res(From) $res(Subject) $res(X-LOR-Time) $res(body) $parent $parentNick $res(X-LOR-Unread)
         }
         array unset res
     }
@@ -1036,7 +1006,7 @@ proc saveTopicToCache {topic} {
     startWait "Saving topic to cache"
     if { $topic != "" } {
         clearDiskCache $topic
-        saveTopicRecursive $topic ""
+        saveTopicRecursive $topic "topic"
     }
     stopWait
 }
@@ -1290,7 +1260,11 @@ proc markAllMessages {unread} {
 
 proc reply {w item} {
     global lorUrl currentTopic
-    openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
+    if { $item != "topic" } {
+        openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
+    } else {
+        openUrl "http://$lorUrl/comment-message.jsp?msgid=$currentTopic"
+    }
 }
 
 proc userInfo {w item} {
@@ -1484,7 +1458,7 @@ proc showOptionsDialog {} {
 proc applyOptions {} {
     global allTopicsWidget topicWidget
     global tileTheme
-    global topicTextWidget messageWidget
+    global messageWidget
     global messageTextFont
     global color
     global colorList
@@ -1496,9 +1470,6 @@ proc applyOptions {} {
     configureTags $topicWidget
 
     ttk::style theme use $tileTheme
-
-    catch {$topicTextWidget configure -font $messageTextFont}
-    catch {$topicTextWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
 
     catch {$messageWidget configure -font $messageTextFont}
     catch {$messageWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
@@ -1870,7 +1841,7 @@ proc parseRss {data script} {
 
 proc initBindings {} {
     global allTopicsWidget topicWidget
-    global topicTextWidget messageWidget
+    global messageWidget
     global doubleClickAllTopics
 
     foreach i {<<TreeviewSelect>> <Double-Button-1> <Return>} {
@@ -1885,8 +1856,6 @@ proc initBindings {} {
     }
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
     bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
-
-    bind $topicTextWidget <ButtonPress-3> {popupMenu $topicTextMenu %X %Y %x %y}
 
     bind $topicWidget <<TreeviewSelect>> {invokeMenuCommand $topicWidget click}
     bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
