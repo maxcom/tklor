@@ -1337,8 +1337,12 @@ proc packOptionsItem {name item type var opt} {
             pack [ ttk::checkbutton $name -variable $var -text $item ] -anchor w -fill x
         }
         list {
-            set v [ listbox $name -listvariable $var -selectmode extended ]
+            set f [ ttk::frame $name ]
+            set v [ listbox "$f.list" -listvariable $var -selectmode extended -yscrollcommand "$f.scroll set" ]
+            pack [ ttk::scrollbar "$f.scroll" -command "$v yview" ] -side right -fill y
             pack $v -anchor w -fill x
+            pack $f -anchor w -fill both
+
             pack [ ttk::button [ join [ list $name Add ] "" ] -text "Add" -command "addListItem $v" ] [ ttk::button [ join [ list $name Remove ] "" ] -text "Remove" -command "removeListItem $v" ] -fill x -side left
         }
         editableCombo {
