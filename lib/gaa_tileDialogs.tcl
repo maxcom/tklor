@@ -126,6 +126,41 @@ proc packOptionsItem {w name item type val opt} {
                 }
             } $w $name ] ] -anchor w -fill x
         }
+        font {
+            pack [ ttk::button $name -text $val -command [ ::gaa::lambda::lambda {parent w} {
+                set val [ $w cget -text ]
+                array set ff $val
+                set names [ array names ff ]
+                foreach param {family size weight slant underline overstrike} {
+                    if { [ lsearch -exact $names "-$param" ] == -1 } {
+                        array set ff [ list "-$param" "" ]
+                    }
+                }
+                onePageOptionsDialog \
+                    -title "Choose font" \
+                    -options [ list \
+                        "Family" editableCombo family $ff(-family) { font families } \
+                        "Size" string size $ff(-size) "" \
+                        "Weight" readOnlyCombo weight $ff(-weight) { list "" normal bold } \
+                        "Slant" readOnlyCombo slant $ff(-slant) { list "" roman italic } \
+                        "Underline" check underline $ff(-underline) "" \
+                        "Overstrike" check overstrike $ff(-overstrike) "" \
+                    ] \
+                    -script [ lambda {w vals} {
+                        set s ""
+                        foreach {p t} $vals {
+                            if { $t != "" } {
+                                lappend s [ list "-$p" $t ]
+                            }
+                        }
+                        set res [ join $s ]
+                        if { $res == "" } {
+                            set res [ font actual system ]
+                        }
+                        $w configure -text $res
+                    } $w ]
+            } $w $name ] ] -anchor w -fill x
+        }
         string -
         default {
             pack [ ttk::entry $name ] -anchor w -fill x
@@ -149,6 +184,7 @@ proc getOptionsItemValue {name type} {
             }
             return $res
         }
+        font -
         color {
             return [ $name cget -text ]
         }
@@ -219,32 +255,7 @@ proc generateOptionsFrame {d optList page} {
     foreach {item type val opt} $optList {
         set f [ ttk::frame "$page.item$i" -padding 1 ]
         lappend ws $f
-
-        switch -exact -- $type {
-            font -
-            fontPart {
-                array set ff $val
-                set names [ array names ff ]
-                foreach param {family size weight slant underline overstrike} {
-                    if { [ lsearch -exact $names "-$param" ] == -1 } {
-                        array set ff [ list "-$param" "" ]
-                    }
-                }
-                generateOptionsFrame $d [ list \
-                    "Family" editableCombo $ff(-family) { font families } \
-                    "Size" string $ff(-size) "" \
-                    "Weight" readOnlyCombo $ff(-weight) { list "" normal bold } \
-                    "Slant" readOnlyCombo $ff(-slant) { list "" roman italic } \
-                    "Underline" check $ff(-underline) "" \
-                    "Overstrike" check $ff(-overstrike) "" \
-                ] $f
-                array unset ff
-            }
-            default {
-                packOptionsItem $d $f.value $item $type $val [ eval $opt ]
-            }
-        }
-
+        packOptionsItem $d $f.value $item $type $val [ eval $opt ]
         pack $f -anchor w -fill both
         incr i
     }
@@ -255,41 +266,7 @@ proc fetchOptionsFrameValues {optList page ws} {
     set result ""
     set i 0
     foreach {item type var opt} $optList {
-        switch -exact -- $type {
-            font -
-            fontPart {
-                set s ""
-                set j 0
-                set v [ lindex $ws $i ]
-
-                foreach {param t} {
-                    family editableCombo
-                    size string
-                    weight readOnlyCombo
-                    slant readOnlyCombo
-                    underline check
-                    overstrike check} {
-                    set p [ getOptionsItemValue "$v.item$j.value" $t ]
-                    if { $p != "" } {
-                        lappend s [ list "-$param" $p ]
-                    }
-                    incr j
-                }
-                set res [ join $s ]
-                if { $type == "font" && $res == "" } {
-                    set res [ font actual system ]
-                }
-                lappend result $res
-            }
-            ignoreList -
-            userTagList -
-            colorList {
-                lappend result [ getOptionsItemValue [ lindex $ws $i ].value "list" ]
-            }
-            default {
-                lappend result [ getOptionsItemValue [ lindex $ws $i ].value $type ]
-            }
-        }
+        lappend result [ getOptionsItemValue [ lindex $ws $i ].value $type ]
         incr i
     }
     return $result

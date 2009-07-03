@@ -159,19 +159,13 @@ set options {
         "Tags"  list    userTagList { list [ list "Nick" "Tag" ] "addUserTagListItem" "modifyUserTagListItem" }
     }
     "Colors" {
-        "Colors"    list    colorList { list [ list "Regexp" "Color" "Element" ] "addColorListItem" "modifyColorListItem" }
+        "Message colors"    list    colorList { list [ list "Regexp" "Color" "Element" ] "addColorListItem" "modifyColorListItem" }
     }
-    "Normal font" {
-        "font"  fontPart    fontPart(item) ""
-    }
-    "Unread font" {
-        "font"  fontPart    fontPart(unread) ""
-    }
-    "Unread childs font" {
-        "font"  fontPart    fontPart(child) ""
-    }
-    "Ignored font" {
-        "font"  fontPart    fontPart(ignored) ""
+    "Fonts" {
+        "Normal font"  font    fontPart(item) ""
+        "Unread font"  font    fontPart(unread) ""
+        "Unread childs font"  font    fontPart(child) ""
+        "Ignored font"  font    fontPart(ignored) ""
     }
     "Message text" {
         "font"  font    messageTextFont ""
