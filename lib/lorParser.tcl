@@ -148,9 +148,9 @@ proc parseTopicText {data command} {
 
 proc parsePage {data command} {
     set minId 99999999
-    foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
+    foreach {dummy1 message} [ regexp -all -inline -- {.*?<!-- \d+ -->\s*(<div class=title>.*?</div></div>)} $data ] {
         if [ regexp -- \
-{(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} \
+{(?:#(\d+)[^>]*>[^<]*</a>\s*\w+ (\w+) [^<]*</div>){0,1}\s*<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} \
 $message dummy2 parent parentNick id header msg nick time ] {
             if { $id < $minId} {
                 set minId $id
