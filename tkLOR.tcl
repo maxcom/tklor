@@ -664,13 +664,13 @@ proc initHttp {} {
     global appId
     global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
-    if $useProxy {
+    if { $useProxy != "0" } {
         package require autoproxy
         ::autoproxy::init 
-        if {! $proxyAutoSelect} {
+        if { $proxyAutoSelect == "0" } {
             ::autoproxy::configure -proxy_host $proxyHost -proxy_port $proxyPort
         }
-        if $proxyAuthorization {
+        if { $proxyAuthorization != "0" } {
             ::autoproxy::configure -basic -username $proxyUser -password $proxyPassword
         }
         ::http::config -proxyfilter ::autoproxy::filter
@@ -896,6 +896,7 @@ proc loadConfigFile {fileName} {
     }
     if [ catch {
         set f [ open $fileName "r" ]
+        fconfigure $f -encoding utf-8
         set data [ read $f ]
         close $f
 
@@ -1330,6 +1331,7 @@ proc showOptionsDialog {} {
     array set optionsTmp ""
 
     set d .optionsDialog
+    catch {destroy $d}
     toplevel $d
     set notebook [ ttk::notebook $d.notebook ]
     pack $notebook -fill both
@@ -1454,13 +1456,15 @@ proc discardOptions {} {
 }
 
 proc centerToParent {window parent} {
-    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
-    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $window ] d w h x y
-    set x [ expr ( $mw - $w ) / 2  ]
-    if { $x > "0" } {set x "+$x"}
-    set y [ expr ( $mh - $h ) / 2  ]
-    if { $y > "0" } {set y "+$y"}
-    wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
+    catch {
+        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
+        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $window ] d w h x y
+        set x [ expr ( $mw - $w ) / 2  ]
+        if { $x > "0" } {set x "+$x"}
+        set y [ expr ( $mh - $h ) / 2  ]
+        if { $y > "0" } {set y "+$y"}
+        wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
+    }
 }
 
 proc addListItem {w} {
