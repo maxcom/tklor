@@ -99,6 +99,7 @@ set waitDeep 0
 
 set backend ""
 set messageSlave ""
+set topicSlavesCount 0
 
 set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
@@ -971,6 +972,7 @@ proc updateTopicList {{section ""}} {
     global appName
     global topicTree
     global backend
+    global topicSlavesCount
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -1012,6 +1014,7 @@ proc updateTopicList {{section ""}} {
     deflambda onComplete {section} {
         upvar #0 topicTree w
         global threadListSize
+        global topicSlavesCount
 
         foreach item [ lrange [ $w children $section ] $threadListSize end ] {
             set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
@@ -1021,10 +1024,20 @@ proc updateTopicList {{section ""}} {
             $w delete $item
         }
         stopWait
+
+        incr topicSlavesCount -1
+        if { $topicSlavesCount == "0" } {
+            set count 0
+            foreach item [ $w children "forum" ] {
+                incr count [ getItemValue $w $item unreadChild ]
+            }
+            setItemValue $w "forum" unreadChild $count
+        }
     } $section
 
     set command [ list ::lor::getTopicList $section $processTopic ]
 
+    incr topicSlavesCount
     invokeSlave $backend $command \
         -oncomplete $onComplete \
         -onerror    errorProc
