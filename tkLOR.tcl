@@ -1046,6 +1046,7 @@ proc updateTopicList {{section ""} {recursive ""}} {
             foreach {id title} $newsGroups {
                 updateTopicList "news$id" 1
             }
+        }
         news* {
             parseGroup $section [ string trimleft $section "news" ]
         }
