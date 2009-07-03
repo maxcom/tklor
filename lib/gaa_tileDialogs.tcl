@@ -63,7 +63,7 @@ proc packOptionsItem {w name item type val opt} {
             }
 
             pack [ ttk::scrollbar "$ff.scroll" -command "$v yview" ] -side right -fill y
-            pack $v -anchor w -fill x
+            pack $v -anchor w -fill both
             pack $ff -anchor w -fill both
             pack $f -anchor w -fill both
             bind $v <Double-Button-1> [ concat $modifyScript [ list $v ] ]
@@ -175,12 +175,13 @@ proc tabbedOptionsDialog {args} {
         }
     }
 
-    set d [ gaa::tools::generateUniqueWidgetId ".tabbedOptionsDialog" ]
-    catch {destroy $d}
-    toplevel $d
-    wm title $d $param(title)
+    set f [ modalDialogCreate -title $param(title) ]
+    set d $f.client
+
     set notebook [ ttk::notebook $d.notebook ]
-    pack $notebook -fill both
+    grid $notebook -sticky nswe
+    grid rowconfigure $d 0 -weight 1
+    grid columnconfigure $d 0 -weight 1
 
     set n 0
     set okList ""
@@ -201,31 +202,14 @@ proc tabbedOptionsDialog {args} {
                     lappend var [ lindex $optList [ expr $i*4+2 ] ] [ lindex $vals $i ]
                 }
                 eval [ concat $script [ list $var ] ]
-            } $fetchList $page [ generateOptionsFrame $d $genList $page ] $param(pageScript) \
+            } $fetchList $page [ generateOptionsFrame $f $genList $page ] $param(pageScript) \
         ]
 
         $notebook add $page -sticky nswe -text $category
         incr n
     }
-    lappend okList [ list "destroy" $d ]
     lappend okList $param(script)
-    set okScript [ join $okList ";" ]
-    set cancelScript [ list "destroy" $d ]
-
-    set f [ ttk::frame $d.buttonFrame ]
-    pack [ buttonBox $f \
-        [ list -text "OK" -command $okScript ] \
-        [ list -text "Cancel" -command $cancelScript ] \
-    ] -fill x
-    pack $f -fill x -side bottom
-    update
-
-    wm resizable $d 0 0
-    wm protocol $d WM_DELETE_WINDOW $cancelScript
-    centerToParent $d .
-    grab $d
-    bind $d <Return> $okScript
-    bind $d <Escape> $cancelScript
+    modalDialogConfigure $f [ join $okList ";" ]
 }
 
 proc generateOptionsFrame {d optList page} {
@@ -261,7 +245,7 @@ proc generateOptionsFrame {d optList page} {
             }
         }
 
-        pack $f -anchor w -fill x
+        pack $f -anchor w -fill both
         incr i
     }
     return $ws
@@ -317,55 +301,32 @@ proc onePageOptionsDialog {args} {
         {options.arg    ""        "Options list in format {title type id value opt}"}
         {script.arg     ""        "Script to execute on OK click"}
     } ]
-    if { $param(options) == "" } {
-        error "Parameter -options is mandatory!"
-    }
-    if { $param(script) == "" } {
-        error "Parameter -script is mandatory!"
+    foreach item {options script } {
+        if { $param($item) == "" } {
+            error "Parameter -$item is mandatory!"
+        }
     }
 
-    set d [ gaa::tools::generateUniqueWidgetId ".onePageOptionsDialog" ]
-    toplevel $d
-    wm title $d $param(title)
+    set f [ modalDialogCreate -title $param(title) ]
+    set d $f.client
     set page [ ttk::frame $d.optFrame ]
     pack $page -fill both
 
     set n 0
-    set okList ""
     set genList ""
     set fetchList ""
     foreach {item type var value opt} $param(options) {
         lappend genList $item $type $value $opt
         lappend fetchList $item $type $var $opt
     }
-    lappend okList [ ::gaa::lambda::lambda {optList page ws script} {
+    modalDialogConfigure $f [ ::gaa::lambda::lambda {optList page ws script} {
             set vals [ ::gaa::tileDialogs::fetchOptionsFrameValues $optList $page $ws ]
             set var ""
             for {set i 0} {$i < [ llength $vals ]} {incr i} {
                 lappend var [ lindex $optList [ expr $i*4+2 ] ] [ lindex $vals $i ]
             }
             eval [ concat $script [ list $var ] ]
-        } $fetchList $page [ generateOptionsFrame $d $genList $page ] $param(script) \
-    ]
-
-    lappend okList [ list "destroy" $d ]
-    set okScript [ join $okList ";" ]
-    set cancelScript [ list "destroy" $d ]
-
-    set f [ ttk::frame $d.buttonFrame ]
-    pack [ buttonBox $f \
-        [ list -text "OK" -command $okScript ] \
-        [ list -text "Cancel" -command $cancelScript ] \
-    ] -fill x
-    pack $f -fill x -side bottom
-    update
-
-    wm resizable $d 0 0
-    wm protocol $d WM_DELETE_WINDOW $cancelScript
-    centerToParent $d .
-    grab $d
-    bind $d <Return> $okScript
-    bind $d <Escape> $cancelScript
+        } $fetchList $page [ generateOptionsFrame $d $genList $page ] $param(script) ]
 }
 
 proc buttonBox {parent args} {
@@ -391,37 +352,68 @@ proc inputStringDialog {args} {
         error "Parameter -script is mandatory!"
     }
 
-    set f [ gaa::tools::generateUniqueWidgetId ".inputStringDialog" ]
+    set f [ modalDialogCreate -title $param(title) -sizeY 0 ]
+    set ff $f.client
+    pack [ ttk::label $ff.label -text "$param(label): " ] -fill x
+    pack [ ttk::entry $ff.entry ] -fill x
+    $ff.entry insert end $param(default)
+    $ff.entry selection range 0 end
+    focus $ff.entry
 
+    set script [ ::gaa::lambda::lambda {f script} {
+            eval [ concat $script [ list [ $f.entry get ] ] ]
+        } $ff $param(script) ]
+
+    modalDialogConfigure $f $script
+}
+
+proc modalDialogCreate {args} {
+    array set param [ ::cmdline::getoptions args {
+        {title.arg  "Modal dialog"  "Window title"}
+        {sizeX.arg  1               "Resizable on x"}
+        {sizeY.arg  1               "Resizable on y"}
+    } ]
+
+    set f [ gaa::tools::generateUniqueWidgetId ".modalDialog" ]
     toplevel $f
+    grid [ ttk::frame $f.client ] -sticky nswe
+
+    wm resizable $f $param(sizeX) $param(sizeY)
     wm title $f $param(title)
-    pack [ ttk::label $f.label -text "$param(label): " ] -fill x
-    pack [ ttk::entry $f.entry ] -fill x
-    $f.entry insert end $param(default)
-    $f.entry selection range 0 end
 
-    set okScript [ join \
-        [ list \
-            [ ::gaa::lambda::lambda {f script} {
-                eval [ concat $script [ list [ $f.entry get ] ] ]
-            } $f $param(script) ] \
-            [ list destroy $f ] \
-        ] ";" \
-    ]
-    set cancelScript [ list "destroy" $f ]
+    return $f
+}
 
-    pack [ buttonBox $f \
+proc modalDialogConfigure {f script} {
+    set oldGrab [ grab current . ]
+    if { $oldGrab == "" } {
+        set oldGrab .
+    }
+    set okScript [ join [ list \
+        $script \
+        [ list destroy $f ] \
+        [ list grab $oldGrab ] \
+    ] ";" ]
+    set cancelScript [ join [ list \
+        [ list destroy $f ] \
+        [ list grab $oldGrab ] \
+    ] ";" ]
+
+    grid [ buttonBox $f \
         [ list -text "OK" -command $okScript ] \
         [ list -text "Cancel" -command $cancelScript ] \
-    ] -side bottom -fill x
+    ] -sticky nswe
+
+    grid rowconfigure $f 0 -weight 1
+    grid columnconfigure $f 0 -weight 1
 
     update
-    wm resizable $f 1 0
-    centerToParent $f .
     grab $f
-    focus $f.entry
+    ::gaa::tools::centerToParent $f .
+
     wm protocol $f WM_DELETE_WINDOW $cancelScript
-    bind $f.entry <Return> $okScript
+
+    bind $f <Return> $okScript
     bind $f <Escape> $cancelScript
 }
 

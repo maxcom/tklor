@@ -1537,22 +1537,10 @@ proc saveOptions {} {
     close $f
 }
 
-proc centerToParent {window parent} {
-    catch {
-        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
-        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $window ] d w h x y
-        set x [ expr ( $mw - $w ) / 2  ]
-        if { $x > "0" } {set x "+$x"}
-        set y [ expr ( $mh - $h ) / 2  ]
-        if { $y > "0" } {set y "+$y"}
-        wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
-    }
-}
-
 proc addIgnoreListItem {w} {
     inputStringDialog \
         -title "Ignore list" \
-        -label "Enter nick:" \
+        -label "Enter nick" \
         -script [ list $w "insert" "" "end" "-text" ]
 }
 
@@ -1562,7 +1550,7 @@ proc modifyIgnoreListItem {w} {
     } else {
         inputStringDialog \
             -title "Ignore list" \
-            -label "Enter nick:" \
+            -label "Enter nick" \
             -script [ lambda {w text} {
                 $w item [ $w focus ] -text $text
             } $w ] \
@@ -1606,7 +1594,7 @@ proc find {} {
 
     inputStringDialog \
         -title "Search" \
-        -label "Search regexp:" \
+        -label "Search regexp" \
         -script [ lambda {str} {
                 global findString
                 set findString $str

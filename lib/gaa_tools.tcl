@@ -29,9 +29,10 @@ namespace eval tools {
 namespace export \
     generateUniqueWidgetId \
     generateUniqueVariable \
-    generateUniqueId
+    generateUniqueId \
+    centerToParent
 
-set lastGeneratedIdSuffix -1
+set lastGeneratedIdSuffix 0
 
 proc generateUniqueWidgetId {prefix} {
     return [ generateUniqueId $prefix [ list winfo exists ] ]
@@ -42,14 +43,26 @@ proc generateUniqueVariable {} {
 }
 
 proc generateUniqueId {prefix script} {
-    global lastGeneratedIdSuffix
+    upvar #0 ::gaa::tools::lastGeneratedIdSuffix lastGeneratedIdSuffix
 
     set id $prefix
-    while [ eval [ concat $script [ list $id ] ] ] {
+    while { [ eval [ concat $script [ list $id ] ] ] } {
         set id [ join [ list $prefix $lastGeneratedIdSuffix ] "" ]
         incr lastGeneratedIdSuffix
     }
     return $id
+}
+
+proc centerToParent {window parent} {
+    catch {
+        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
+        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $window ] d w h x y
+        set x [ expr ( $mw - $w ) / 2  ]
+        if { $x > "0" } {set x "+$x"}
+        set y [ expr ( $mh - $h ) / 2  ]
+        if { $y > "0" } {set y "+$y"}
+        wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
+    }
 }
 
 }
