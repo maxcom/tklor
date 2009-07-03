@@ -41,6 +41,12 @@ struct::queue postMessage
 
 set updateScript ""
 
+array set stopped {
+    getMessageList  0
+    getTopicList    0
+    postMessage     0
+}
+
 proc addTask {queue args} {
     variable stopped
     variable updateScript
@@ -63,8 +69,13 @@ proc stopAllTasks {queue} {
     variable updateScript
 
     array set stopped [ list $queue 1 ]
-    $queue clear
-    $queue unget ""
+    if { [ $queue size ] != 0 } {
+        set s [ $queue get ]
+        $queue clear
+        $queue unget $s
+    } else {
+        $queue clear
+    }
     uplevel #0 $updateScript
 }
 
@@ -98,7 +109,9 @@ proc setUpdateHandler {script} {
 }
 
 proc getTasksCount {queue} {
-    return [ $queue size ]
+    variable stopped
+
+    return [ expr [ $queue size ] - $stopped($queue) ]
 }
 
 }

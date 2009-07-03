@@ -82,7 +82,6 @@ set expandNewMessages 1
 set updateOnStart 0
 set doubleClickAllTopics 0
 set markIgnoredMessagesAsRead 0
-set exitConfirmation 1
 set threadListSize 20
 set perspectiveAutoSwitch 0
 set currentPerspective navigation
@@ -124,7 +123,6 @@ set options {
         "Autonomous mode"   hidden  autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
         "Use double-click to open topic"    check   doubleClickAllTopics ""
-        "Confirm exit"  check   exitConfirmation ""
         "Browser"   editableCombo   browser { list "sensible-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
         "Thread history size"   string  threadListSize ""
         "Expand new messages"   check   expandNewMessages   ""
@@ -215,7 +213,7 @@ proc initMenu {} {
         $menuTopic invokeMenuCommand \
         $topicMenu invokeItemCommand ] {
 
-        $m add command -label "Refresh sub-tree" -command [ list $invoke $topicTree refreshTopicList ]
+        $m add command -label "Refresh sub-tree" -command [ list $invoke $topicTree refreshTopicSubList ] -accelerator "F4"
         $m add separator
     }
 
@@ -420,17 +418,14 @@ proc helpAbout {} {
 proc exitProc {} {
     global appName
     global currentTopic
-    global exitConfirmation
     global backendId
 
-    if { $exitConfirmation == "0" || [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
-        saveTopicToCache $currentTopic
-        saveTopicListToCache
-        saveOptions
-        catch {send -async $backendId exit}
+    saveTopicToCache $currentTopic
+    saveTopicListToCache
+    saveOptions
+    catch {send -async $backendId exit}
 
-        exit
-    }
+    exit
 }
 
 proc renderHtml {w msg} {
@@ -598,6 +593,9 @@ proc setTopic {topic} {
     global expandNewMessages
     global backendId
 
+    stopAllTasks getMessageList
+    update
+
     setPerspective reading
     focus $messageTree
     if { $currentTopic != "" } {
@@ -621,6 +619,9 @@ proc setTopic {topic} {
     }
     if { ! $autonomousMode } {
         defCallbackLambda processText {topic nick header text time approver approveTime} {
+            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+                return
+            }
             saveTopicTextToCache topic header text nick time approver approveTime
             saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
             set header [ htmlToText $header ]
@@ -630,6 +631,9 @@ proc setTopic {topic} {
         defCallbackLambda processMessage {w id nick header time msg parent parentNick} {
             global appName
 
+            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+                return
+            }
             if [ catch {
                 if { $parent == "" } {
                     set parent "topic"
@@ -637,16 +641,17 @@ proc setTopic {topic} {
                 }
                 if { ![ $w exists $id ] } {
                     update
-                    if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-                        return
-                    }
                     insertMessage $id $nick $header $time $msg $parent $parentNick 1
                 }
             } err ] {
-                errorProc "Error while inserting item $id:\n$err"
+                errorProc "Error while inserting item $id:\n$err" $::errorInfo
             }
         } $messageTree
         defCallbackLambda finish {messageTree expandNewMessages} {
+            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+                taskCompleted getMessageList
+                return
+            }
             focus $messageTree
             update
             updateWindowTitle
@@ -657,7 +662,7 @@ proc setTopic {topic} {
             taskCompleted getMessageList
         } $messageTree $expandNewMessages
 
-        addTask getMessageList send -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProc $finish ]
+        addTask getMessageList send -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProcCallback $finish ]
     }
 }
 
@@ -955,7 +960,7 @@ proc loadConfigFile {fileName} {
 
         uplevel #0 $data
     } err ] {
-        errorProc "Error loading $fileName\n$err"
+        errorProc "Error loading $fileName\n$err" $::errorInfo
     }
 }
 
@@ -1033,7 +1038,7 @@ proc updateTopicList {{section ""}} {
         taskCompleted getTopicList
     } $section
 
-    addTask getTopicList send -async $backendId [ list lor::getTopicList $section $processTopic errorProc $onComplete ]
+    addTask getTopicList send -async $backendId [ list lor::getTopicList $section $processTopic errorProcCallback $onComplete ]
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1115,10 +1120,10 @@ proc popupMenu {menu xx yy x y} {
     tk_popup $menu $xx $yy
 }
 
-proc refreshTopicList {w item} {
+proc refreshTopicSubList {w item} {
     global topicTree
 
-    if { $w == $topicTree } {
+    if { $w == $topicTree && $item != "" } {
         updateTopicList $item
     }
 }
@@ -1301,10 +1306,10 @@ proc showOptionsDialog {} {
                 set ::$var $val
             }
         } ] \
-        -script applyOptions
+        -script {applyOptions;saveOptions}
 }
 
-proc applyOptions {{nosave ""}} {
+proc applyOptions {} {
     global topicTree messageTree
     global tileTheme
     global messageTextWidget
@@ -1326,10 +1331,6 @@ proc applyOptions {{nosave ""}} {
     set colorCount [ llength $colorList ]
 
     updateForumGroups
-
-    if { $nosave != "" } {
-        saveOptions
-    }
 }
 
 proc saveOptions {} {
@@ -1730,6 +1731,8 @@ proc initBindings {} {
     bind . <F3> findNext
     bind . <F5> refreshTopic
 
+    bind $topicTree <F4> [ list invokeMenuCommand $topicTree refreshTopicSubList ]
+
     bind . <Control-f> find
     bind . <Control-F> find
 
@@ -1915,6 +1918,10 @@ proc errorProc {err {extInfo ""}} {
     tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
 }
 
+proc errorProcCallback {err {extInfo ""}} {
+    send tkLOR [ list errorProc $err $extInfo ]
+}
+
 proc sortChildrens {w parent} {
     $w children $parent [ lsort -decreasing [ $w children $parent ] ]
 }
@@ -2043,7 +2050,7 @@ proc updateTaskList {} {
         if { $total == 1 } {
             $statusBarWidget.text configure -text $categoriesMap($nonEmptyCategory)
         } else {
-        $statusBarWidget.text configure -text "$total operations running"
+            $statusBarWidget.text configure -text "$total operations running"
         }
         $statusBarWidget.progress state !disabled
         $statusBarWidget.progress start
@@ -2076,7 +2083,7 @@ initMainWindow
 initTasksWindow
 initMenu
 
-applyOptions -nosave
+applyOptions
 setUpdateHandler updateTaskList
 
 update
