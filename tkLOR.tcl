@@ -1672,12 +1672,12 @@ proc initBindings {} {
         bind $w n [ list invokeMenuCommand $w nextUnread ]
         bind $w N [ list invokeMenuCommand $w nextUnread ]
 
-        bind . <Control-r> [ list invokeMenuCommand $w reply ]
-        bind . <Control-R> [ list invokeMenuCommand $w reply ]
-        bind . <Control-i> [ list invokeMenuCommand $w userInfo ]
-        bind . <Control-I> [ list invokeMenuCommand $w userInfo ]
-        bind . <Control-o> [ list invokeMenuCommand $w openMessage ]
-        bind . <Control-O> [ list invokeMenuCommand $w openMessage ]
+        bind $w <Control-r> [ list invokeMenuCommand $w reply ]
+        bind $w <Control-R> [ list invokeMenuCommand $w reply ]
+        bind $w <Control-i> [ list invokeMenuCommand $w userInfo ]
+        bind $w <Control-I> [ list invokeMenuCommand $w userInfo ]
+        bind $w <Control-o> [ list invokeMenuCommand $w openMessage ]
+        bind $w <Control-O> [ list invokeMenuCommand $w openMessage ]
     }
 
     bind . <F1> helpAbout
