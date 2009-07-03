@@ -418,7 +418,7 @@ proc parsePage {topic data} {
     upvar #0 topicWidget w
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 parent parentNick id header msg nick time ] {
+        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 parent parentNick id header msg nick time ] {
             if { ! [ $w exists $id ] } {
                 $w insert $parent end -id $id -text $nick
                 foreach i {nick header time msg parent parentNick} {
@@ -761,7 +761,7 @@ proc updateTopicList {{section ""}} {
 
     switch -glob -- $section {
         news {
-            #TODO
+            parseNews
         }
         forum* {
             parseForum [ string trimleft $section "forum" ]
@@ -997,6 +997,64 @@ proc openUrl {url} {
         set prog "x-www-browser"
     }
     catch {exec $prog $url &}
+}
+
+proc parseNews {} {
+    global lorUrl
+    upvar #0 allTopicsWidget w
+
+    startWait
+
+    foreach item [ $w children "news" ] {
+        set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
+        addUnreadChild $w "news" "-$count"
+        $w delete $item
+    }
+
+    set url "http://$lorUrl/view-news.jsp?section=1"
+    set err 0
+
+    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
+        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+            parseNewsPage [ ::http::data $token ]
+            set err 0
+        } else {
+            set errStr [ ::http::code $token ]
+        }
+        ::http::cleanup $token
+    }
+    if $err {
+        tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
+    }
+
+    stopWait
+}
+
+proc parseNewsPage {data} {
+    upvar #0 allTopicsWidget w
+    global configDir threadSubDir
+
+# <div class="entry-userpic"><a [^>]*><img [^>]*></a></div><div class="entry-body"><div class=msg>(.*?)</div><div class=sign>([\w-]+) *(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class="nav">
+
+    foreach {dummy id header body nick time} [ regexp -all -inline -- {<div class=news><h2><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}">([^<]*)</a></h2><div class="entry-userpic"><a [^>]*><img [^>]*></a></div><div class="entry-body"><div class=msg>} $data ] {
+        if { $id != "" } {
+            catch {
+                $w insert "news" end -id $id -text $header
+                setItemValue $w $id text $header
+                setItemValue $w $id parent "news"
+                setItemValue $w $id nick $nick
+                setItemValue $w $id unreadChild 0
+                if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
+                    setItemValue $w $id unread 1
+                    addUnreadChild $w "news"
+                } else {
+                    setItemValue $w $id unread 0
+                }
+                updateItemState $w $id
+            }
+        }
+    }
+    $w see "news"
 }
 
 ############################################################################
