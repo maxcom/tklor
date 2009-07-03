@@ -53,8 +53,6 @@ set proxyPassword ""
 ############################################################################
 
 proc loadConfigFile {fileName} {
-    global appName
-
     if { ![ file exists $fileName ] } {
         return
     }

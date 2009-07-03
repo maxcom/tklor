@@ -31,12 +31,10 @@
 
 [лор не поддерживает сжатие, отсутствует либа для распаковки] gzip при скачивании файлов
 
-наконец-то сделать добавление произвольного топика в "избранное"
-
 сделать нормальный aboutbox
 
 поиск по лору
 
 для внутрилоровских ссылок: переход внутри клиента + навигация <-/->
 
-add 3-state items instead of checkbuttons in font configuration
+[не получается] add 3-state items instead of checkbuttons in font configuration

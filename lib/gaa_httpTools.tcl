@@ -34,15 +34,15 @@ namespace export \
 
 proc init {args} {
     array set param [ ::cmdline::getoptions args {
-        {charset.arg    "utf-8" "Default charset"}
-        {useragent.arg  ""      "HTTP User-Agent string"}
-        {proxy.arg      "0"     "Use proxy"}
-        {autoproxy.arg  "0"     "Proxy autoconfiguration"}
-        {proxyhost      ""      "Proxy host"}
-        {proxyport      ""      "Proxy port"}
-        {proxyauth      "0"     "Proxy requires authorization"}
-        {proxyuser      ""      "Proxy user"}
-        {proxypassword  ""      "Proxy password"}
+        {charset.arg        "utf-8" "Default charset"}
+        {useragent.arg      ""      "HTTP User-Agent string"}
+        {proxy.arg          "0"     "Use proxy"}
+        {autoproxy.arg      "0"     "Proxy autoconfiguration"}
+        {proxyhost.arg      ""      "Proxy host"}
+        {proxyport.arg      ""      "Proxy port"}
+        {proxyauth.arg      "0"     "Proxy requires authorization"}
+        {proxyuser.arg      ""      "Proxy user"}
+        {proxypassword.arg  ""      "Proxy password"}
     } ]
 
     if { $param(proxy) != "0" } {
