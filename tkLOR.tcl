@@ -282,7 +282,7 @@ proc initAllTopicsTree {} {
 
     $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "favorites" ]
 
-    bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
+    bind $allTopicsWidget <<TreeviewSelect>> {invokeMenuCommand $allTopicsWidget click}
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
 
     bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
@@ -340,7 +340,7 @@ proc initTopicTree {} {
 
     configureTags $topicWidget
 
-    bind $topicWidget <<TreeviewSelect>> "messageClick"
+    bind $topicWidget <<TreeviewSelect>> {invokeMenuCommand $topicWidget click}
     bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
 
     bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
@@ -611,16 +611,21 @@ proc setItemValue {w item valueName value} {
     $w item $item -values $val
 }
 
-proc messageClick {} {
-    upvar #0 topicWidget w
-    global currentMessage
-
-    set item [ $w focus ]
-    set currentMessage $item
-    updateMessage $item
+proc click {w item} {
+    global allTopicsWidget
     if [ getItemValue $w $item unread ] {
         setItemValue $w $item unread 0
         addUnreadChild $w [ getItemValue $w $item parent ] -1
+    }
+    if { $w == $allTopicsWidget } {
+        if { [ regexp -lineanchor -- {^\d} $item ] } {
+            setTopic $item
+        }
+    } else {
+        global currentMessage
+
+        set currentMessage $item
+        updateMessage $item
     }
     updateItemState $w $item
 }
@@ -1084,20 +1089,6 @@ proc saveTopicListToCache {} {
     }
 }
 
-proc topicClick {} {
-    upvar #0 allTopicsWidget w
-
-    set item [ $w focus ]
-    if { [ regexp -lineanchor -- {^\d} $item ] } {
-        if [ getItemValue $w $item unread ] {
-            addUnreadChild $w [ getItemValue $w $item parent ] -1
-        }
-        setItemValue $w $item unread 0
-        updateItemState $w $item
-        setTopic $item
-    }
-}
-
 proc mark {w item type unread} {
     set old [ getItemValue $w $item unread ]
     if {$unread != $old} {
@@ -1539,11 +1530,7 @@ proc nextUnread {w item} {
             $w see $cur
             $w focus $cur
             $w selection set $cur
-            if { $w == $::topicWidget } {
-                messageClick
-            } else {
-                topicClick
-            }
+            click $w $cur
             return
         }
     }
