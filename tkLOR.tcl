@@ -354,7 +354,7 @@ proc initTopicText {} {
             pack $topicTextWidget -expand yes -fill both
         }
         "iwidgets" {
-            set topicTextWidget [ iwidgets::scrolledhtml $f.msg -state disabled -height 15 ]
+            set topicTextWidget [ iwidgets::scrolledhtml $f.msg -state disabled -linkcommand openUrl ]
             pack $topicTextWidget -expand yes -fill both
         }
     }
@@ -426,7 +426,7 @@ proc initMessageWidget {} {
             pack $messageWidget -expand yes -fill both
         }
         "iwidgets" {
-            set messageWidget [ iwidgets::scrolledhtml $mf.msg -state disabled -height 15 ]
+            set messageWidget [ iwidgets::scrolledhtml $mf.msg -state disabled ]
             pack $messageWidget -expand yes -fill both
         }
     }
