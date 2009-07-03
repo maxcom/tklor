@@ -1138,26 +1138,18 @@ proc saveTopicListToCache {} {
     catch {
         set f [ open [ file join $configDir "topics" ] "w+" ]
         fconfigure $f -encoding utf-8
-        foreach {forum title} $forumGroups {
-            foreach id [ $w children "forum$forum" ] {
-                puts -nonewline $f "addTopicFromCache forum$forum $id [ getItemValue $w $id nick ] "
-                puts -nonewline $f [ list [ getItemValue $w $id text ] ]
-                puts $f " [ getItemValue $w $id unread ]"
-            }
-        }
-        foreach {group title} $newsGroups {
-            foreach id [ $w children "news$group" ] {
-                puts -nonewline $f "addTopicFromCache news$group $id [ getItemValue $w $id nick ] "
-                puts -nonewline $f [ list [ getItemValue $w $id text ] ]
-                puts $f " [ getItemValue $w $id unread ]"
-            }
-        }
-        foreach id [ $w children "favorites" ] {
-            puts -nonewline $f "addTopicFromCache favorites $id [ getItemValue $w $id nick ] "
-            puts -nonewline $f [ list [ getItemValue $w $id text ] ]
-            puts $f " [ getItemValue $w $id unread ]"
+        foreach group {news forum favorites} {
+            saveTopicListToCacheRecursive $w $f $group
         }
         close $f
+    }
+}
+
+proc saveTopicListToCacheRecursive {w f parent} {
+    foreach id [ $w children $parent ] {
+        puts $f [ list "addTopicFromCache" $parent $id [ getItemValue $w $id nick ] [ getItemValue $w $id text ] [ getItemValue $w $id unread ] ]
+
+        saveTopicListToCacheRecursive $w $f $id
     }
 }
 
@@ -1286,6 +1278,7 @@ proc addToFavorites {w item} {
     $w detach $item
     set childs [ $w children "favorites" ]
     lappend childs $item
+    set childs [ lsort -decreasing $childs ]
     $w children "favorites" $childs
     if [ getItemValue $w $item unread ] {
         addUnreadChild $w [ getItemValue $w $item parent ] -1
