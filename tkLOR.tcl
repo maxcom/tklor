@@ -213,6 +213,11 @@ proc initMenu {} {
         $m add command -label "Refresh sub-tree" -command [ list $invoke $topicTree refreshTopicList ]
         $m add separator
     }
+
+    set m $menuTopic
+    $m add command -label "Add topic..." -command addTopic
+    $m add separator
+
     foreach {m w invoke} [ list \
         $menuTopic $topicTree invokeMenuCommand \
         $topicMenu $topicTree invokeItemCommand \
@@ -760,7 +765,20 @@ proc updateItemState {w item} {
 }
 
 proc addTopic {} {
-    #TODO
+    deflambda processTopicAddition {str} {
+        global topicTree
+        set id ""
+        regexp {msgid=(\d+)} $str dummy id
+        regexp -lineanchor {^(\d+)$} $str dummy id
+        if { $id != "" && ![ $topicTree exists $id ] } {
+            addTopicFromCache "favorites" $id "" $str 1
+            showFavoritesTree {Select category and topic text} $str [ list addTopicToFavorites $topicTree $id ] "favorites"
+        }
+    }
+    inputStringDialog \
+        -title "Add topic" \
+        -label "Enter topic ID or URL" \
+        -script $processTopicAddition
 }
 
 proc refreshTopic {} {
