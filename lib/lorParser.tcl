@@ -124,7 +124,8 @@ proc getTopicList {section command onError onComplete} {
             parseGroup $command 2 [ string trimleft $section "forum" ] $onError $onComplete
         }
         default {
-            error "$section is not a valid LOR object ID!"
+            # simply ignore it
+            eval $onComplete
         }
     }
 }

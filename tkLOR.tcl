@@ -2168,7 +2168,7 @@ proc login {} {
 
     if { ![ remoting::sendRemote $backendId lor::isLoggedIn ] } {
         openLoginWindow
-        remoting::sendRemote -async $backendId [ list login $lorLogin $lorPassword ]
+        remoting::sendRemote -async $backendId login $lorLogin $lorPassword
     }
 }
 
@@ -2340,9 +2340,7 @@ proc deliveryError {topic message header text preformattedText autoUrl errStr er
     global appName backendId
 
     logger::log "message delivery error: $errStr"
-    if { $extInfo != "" } {
-        logger::log "extended info: $errExtInfo"
-    }
+    logger::log "extended info: $errExtInfo"
 
     if { [ tk_messageBox -title $appName -message [ mc "An error occured while posting '%s':\n%s" $header $errStr ] -type retrycancel ] == "retry" } {
         defCallbackLambda finish {type} {

@@ -106,7 +106,7 @@ proc packOptionsItem {w name item type val opt} {
         }
         selectList {
             set f [ ttk::frame $name ]
-            set v [ ttk::treeview $f.list -yscrollcommand "$f.scroll set" -selectmode none ]
+            set v [ ttk::treeview $f.list -yscrollcommand "$f.scroll set" -selectmode none -show tree ]
             pack [ ttk::scrollbar $f.scroll -command "$v yview" ] -side right -fill y
             pack $v -anchor w -fill both
             pack $f -anchor w -fill both
