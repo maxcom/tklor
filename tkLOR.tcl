@@ -403,8 +403,8 @@ proc parseTopicText {topic data} {
     if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         set topicText $msg
         set topicNick $nick
-        set topicHeader $header
-        saveTopicTextToCache $topic $header $topicText $nick $time $approver $approveTime
+        set topicHeader [ replaceHtmlEntities $header ]
+        saveTopicTextToCache $topic [ replaceHtmlEntities $header ] $topicText $nick $time $approver $approveTime
     } else {
         set topicText "Unable to parse topic text :("
         set topicNick ""
@@ -421,9 +421,10 @@ proc parsePage {topic data} {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 parent parentNick id header msg nick time ] {
             if { ! [ $w exists $id ] } {
                 $w insert $parent end -id $id -text $nick
-                foreach i {nick header time msg parent parentNick} {
+                foreach i {nick time msg parent parentNick} {
                     setItemValue $w $id $i [ set $i ]
                 }
+                setItemValue $w $id header [ replaceHtmlEntities $header ]
                 setItemValue $w $id unread 1
                 setItemValue $w $id unreadChild 0
                 addUnreadChild $w $parent
@@ -810,8 +811,8 @@ proc parseTopicList {forum data} {
     foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
-                $w insert "forum$forum" end -id $id -text $header
-                setItemValue $w $id text $header
+                $w insert "forum$forum" end -id $id -text [ replaceHtmlEntities $header ]
+                setItemValue $w $id text [ replaceHtmlEntities $header ]
                 setItemValue $w $id parent "forum$forum"
                 setItemValue $w $id nick $nick
                 setItemValue $w $id unreadChild 0
@@ -875,8 +876,10 @@ proc topicClick {} {
 
     set item [ $w focus ]
     if { [ regexp -lineanchor -- {^\d} $item ] } {
+        if [ getItemValue $w $item unread ] {
+            addUnreadChild $w [ getItemValue $w $item parent ] -1
+        }
         setItemValue $w $item unread 0
-        addUnreadChild $w [ getItemValue $w $item parent ] -1
         updateItemState $w $item
         setTopic $item
     }
@@ -1039,8 +1042,8 @@ proc parseNewsPage {data} {
     foreach {dummy id header body nick time} [ regexp -all -inline -- {<div class=news><h2><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}">([^<]*)</a></h2><div class="entry-userpic"><a [^>]*><img [^>]*></a></div><div class="entry-body"><div class=msg>} $data ] {
         if { $id != "" } {
             catch {
-                $w insert "news" end -id $id -text $header
-                setItemValue $w $id text $header
+                $w insert "news" end -id $id -text [ replaceHtmlEntities $header ]
+                setItemValue $w $id text [ replaceHtmlEntities $header ]
                 setItemValue $w $id parent "news"
                 setItemValue $w $id nick $nick
                 setItemValue $w $id unreadChild 0
@@ -1055,6 +1058,13 @@ proc parseNewsPage {data} {
         }
     }
     $w see "news"
+}
+
+proc replaceHtmlEntities {text} {
+    foreach {re s} { "&lt;" "<" "&gt;" ">" "&amp;" "&" "&quot;" "\"" } {
+        regsub -all $re $text $s text
+    }
+    return $text
 }
 
 ############################################################################
