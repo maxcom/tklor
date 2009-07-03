@@ -319,6 +319,9 @@ proc buttonBox {parent args} {
         incr i
     }
     eval "pack [ join $b ] -side right"
+    if { [ llength $args ] > 0 } {
+        focus $f.button0Frame.button
+    }
     return $f
 }
 
