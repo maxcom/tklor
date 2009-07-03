@@ -2232,7 +2232,7 @@ proc postMessage {topic {item ""}} {
         [ ttk::scrollbar $ww.scroll -command "$ww.text yview" ] \
         -sticky nswe
     $ww.text insert 0.0 $text
-    catch {$ww.text configure -font $::messageTextFont}
+    catch {$ww.text configure -font $::messageTextMonospaceFont}
     catch {$ww.text configure -foreground $::color(htmlFg) -background $::color(htmlBg)}
 
     grid columnconfigure $ww 0 -weight 1
