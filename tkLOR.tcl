@@ -94,6 +94,8 @@ set ignoreList ""
 set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
 set messageMenu ""
+set discussionPopupMenu ""
+set mailBoxPopupMenu ""
 set topicMenu ""
 set messageTextMenu ""
 
@@ -209,12 +211,25 @@ set options {
 proc initMenu {} {
     global topicTree messageTree
     global messageMenu topicMenu messageTextMenu
+    global discussionPopupMenu mailBoxPopupMenu
 
     menu .menu -tearoff 0
     .menu add cascade -label [ mc "LOR" ] -menu .menu.lor -underline 0
     .menu add cascade -label [ mc "View" ] -menu .menu.view -underline 0
-    .menu add cascade -label [ mc "Topic" ] -menu .menu.topic -underline 0
-    .menu add cascade -label [ mc "Message" ] -menu .menu.message -underline 0
+    .menu add cascade \
+        -label [ mc "Topic" ] \
+        -menu .menu.topic \
+        -underline 0 \
+        -state disabled
+    .menu add cascade \
+        -label [ mc "Mail" ] \
+        -menu .menu.mailBox \
+        -underline 1 \
+        -state disabled
+    .menu add cascade \
+        -label [ mc "Message" ] \
+        -menu .menu.message \
+        -underline 0
     .menu add cascade -label [ mc "Search" ] -menu .menu.search -underline 0
     .menu add cascade -label [ mc "Help" ] -menu .menu.help -underline 0
 
@@ -237,7 +252,10 @@ proc initMenu {} {
     set menuTopic [ menu .menu.topic -tearoff 0 ]
     set topicMenu [ menu .topicMenu -tearoff 0 ]
     set menuMessage [ menu .menu.message -tearoff 0 ]
-    set messageMenu [ menu .messageMenu -tearoff 0 ]
+    set discussionPopupMenu [ menu .discussionPopupMenu -tearoff 0 ]
+    set menuMailBox [ menu .menu.mailBox -tearoff 0 ]
+    set mailBoxPopupMenu [ menu .mailBoxPopupMenu -tearoff 0 ]
+    set messageMenu $discussionPopupMenu
 
     set m $menuMessage
     $m add command -label [ mc "Refresh messages" ] -accelerator "F5" -command refreshTopic
@@ -259,7 +277,7 @@ proc initMenu {} {
         $menuTopic $topicTree invokeMenuCommand \
         $topicMenu $topicTree invokeItemCommand \
         $menuMessage $messageTree invokeMenuCommand \
-        $messageMenu $messageTree invokeItemCommand ] {
+        $discussionPopupMenu $messageTree invokeItemCommand ] {
 
         $m add command -label [ mc "Reply" ] -accelerator "Ctrl-R" -command [ list $invoke $w reply ]
         $m add command -label [ mc "Open in browser" ] -accelerator "Ctrl-O" -command [ list $invoke $w openMessage ]
@@ -309,6 +327,28 @@ proc initMenu {} {
     set messageTextMenu $m
     $m add command -label [ mc "Copy selection" ] -command {tk_textCopy $messageTextWidget}
     $m add command -label [ mc "Open selection in browser" ] -command {tk_textCopy $messageTextWidget;openUrl [ clipboard get ]}
+
+    foreach {m invoke} [ list \
+        $menuMailBox invokeMenuCommand \
+        $mailBoxPopupMenu invokeItemCommand ] {
+        
+#        $m add command \
+#            -label [ mc "Send" ] \
+#            -command [ list $invoke $messageTree sendMessage ] \
+#            -accelerator "Ctrl-S"
+#        $m add command \
+#            -label [ mc "Edit" ] \
+#            -command [ list $invoke $messageTree edit ] \
+#            -accelerator "Ctrl-E"
+#        $m add command \
+#            -label [ mc "Reply" ] \
+#            -command [ list $invoke $messageTree reply ] \
+#            -accelerator "Ctrl-O"
+        $m add command \
+            -label [ mc "Delete" ] \
+            -command [ list $invoke $messageTree deleteMessage ] \
+            -accelerator "Del"
+    }
 }
 
 proc initTopicTree {} {
@@ -592,7 +632,7 @@ proc renderHtmlTag {w stack tag slash param text} {
     $w insert end $text
 }
 
-#TODO: move htmlToText for Subject into lorBackend
+#TODO: move htmlToText for Subject into lorBackend (v1.2)
 proc showMessageInMainWindow {msg} {
     global messageTextWidget
     global currentSubject currentNick currentPrevNick currentTime
@@ -645,7 +685,6 @@ proc setTopic {topic} {
     global appName
     global messageTree messageTextWidget
     global currentTopic currentSubject currentNick currentPrevNick currentTime
-    global autonomousMode
     global expandNewMessages
     global loadTaskId
     global lastId
@@ -663,6 +702,7 @@ proc setTopic {topic} {
     if { $currentTopic != "" } {
         saveTopicToCache $currentTopic
     }
+    set currentTopic $topic
 
     if { $topic == "sent" || $topic == "draft" || $topic == "outcoming" } {
         renderHtml $messageTextWidget ""
@@ -677,13 +717,15 @@ proc setTopic {topic} {
         foreach item {currentSubject currentNick currentPrevNick currentTime} {
             set $item ""
         }
-#        renderHtml $messageTextWidget ""
-
-        set currentTopic $topic
         set lastId 0
 
         set loadTaskId [ loadTopicFromCache $topic [ closure {topic} {} {
+            global loadTaskId autonomousMode lastId
+            upvar #0 messageTree w
             set loadTaskId ""
+            if { $autonomousMode && ! [ $w exists "topic" ] } {
+                goOnline
+            }
             getNewMessages $topic
         } ] ]
     } else {
@@ -809,11 +851,17 @@ proc click {w item} {
     if { $w == $topicTree } {
 #TODO: Подумать как сделать покрасивее
         if { [ regexp -lineanchor -- {^\d} $item ] } {
+            .menu entryconfigure 2 -state normal
+            .menu entryconfigure 3 -state disabled
+            set ::messageMenu $::discussionPopupMenu
             setTopic $item
         }
         if { $item == "sent" || 
              $item == "draft" || 
              $item == "outcoming" } {
+            .menu entryconfigure 2 -state disabled
+            .menu entryconfigure 3 -state normal
+            set ::messageMenu $::mailBoxPopupMenu
             setTopic $item
         }
     } else {
@@ -917,8 +965,12 @@ proc addTopic {} {
 
 proc refreshTopic {} {
     global currentTopic
+    global autonomousMode
 
     if { $currentTopic != "" } {
+        if $autonomousMode {
+            goOnline
+        }
         setTopic $currentTopic
     }
 }
@@ -1863,7 +1915,7 @@ proc initBindings {} {
     bind $messageTree <Menu> {openContextMenu $messageTree $messageMenu}
 
     bind $messageTextWidget <ButtonPress-3> {popupMenu $messageTextMenu %X %Y %x %y}
-
+#TODO: add bindings to mailbox mode
     foreach w [ list $topicTree $messageTree ] {
         bind $w <Home> [ list $w yview moveto 0 ]
         bind $w <End> [ list $w yview moveto 1 ]
@@ -2265,14 +2317,12 @@ proc postMessage {topic {item ""}} {
     if { $item == "" } {
         set item topic
     }
-    editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ] draft
+    editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ]
 }
 
 #TODO: beautifulize window(v 1.1)
 # buttons: save, send, close
-proc editMessage {letter queue} {
-    global $queue
-
+proc editMessage {letter} {
 #    goOnline
 #    if { $::autonomousMode } {
 #        return
@@ -2295,16 +2345,9 @@ proc editMessage {letter queue} {
     wm withdraw $f
     wm title $f [ mc "Compose message" ]
 
-#XXX: here
-#TODO
-    set sendScript "[ list sendReply $f $queue ]; [ list destroy $f ]"
-#    set sendScript [ lambda::closure {f queue} {letter} {
-#        putMailToQueue $queue $letter
-#        list destroy $f
-#    } ]
-#TODO
+    set sendScript "[ list sendReply $f outcoming ]; [ list destroy $f ]"
+    set saveScript "[ list sendReply $f draft ]; [ list destroy $f ]"
     set cancelScript [ list destroy $f ]
-
 
     set w [ ttk::frame $f.headerFrame ]
     grid \
@@ -2359,7 +2402,7 @@ proc editMessage {letter queue} {
 
     grid [ buttonBox $f \
         [ list -text [ mc "Send" ] -command $sendScript ] \
-        [ list -text [ mc "Save" ] -command $sendScript ] \
+        [ list -text [ mc "Save" ] -command $saveScript ] \
         [ list -text [ mc "Cancel" ] -command $cancelScript ] \
     ] -sticky nswe
 
@@ -2370,7 +2413,7 @@ proc editMessage {letter queue} {
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f <Escape> $cancelScript
-#    bind $f <Control-s> $sendScript
+    bind $f <Control-Return> $sendScript
 #    bind $f <Control-S> $sendScript
 
     focus $f.textFrame.textContainer.text
@@ -2557,10 +2600,24 @@ proc showMessageQueue {queue} {
         array set cur $letter
         set cur(X-LOR-Id) $i
         set cur(X-LOR-ReplyTo-Id) ""
+        set cur(X-LOR-Unread) 0
         insertMessage 0 [ array get cur ]
         array unset cur
         incr i
     }
+    catch {
+        $::messageTree focus 0
+    }
+}
+
+#TODO: do via tablelist
+proc deleteMessage {w item} {
+    global currentTopic
+    upvar #0 $currentTopic q
+
+    set q [ lreplace $q $item $item ]
+    clearTreeItemChildrens $w ""
+    showMessageQueue $currentTopic
 }
 
 ############################################################################
