@@ -247,7 +247,7 @@ proc initMenu {} {
         set mm [ menu $m.user -tearoff 0 ]
         $mm add command -label "User info" -accelerator "Ctrl-I" -command [ list $invoke $w userInfo ]
         $mm add command -label "Ignore user" -command [ list $invoke $w ignoreUser ]
-        $mm add command -label "Tag user..." -command [ list $invoke $w tagUser ]
+        $mm add command -label "Tag user..." -command [ list $invoke $w tagUser . ]
     }
     foreach {m invoke} [ list \
         $menuTopic invokeMenuCommand \
