@@ -1204,7 +1204,28 @@ proc openMessage {w item} {
 
 proc topicReply {w item} {
     global lorUrl
-    openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
+    global allTopicsWidget
+
+    switch -regexp $item {
+        news {
+            openUrl "http://$lorUrl/add-section.jsp?section=1"
+        }
+        forum {
+            openUrl "http://$lorUrl/add-section.jsp?section=2"
+        }
+        {forum\d+} {
+            openUrl "http://$lorUrl/add.jsp?group=[ string trim $item forum ]"
+        }
+        gallery {
+            openUrl "http://$lorUrl/add.jsp?group=4962"
+        }
+        votes {
+            openUrl "http://$lorUrl/add-poll.jsp"
+        }
+        {\d+} {
+            openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
+        }
+    }
 }
 
 proc topicUserInfo {w item} {
