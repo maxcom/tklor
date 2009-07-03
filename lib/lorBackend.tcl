@@ -72,17 +72,17 @@ foreach stream {stdin stdout} {
 }
 
 array set p [ ::cmdline::getoptions argv [ list \
-    [ list libDir.arg           $libDir "Library path" ] \
-    [ list get.arg              ""      "Get messages from thread <id>" ] \
-    [ list login                        "Log in to LOR" ] \
-    [ list useragent.arg        "tkLOR" "HTTP User-Agent" ] \
-    [ list useproxy                     "Use proxy" ] \
-    [ list autoproxy                    "Use proxy autoconfiguration" ] \
-    [ list proxyhost.arg        ""      "Proxy host" ] \
-    [ list proxyport.arg        ""      "Proxy port" ] \
-    [ list proxyauth                    "Proxy authorization" ] \
-    [ list proxyuser.arg        ""      "Proxy user" ] \
-    [ list proxypassword.arg    ""      "Proxy password" ] \
+    [ list libDir.arg   $libDir "Library path" ] \
+    {get.arg            ""      "Get messages from thread <id>"} \
+    {login                      "Log in to LOR"} \
+    {useragent.arg      "tkLOR" "HTTP User-Agent"} \
+    {useproxy                   "Use proxy"} \
+    {autoproxy                  "Use proxy autoconfiguration"} \
+    {proxyhost.arg      ""      "Proxy host"} \
+    {proxyport.arg      ""      "Proxy port"} \
+    {proxyauth                  "Proxy authorization"} \
+    {proxyuser.arg      ""      "Proxy user"} \
+    {proxypassword.arg  ""      "Proxy password"} \
 ] ]
 
 loadAppLibs $p(libDir)
@@ -101,8 +101,14 @@ if { $p(get) != "" } {
 
 if $p(login) {
     array set arg [ parseArgs stdin ]
-    puts -nonewline "VERY-COOL-LOGIN-COOKIE"
-    exit 0
+    if [ catch {
+        puts -nonewline [ ::lor::login $arg(login) $arg(password) ]
+    } err ] {
+        puts stderr $err
+        exit 1
+    } else {
+        exit 0
+    }
 }
 
 puts stderr "No actions given"

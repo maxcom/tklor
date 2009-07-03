@@ -35,9 +35,7 @@ namespace export \
     userInfo \
     getTopicUrl \
     getMessageUrl \
-    login \
-    logout \
-    isLoggedIn
+    login
 
 variable forumGroups {
     126     General
@@ -55,9 +53,6 @@ variable forumGroups {
 }
 
 variable lorUrl "http://www.linux.org.ru"
-
-variable loggedIn 0
-variable cookies ""
 
 proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
     variable lorUrl
@@ -256,8 +251,6 @@ proc getMessageUrl {item topic} {
     return "$lorUrl/jump-message.jsp?msgid=$topic&cid=$item"
 }
 
-# ::http::geturl in this function called synchronously because
-# there are no other tasks can be running in parallel while 'startSession' called.
 proc startSession {} {
     variable lorUrl
 
@@ -279,12 +272,8 @@ proc startSession {} {
     }
 }
 
-# ::http::geturl in this function called synchronously because
-# there are no other tasks can be running in parallel while 'login' called.
 proc login {user password} {
     variable lorUrl
-    variable loggedIn
-    variable cookies
 
     set url "$lorUrl/login.jsp"
 
@@ -294,12 +283,10 @@ proc login {user password} {
             -headers [ list "JSESSIONID" [ startSession ] ] \
         ]
 
-        set loggedIn 0
         # Yes, ::http::ncode must be 302 :)
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 302 } {
             upvar #0 $token state
 
-            set loggedIn 1
             set cookies ""
             foreach {key value} $state(meta) {
                 if { $key == "Set-Cookie" && \
@@ -309,30 +296,19 @@ proc login {user password} {
             }
             ::http::cleanup $token
         } else {
-            error [ ::http::code $token ]
+            set err [ ::http::code $token ]
+            ::http::cleanup $token
+            error $err
         }
     } err ] {
-        ::http::cleanup $token
         error $err
     }
-}
-
-proc logout {} {
-    variable loggedIn
-    variable cookies
-
-    set loggedIn 0
-    set cookies ""
-}
-
-proc isLoggedIn {} {
-    variable loggedIn
-
-    return $loggedIn
+    return $cookies
 }
 
 proc postMessage {topic message title text preformattedText autoUrl onError onComplete} {
     variable lorUrl
+#move to params
     variable cookies
     variable loggedIn
 

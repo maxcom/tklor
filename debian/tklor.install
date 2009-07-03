@@ -10,7 +10,6 @@ lib/gaa_mbox.tcl usr/lib/tkLOR
 lib/gaa_tileDialogs.tcl usr/lib/tkLOR
 lib/gaa_tools.tcl usr/lib/tkLOR
 lib/lorParser.tcl usr/lib/tkLOR
-lib/lorBackend.tcl usr/lib/tkLOR
 lib/pkgIndex.tcl usr/lib/tkLOR
 lib/taskManager.tcl usr/lib/tkLOR
 lib/msgs/ru.msg usr/lib/tkLOR/msgs

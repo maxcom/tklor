@@ -117,6 +117,8 @@ proc setUpdateHandler {script} {
 }
 
 proc getTasks {} {
+    variable tasks
+
     return [ array get tasks ]
 }
 
