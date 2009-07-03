@@ -91,7 +91,9 @@ set browser ""
 set ignoreList ""
 set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
+set menuMessage ""
 set messageMenu ""
+set menuTopic ""
 set topicMenu ""
 set messageTextMenu ""
 
@@ -210,6 +212,7 @@ set options {
 proc initMenu {} {
     global topicTree messageTree
     global messageMenu topicMenu messageTextMenu
+    global menuTopic menuMessage
 
     menu .menu -tearoff 0
     .menu add cascade \

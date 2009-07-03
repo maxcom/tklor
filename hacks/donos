@@ -1,5 +1,19 @@
-bind . <Control-d> \
-    {invokeMenuCommand $messageTree ::user::donos::openDonosWindow}
+foreach w [ list $messageTree $topicTree ] {
+    bind $w <Control-d> \
+        [ list invokeMenuCommand $w ::user::donos::openDonosWindow ]
+}
+
+foreach {m w invoke} [ list \
+    $menuTopic $topicTree invokeMenuCommand \
+    $topicMenu $topicTree invokeItemCommand \
+    $menuMessage $messageTree invokeMenuCommand \
+    $messageMenu $messageTree invokeItemCommand ] {
+
+    $m add command \
+        -label "Донести модератору" \
+        -command [ list $invoke $w ::user::donos::openDonosWindow ] \
+        -accelerator "Ctrl-D"
+}
 
 namespace eval user {
 namespace eval donos {
@@ -31,18 +45,25 @@ set reasons {
 }
 
 proc openDonosWindow {w item} {
-    if { $w != $::messageTree || $::rightViewState != "MESSAGE" } {
-        return
-    }
-
     variable id
     variable reasons
     global currentTopic
 
-    if { $item == "topic" } {
-        set url [ ::lor::getTopicUrl $currentTopic ]
+    if { $w == $::messageTree } {
+        if { $::rightViewState != "MESSAGE" } {
+            return
+        }
+        if { $item == "topic" } {
+            set url [ ::lor::getTopicUrl $currentTopic ]
+        } else {
+            set url [ ::lor::getMessageUrl $item $currentTopic ]
+        }
     } else {
-        set url [ ::lor::getMessageUrl $item $currentTopic ]
+        if [ regexp {^\d+$} $item ] {
+            set url [ ::lor::getTopicUrl $item ]
+        } else {
+            return
+        }
     }
 
     set f [ toplevel ".donosWindow[ incr id ]" -class Dialog ]
@@ -96,6 +117,7 @@ proc sendDonos {f} {
         X-LOR-Time  [ clock format \
                         [ clock seconds ] -format {%d.%m.%Y %H:%M:%S} \
                     ] \
+        Content-Type "text/plain" \
         body        "Ссылка: $url\nПричина: $reason" \
     ]
 }
