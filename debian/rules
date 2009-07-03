@@ -40,7 +40,7 @@ install-indep:
 	
 	# Add here commands to install the indep part of the package into
 		
-	install -m 755 $(CURDIR)/../tklor  $(CURDIR)/debian/tklor/usr/bin/tklor
+	install -m 755 $(CURDIR)/tkLOR  $(CURDIR)/debian/tklor/usr/bin/tkLOR
 
 	dh_install -i
 
