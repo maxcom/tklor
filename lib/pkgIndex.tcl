@@ -11,3 +11,4 @@
 package ifneeded gaa_lambda 1.0 [list source [file join $dir gaa_lambda.tcl]]
 package ifneeded gaa_tileDialogs 1.0 [list source [file join $dir gaa_tileDialogs.tcl]]
 package ifneeded gaa_tools 1.0 [list source [file join $dir gaa_tools.tcl]]
+package ifneeded gaa_mbox 1.0 [list source [file join $dir gaa_mbox.tcl]]

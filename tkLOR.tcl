@@ -820,71 +820,18 @@ proc initDirs {} {
 }
 
 proc saveTopicTextToCache {topic header text nick time approver approveTime} {
-    global appName
     global configDir threadSubDir
 
-    set f [ open [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] "w+" ]
-    fconfigure $f -encoding utf-8
-    puts $f "From $nick"
-    puts $f "Subject: $header"
-    puts $f "X-LOR-Time: $time"
-    puts $f "X-LOR-Approver: $approver"
-    puts $f "X-LOR-Approve-Time: $approveTime"
-    puts $f ""
-    foreach line [ split $text "\n" ] {
-        if [ string equal -length 5 $line "From " ] {
-            puts $f ">$line"
-        } else {
-            puts $f $line
-        }
-    }
-    close $f
-}
-
-proc parseMbox {fileName} {
-    set res ""
-
-    set f [ open $fileName "r" ]
-    fconfigure $f -encoding utf-8
-    while { [ gets $f s ] >=0 } {
-        if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
-            break
-        }
-    }
-    if [ eof $f ] {
-        return ""
-    }
-    while { ! [eof $f ] } {
-        set cur ""
-        lappend cur "From" $nick
-
-        while { [ gets $f s ] >=0 } {
-            if { $s == "" } {
-                break
-            }
-            if [ regexp -lineanchor -- {^([\w-]+): (.+)$} $s dummy tag val ] {
-                lappend cur $tag $val
-            }
-        }
-
-        set body ""
-        while { [ gets $f s ] >=0 } {
-            if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
-                break
-            } else {
-                if [ string equal -length 6 $s ">From " ] {
-                    set s [ string trimleft $s ">" ]
-                }
-                append body "$s\n"
-            }
-        }
-        lappend cur "body" [ string trimright $body "\n" ]
-
-        lappend res $cur
-    }
-    close $f
-
-    return $res
+    set fname [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ]
+    set letter ""
+    lappend letter "From" $nick
+    lappend letter "Subject" $header
+    lappend letter "X-LOR-Time" $time
+    lappend letter "X-LOR-Unread" 0
+    lappend letter "X-LOR-Approver" $approver
+    lappend letter "X-LOR-Approve-Time" $approveTime
+    lappend letter "body" $text
+    ::gaa::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
 }
 
 proc loadTopicTextFromCache {topic} {
@@ -893,39 +840,32 @@ proc loadTopicTextFromCache {topic} {
 
     updateTopicText "" "" ""
     catch {
-        array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] ] 0 ]
-        updateTopicText $topic $res(Subject) $res(From)
-        # cached topic text always assumed read :)
-        insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
+        set fname [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ]
+        deflambda script {topic letter} {
+            array set res $letter
+            updateTopicText $topic $res(Subject) $res(From)
+            insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
+        } $topic
+        ::gaa::mbox::parseFile $fname $script -encoding utf-8
     }
 }
 
 proc saveMessage {topic id header text nick time replyTo replyToId unread} {
-    global appName
     global configDir threadSubDir
 
-    set f [ open [ file join $configDir $threadSubDir $topic ] "a" ]
-    fconfigure $f -encoding utf-8
-    puts $f "From $nick"
-    puts $f "Subject: $header"
-    puts $f "X-LOR-Time: $time"
-    puts $f "X-LOR-Id: $id"
-    puts $f "X-LOR-Unread: $unread"
+    set fname [ file join $configDir $threadSubDir $topic ]
+    set letter ""
+    lappend letter "From" $nick
+    lappend letter "Subject" $header
+    lappend letter "X-LOR-Time" $time
+    lappend letter "X-LOR-Id" $id
+    lappend letter "X-LOR-Unread" $unread
     if { $replyTo != "" } {
-        puts $f "To: $replyTo"
-        puts $f "X-LOR-ReplyTo-Id: $replyToId"
+        lappend letter "To" $replyTo
+        lappend letter "X-LOR-ReplyTo-Id" $replyToId
     }
-    puts $f ""
-
-    foreach line [ split $text "\n" ] {
-        if [ string equal -length 5 $line "From " ] {
-            puts $f ">$line"
-        } else {
-            puts $f $line
-        }
-    }
-    puts $f ""
-    close $f
+    lappend letter "body" $text
+    ::gaa::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
 }
 
 proc loadCachedMessages {topic} {
@@ -933,8 +873,8 @@ proc loadCachedMessages {topic} {
     global configDir threadSubDir
     upvar #0 messageTree w
 
-    catch {
-    foreach letter [ parseMbox [ file join $configDir $threadSubDir $topic ] ] {
+    set fname [ file join $configDir $threadSubDir $topic ]
+    deflambda processLetter {letter} {
         array set res $letter
         catch {
             if { [ lsearch -exact [ array names res ] "To" ] != -1 } {
@@ -952,6 +892,8 @@ proc loadCachedMessages {topic} {
         }
         array unset res
     }
+    catch {
+        ::gaa::mbox::parseFile $fname $processLetter -encoding utf-8
     }
 }
 
@@ -973,8 +915,10 @@ proc saveTopicRecursive {topic item} {
 }
 
 proc saveTopicToCache {topic} {
+    global messageTree
+
     startWait "Saving topic to cache"
-    if { $topic != "" } {
+    if { $topic != "" && [ $messageTree exists "topic" ] } {
         clearDiskCache $topic
         saveTopicRecursive $topic "topic"
     }
@@ -1978,6 +1922,7 @@ proc loadAppLibs {} {
     package require gaa_lambda 1.0
     package require gaa_tileDialogs 1.0
     package require gaa_tools 1.0
+    package require gaa_mbox 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
