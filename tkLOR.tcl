@@ -528,6 +528,7 @@ proc setTopic {topic} {
     }
 
     startWait "Loading topic..."
+    setItemValue $topicWidget "" unreadChild 0
 
     if { $topic != $currentTopic } {
         foreach item [ $topicWidget children "" ] {
@@ -567,6 +568,7 @@ proc setTopic {topic} {
     }
     focus $topicWidget
     update
+    updateWindowTitle
     if { $expandNewMessages == "1" } {
         nextUnread $topicWidget ""
     }
@@ -640,16 +642,16 @@ proc click {w item} {
         updateMessage $item
     }
     updateItemState $w $item
+
+    updateWindowTitle
 }
 
 proc addUnreadChild {w item {count 1}} {
+    setItemValue $w $item unreadChild [ expr [ getItemValue $w $item unreadChild ] + $count ]
     if { $item != "" } {
-        setItemValue $w $item unreadChild [ expr [ getItemValue $w $item unreadChild ] + $count ]
-        if { [ getItemValue $w $item parent ] != "" } {
-            addUnreadChild $w [ getItemValue $w $item parent ] $count
-        }
-        updateItemState $w $item
+        addUnreadChild $w [ getItemValue $w $item parent ] $count
     }
+    updateItemState $w $item
 }
 
 proc getItemText {w item} {
@@ -671,6 +673,8 @@ proc getItemText {w item} {
 
 proc updateItemState {w item} {
     global ignoreList
+
+    if { $item == "" } return
 
     set tag "item"
     if [ getItemValue $w $item unread ] {
@@ -1148,6 +1152,7 @@ proc markAllMessages {unread} {
     foreach item [ $w children "" ] {
         mark $w $item thread $unread
     }
+    updateWindowTitle
 }
 
 proc reply {w item} {
@@ -1243,6 +1248,7 @@ proc invokeItemCommand {w command args} {
     set item [ $w identify row $mouseX $mouseY ]
     if { $item != "" } {
         eval "$command $w $item $args"
+        updateWindowTitle
     }
 }
 
@@ -1250,6 +1256,7 @@ proc invokeMenuCommand {w command args} {
     set item [ $w focus ]
     if { $item != "" } {
         eval "$command $w $item $args"
+        updateWindowTitle
     }
 }
 
@@ -1556,6 +1563,23 @@ proc setFocusedItem {w item} {
     $w see $item
     $w focus $item
     $w selection set $item
+}
+
+proc updateWindowTitle {} {
+    global appName
+    global topicWidget
+    global topicHeader
+    global currentTopic
+
+    set s $appName
+    if { $currentTopic != "" } {
+        append s " $topicHeader"
+        set k [ getItemValue $topicWidget {} unreadChild ]
+        if { $k != "0" } {
+            append s " \[ $k new \]"
+        }
+    }
+    wm title . $s
 }
 
 ############################################################################
