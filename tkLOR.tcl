@@ -2168,7 +2168,7 @@ proc login {} {
 
     if { ![ remoting::sendRemote $backendId lor::isLoggedIn ] } {
         openLoginWindow
-        remoting::sendRemote -async $backendId login $lorLogin $lorPassword
+        remoting::sendRemote -async $backendId [ list login $lorLogin $lorPassword ]
     }
 }
 
