@@ -193,15 +193,17 @@ proc initMenu {} {
     $m add command -label "Refresh sub-tree" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
     $m add separator
     $m add command -label "Reply" -command {invokeMenuCommand $allTopicsWidget topicReply}
+    $m add cascade -label "Mark" -menu $m.mark
+
+    set mm [ menu $m.mark -tearoff 0 ]
+    $mm add command -label "Mark as read" -command {invokeMenuCommand $allTopicsWidget mark message 0}
+    $mm add command -label "Mark as unread" -command {invokeMenuCommand $allTopicsWidget mark message 1}
+    $mm add command -label "Mark thread as read" -command {invokeMenuCommand $allTopicsWidget mark thread 0}
+    $mm add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
+
     $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
-    $m add separator
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $allTopicsWidget nextUnread}
-    $m add separator
-    $m add command -label "Mark as read" -command {invokeMenuCommand $allTopicsWidget mark message 0}
-    $m add command -label "Mark as unread" -command {invokeMenuCommand $allTopicsWidget mark message 1}
-    $m add command -label "Mark thread as read" -command {invokeMenuCommand $allTopicsWidget mark thread 0}
-    $m add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
     $m add separator
     $m add command -label "Move to favorites" -command {invokeMenuCommand $allTopicsWidget addToFavorites}
     $m add command -label "Clear cache" -command {invokeMenuCommand $allTopicsWidget clearTopicCache}
@@ -211,17 +213,20 @@ proc initMenu {} {
     $m add command -label "Refresh tree" -accelerator "F5" -command refreshTopic
     $m add separator
     $m add command -label "Reply" -accelerator "Ctrl-R" -command {invokeMenuCommand $topicWidget reply}
+    $m add cascade -label "Mark" -menu $m.mark
+
+    set mm [ menu $m.mark -tearoff 0 ]
+    $mm add command -label "Mark as read" -command {invokeMenuCommand $topicWidget mark message 0}
+    $mm add command -label "Mark as unread" -command {invokeMenuCommand $topicWidget mark message 1}
+    $mm add command -label "Mark thread as read" -command {invokeMenuCommand $topicWidget mark thread 0}
+    $mm add command -label "Mark thread as unread" -command {invokeMenuCommand $topicWidget mark thread 1}
+    $mm add command -label "Mark all as read" -command "markAllMessages 0"
+    $mm add command -label "Mark all as unread" -command "markAllMessages 1"
+
     $m add command -label "User info" -accelerator "Ctrl-I" -command {invokeMenuCommand $topicWidget userInfo}
     $m add command -label "Open in browser" -accelerator "Ctrl-O" -command {invokeMenuCommand $topicWidget openMessage}
     $m add separator
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $topicWidget nextUnread}
-    $m add separator
-    $m add command -label "Mark as read" -command {invokeMenuCommand $topicWidget mark message 0}
-    $m add command -label "Mark as unread" -command {invokeMenuCommand $topicWidget mark message 1}
-    $m add command -label "Mark thread as read" -command {invokeMenuCommand $topicWidget mark thread 0}
-    $m add command -label "Mark thread as unread" -command {invokeMenuCommand $topicWidget mark thread 1}
-    $m add command -label "Mark all as read" -command "markAllMessages 0"
-    $m add command -label "Mark all as unread" -command "markAllMessages 1"
 
     set m [ menu .menu.search -tearoff 0 ]
     $m add command -label "Find..." -accelerator "Ctrl-F" -command find
@@ -242,13 +247,16 @@ proc initPopups {} {
     set topicMenu [ menu .topicMenu -tearoff 0 ]
     $topicMenu add command -label "Refresh sub-tree" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
     $topicMenu add command -label "Reply" -command {invokeItemCommand $allTopicsWidget topicReply}
+    $topicMenu add cascade -label "Mark" -menu $topicMenu.mark
+
+    set mm [ menu $topicMenu.mark -tearoff 0 ]
+    $mm add command -label "Mark as read" -command {invokeItemCommand $allTopicsWidget mark message 0}
+    $mm add command -label "Mark as unread" -command {invokeItemCommand $allTopicsWidget mark message 1}
+    $mm add command -label "Mark thread as read" -command {invokeItemCommand $allTopicsWidget mark thread 0}
+    $mm add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
+
     $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
-    $topicMenu add separator
-    $topicMenu add command -label "Mark as read" -command {invokeItemCommand $allTopicsWidget mark message 0}
-    $topicMenu add command -label "Mark as unread" -command {invokeItemCommand $allTopicsWidget mark message 1}
-    $topicMenu add command -label "Mark thread as read" -command {invokeItemCommand $allTopicsWidget mark thread 0}
-    $topicMenu add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
     $topicMenu add separator
     $topicMenu add command -label "Move to favorites" -command {invokeItemCommand $allTopicsWidget addToFavorites}
     $topicMenu add command -label "Clear cache" -command {invokeItemCommand $allTopicsWidget clearTopicCache}
@@ -256,15 +264,18 @@ proc initPopups {} {
 
     set messageMenu [ menu .messageMenu -tearoff 0 ]
     $messageMenu add command -label "Reply" -command {invokeItemCommand $topicWidget reply}
+    $messageMenu add cascade -label "Mark" -menu $messageMenu.mark
+
+    set mm [ menu $messageMenu.mark -tearoff 0 ]
+    $mm add command -label "Mark as read" -command {invokeItemCommand $topicWidget mark message 0}
+    $mm add command -label "Mark as unread" -command {invokeItemCommand $topicWidget mark message 1}
+    $mm add command -label "Mark thread as read" -command {invokeItemCommand $topicWidget mark thread 0}
+    $mm add command -label "Mark thread as unread" -command {invokeItemCommand $topicWidget mark thread 1}
+    $mm add command -label "Mark all as read" -command "markAllMessages 0"
+    $mm add command -label "Mark all as unread" -command "markAllMessages 1"
+
     $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
     $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
-    $messageMenu add separator
-    $messageMenu add command -label "Mark as read" -command {invokeItemCommand $topicWidget mark message 0}
-    $messageMenu add command -label "Mark as unread" -command {invokeItemCommand $topicWidget mark message 1}
-    $messageMenu add command -label "Mark thread as read" -command {invokeItemCommand $topicWidget mark thread 0}
-    $messageMenu add command -label "Mark thread as unread" -command {invokeItemCommand $topicWidget mark thread 1}
-    $messageMenu add command -label "Mark all as read" -command "markAllMessages 0"
-    $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 }
 
 proc initAllTopicsTree {} {
