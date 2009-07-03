@@ -111,6 +111,11 @@ set readingSashPos 20
 set colorList {{tklor blue foreground}}
 set colorCount [ llength $colorList ]
 
+# Mail queues
+set draft ""
+set sent ""
+set outcoming ""
+
 # dirty hack: at current moment tile does not provide interface to get current theme
 if [ catch {set tileTheme $::ttk::currentTheme} ] {
     set tileTheme "default"
@@ -311,17 +316,21 @@ proc initTopicTree {} {
     global forumVisibleGroups
 
     set f [ ttk::frame .topicTreeFrame -width 250 -relief sunken ]
-    set w [ ttk::treeview $f.w -columns {nick unread unreadChild text msg} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
+    set w [ ttk::treeview $f.w -columns {nick unread unreadChild text msg} -displaycolumns {nick unreadChild} -yscrollcommand "$f.scroll set" ]
 
     configureTags $w
     $w heading #0 -text [ mc "Title" ] -anchor w
+    $w heading nick -text [ mc "Nick" ] -anchor w
     $w heading unreadChild -text [ mc "Threads" ] -anchor w
     $w column #0 -width 220
+    $w column nick -width 60
     $w column unreadChild -width 30 -stretch 0
 
     $w insert {} end -id messages -text [ mc "Messages" ] -values [ list "" 0 0 [ mc "Messages" ] ]
     $w insert messages end -id draft -text [ mc "Draft" ] -values [ list "" 0 0 [ mc "Draft" ] ]
     updateItemState $w draft
+    $w insert messages end -id outcoming -text [ mc "Outcoming" ] -values [ list "" 0 0 [ mc "Outcoming" ] ]
+    updateItemState $w outcoming
     $w insert messages end -id sent -text [ mc "Sent" ] -values [ list "" 0 0 [ mc "Sent" ] ]
     updateItemState $w sent
 
@@ -477,6 +486,7 @@ proc exitProc {} {
 
     saveTopicToCache $currentTopic
     saveTopicListToCache
+    saveMessageQueuesToCache
     saveOptions
 
     exit
@@ -582,12 +592,13 @@ proc renderHtmlTag {w stack tag slash param text} {
     $w insert end $text
 }
 
+#TODO: move htmlToText for Subject into lorBackend
 proc showMessageInMainWindow {msg} {
     global messageTextWidget
     global currentSubject currentNick currentPrevNick currentTime
 
     array set letter $msg
-    set currentSubject $letter(Subject)
+    set currentSubject [ htmlToText $letter(Subject) ]
     set currentNick $letter(From)
     if [ info exists letter(To) ] {
     	set currentPrevNick $letter(To)
@@ -653,6 +664,12 @@ proc setTopic {topic} {
         saveTopicToCache $currentTopic
     }
 
+    if { $topic == "sent" || $topic == "draft" || $topic == "outcoming" } {
+        renderHtml $messageTextWidget ""
+        clearTreeItemChildrens $messageTree ""
+        showMessageQueue $topic
+        return
+    }
     if { $topic != $currentTopic } {
         setItemValue $messageTree "" unreadChild 0
 
@@ -660,7 +677,7 @@ proc setTopic {topic} {
         foreach item {currentSubject currentNick currentPrevNick currentTime} {
             set $item ""
         }
-        renderHtml $messageTextWidget ""
+#        renderHtml $messageTextWidget ""
 
         set currentTopic $topic
         set lastId 0
@@ -721,7 +738,11 @@ proc insertMessage {replace letter} {
     set header [ htmlToText $res(Subject) ]
     if [ info exists res(To) ]  {
         set id $res(X-LOR-Id)
-        set parent $res(X-LOR-ReplyTo-Id)
+        if [ info exists res(X-LOR-ReplyTo-Id) ] {
+            set parent $res(X-LOR-ReplyTo-Id)
+        } else {
+            set parent "topic"
+        }
         if { $res(To) == "" } {
             set parent "topic"
         }
@@ -782,9 +803,17 @@ proc setItemValue {w item valueName value} {
 proc click {w item} {
     global topicTree
     mark $w $item item 0
-    showMessageInMainWindow [ getItemValue $w $item msg ]
+    if { [ getItemValue $w $item msg ] != "" } {
+        showMessageInMainWindow [ getItemValue $w $item msg ]
+    }
     if { $w == $topicTree } {
+#TODO: Подумать как сделать покрасивее
         if { [ regexp -lineanchor -- {^\d} $item ] } {
+            setTopic $item
+        }
+        if { $item == "sent" || 
+             $item == "draft" || 
+             $item == "outcoming" } {
             setTopic $item
         }
     } else {
@@ -817,11 +846,7 @@ proc getItemText {w item} {
         }
         return $text
     } else {
-        set text [ getItemValue $w $item text ]
-        if { [ getItemValue $w $item nick ] != "" } {
-            append text " ([ getItemValue $w $item nick ])"
-        }
-        return $text
+        return [ getItemValue $w $item text ]
     }
 }
 
@@ -858,9 +883,11 @@ proc updateItemState {w item} {
     $w item $item -tags $tagList
 
     set text [ getItemText $w $item ]
-    foreach i $userTagList {
-        if { [ lindex $i 0 ] == [ getItemValue $w $item nick ] } {
-            append text [ join [ list " (" [ lindex $i 1 ] ")" ] "" ]
+        if { $w != $::topicTree } {
+        foreach i $userTagList {
+            if { [ lindex $i 0 ] == [ getItemValue $w $item nick ] } {
+                append text [ join [ list " (" [ lindex $i 1 ] ")" ] "" ]
+            }
         }
     }
     $w item $item -text $text
@@ -906,7 +933,7 @@ proc initDirs {} {
 proc saveTopicTextToCache {topic letter} {
     global cacheDir
 
-    set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
+    set fname [ file join $cacheDir "$topic.topic" ]
     ::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
 }
 
@@ -916,12 +943,12 @@ proc loadTopicFromCache {topic oncomplete} {
     global topicHeader
 
     set topicHeader ""
-    set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
+    set fname [ file join $cacheDir "$topic.topic" ]
     defclosure script {topic} {letter} {
         global topicHeader
 
         array set res $letter
-        set topicHeader "$res(Subject)\($res(From)\)"
+        set topicHeader "[ htmlToText $res(Subject) ]\($res(From)\)"
         array unset res
         insertMessage 1 $letter
     }
@@ -1146,6 +1173,7 @@ proc updateTopicList {{section ""}} {
 }
 
 #TODO: remove extra parameters(v 1.2+)
+#TODO: set all values by one command
 proc addTopicFromCache {parent id nick text unread {msg ""} {tobegin ""}} {
     upvar #0 topicTree w
 
@@ -1775,6 +1803,8 @@ proc fillCategoryWidget {categoryWidget parent} {
     global topicTree
 
     $categoryWidget insert {} end -id favorites -text [ mc "Favorites" ]
+    set from $topicTree
+    set to $categoryWidget
     processItems $topicTree "favorites" [ closure {from to} {item} {
         if { ![ regexp -lineanchor {^\d+$} $item ] } {
             $to insert [ $from parent $item ] end -id $item -text [ getItemValue $from $item text ]
@@ -2042,8 +2072,12 @@ proc showWindow {} {
 
 proc errorProc {title err {extInfo ""}} {
     global appName
+    global debug
 
     puts stderr "$err $extInfo"
+    if $debug {
+        append err "\n$extInfo"
+    }
     messageBox \
         -title [ mc "%s error" $appName ] \
         -message "$title" \
@@ -2208,11 +2242,10 @@ proc makeReplyToMessage {origLetter} {
     global appId
 
     array set orig $origLetter
-puts ">$origLetter<"
     array set letter ""
 
     set letter(From) $lorLogin
-    set letter(Subject) [ makeReplyHeader $orig(Subject) ]
+    set letter(Subject) [ makeReplyHeader [ htmlToText $orig(Subject) ] ]
     set letter(To) $orig(From)
     if [ info exists orig(X-LOR-Id) ] {
         set letter(X-LOR-ReplyTo-Id) "$currentTopic.$orig(X-LOR-Id)"
@@ -2230,9 +2263,9 @@ proc postMessage {topic {item ""}} {
     upvar #0 messageTree w
 
     if { $item == "" } {
-        set $item topic
+        set item topic
     }
-    editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ] {}
+    editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ] draft
 }
 
 #TODO: beautifulize window(v 1.1)
@@ -2264,8 +2297,11 @@ proc editMessage {letter queue} {
 
 #XXX: here
 #TODO
-#    set sendScript "[ list sendReply $f $topic $item ]; [ list destroy $f ]"
-    set sendScript [ list destroy $f ]
+    set sendScript "[ list sendReply $f $queue ]; [ list destroy $f ]"
+#    set sendScript [ lambda::closure {f queue} {letter} {
+#        putMailToQueue $queue $letter
+#        list destroy $f
+#    } ]
 #TODO
     set cancelScript [ list destroy $f ]
 
@@ -2323,6 +2359,7 @@ proc editMessage {letter queue} {
 
     grid [ buttonBox $f \
         [ list -text [ mc "Send" ] -command $sendScript ] \
+        [ list -text [ mc "Save" ] -command $sendScript ] \
         [ list -text [ mc "Cancel" ] -command $cancelScript ] \
     ] -sticky nswe
 
@@ -2333,8 +2370,8 @@ proc editMessage {letter queue} {
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f <Escape> $cancelScript
-    bind $f <Control-s> $sendScript
-    bind $f <Control-S> $sendScript
+#    bind $f <Control-s> $sendScript
+#    bind $f <Control-S> $sendScript
 
     focus $f.textFrame.textContainer.text
 #    login
@@ -2373,7 +2410,14 @@ proc quoteText {text} {
     return [ join $res "\n\n" ]
 }
 
-proc sendReply {f topic message} {
+proc putMailToQueue {queueName newLetter} {
+    upvar #0 $queueName queue
+
+    lappend queue $newLetter
+}
+
+#TODO: remove
+proc sendReply {f queue} {
     set header [ $f.textFrame.header get ]
     set text [ $f.textFrame.textContainer.text get 0.0 end ]
     set preformattedText [ $f.optionsFrame.format current ]
@@ -2383,11 +2427,19 @@ proc sendReply {f topic message} {
         set text [ normalizeText $text ]
     }
 
-error "TODO: temporary disabled"
-    defCallbackLambda finish {type} {
-        taskCompleted $type
-    } postMessage
-    addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
+    putMailToQueue $queue [ list \
+        "From"      $::lorLogin \
+        "To"        "jopa" \
+        "Subject"   $header \
+        "X-LOR-Time" "pox" \
+        "body"      $text \
+    ]
+
+#error "TODO: temporary disabled"
+#    defCallbackLambda finish {type} {
+#        taskCompleted $type
+#    } postMessage
+#    addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
 }
 
 proc normalizeText {text} {
@@ -2471,6 +2523,46 @@ proc stopAllTasks {} {
     }
 }
 
+proc loadMessageQueuesFromCache {} {
+    global cacheDir
+
+    foreach q {sent draft outcoming} {
+        set fname [ file join $cacheDir $q ]
+        ::mbox::parseFile $fname [ closure {q} {letter} {
+            upvar #0 $q queue
+            lappend queue $letter
+        } ] -sync 1
+    }
+}
+
+proc saveMessageQueuesToCache {} {
+    global cacheDir
+
+    foreach q {sent draft outcoming} {
+        set fname [ file join $cacheDir $q ]
+        set f [ open $fname "w+" ]
+        fconfigure $f -encoding "utf-8"
+        foreach letter [ set ::$q ] {
+            ::mbox::writeToStream $f $letter
+        }
+        close $f
+    }
+}
+
+proc showMessageQueue {queue} {
+    upvar #0 $queue q
+
+    set i 0
+    foreach letter $q {
+        array set cur $letter
+        set cur(X-LOR-Id) $i
+        set cur(X-LOR-ReplyTo-Id) ""
+        insertMessage 0 [ array get cur ]
+        array unset cur
+        incr i
+    }
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -2498,6 +2590,7 @@ applyOptions
 update
 
 loadTopicListFromCache
+loadMessageQueuesFromCache
 
 if {! [ file exists [ file join $configDir "config" ] ] } {
     showOptionsDialog

@@ -81,6 +81,7 @@ proc parseTopic {topic topicTextCommand messageCommand lastId} {
         error $err $::errorInfo
     }
 
+#TODO: set To: for all messages (if not present, set to topic's From:)
     set tree [ struct::tree ]
     if [ catch {
         for {set page $maxPage} {$page >= 0} {incr page -1} {
