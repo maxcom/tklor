@@ -672,13 +672,13 @@ proc insertMessage {id nick header time msg parent parentNick unread {force ""}}
         set unread [ expr {$msg != [ getItemValue $w $id msg ]} ]
     } else {
         $w insert $parent end -id $id -text $nick
+        setItemValue $w $id unreadChild 0
     }
     foreach i {nick time msg parent parentNick} {
         setItemValue $w $id $i [ set $i ]
     }
     setItemValue $w $id header [ htmlToText $header ]
     setItemValue $w $id unread 0
-    setItemValue $w $id unreadChild 0
     if { $unread && ( ![ isUserIgnored $nick ] || $markIgnoredMessagesAsRead != "1" ) } {
         mark $w $id item 1
     }
@@ -2004,9 +2004,11 @@ proc loadAppLibs {} {
 
     package require gaa_lambda 1.0
     package require gaa_tileDialogs 1.0
+    package require gaa_tools 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
+    namespace import ::gaa::tools::*
 }
 
 ############################################################################
