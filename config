@@ -80,3 +80,6 @@ set proxyPassword "secret"
 #} else {
 #    set useProxy 0
 #}
+
+# force browser to use
+# set browser "firefox"

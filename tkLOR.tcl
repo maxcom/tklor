@@ -73,6 +73,8 @@ set proxyPort ""
 set proxyUser ""
 set proxyPassword ""
 
+set browser ""
+
 set ignoreList ""
 
 set messageMenu ""
@@ -1119,12 +1121,15 @@ proc topicOpenMessage {} {
 }
 
 proc openUrl {url} {
-    global tcl_platform
+    global tcl_platform browser
 
     if { [ string first Windows $tcl_platform(os) ] != -1 } {
         set prog "start"
     } else {
         set prog "x-www-browser"
+    }
+    if { $browser != "" } {
+        set prog $browser
     }
     catch {exec $prog $url &}
 }
