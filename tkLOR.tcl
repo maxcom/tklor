@@ -324,6 +324,7 @@ proc initAllTopicsTree {} {
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
 
     bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
+    bind $allTopicsWidget N {invokeMenuCommand $allTopicsWidget nextUnread}
     bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
 
     ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
@@ -391,6 +392,7 @@ proc initTopicTree {} {
     bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
 
     bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
+    bind $topicWidget N {invokeMenuCommand $topicWidget nextUnread}
     bind $topicWidget <Menu> {openContextMenu $topicWidget $messageMenu}
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
@@ -477,9 +479,13 @@ proc initMainWindow {} {
     bind . <F5> refreshTopic
 
     bind . <Control-r> {invokeMenuCommand $topicWidget reply}
+    bind . <Control-R> {invokeMenuCommand $topicWidget reply}
     bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
+    bind . <Control-I> {invokeMenuCommand $topicWidget userInfo}
     bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
+    bind . <Control-O> {invokeMenuCommand $topicWidget openMessage}
     bind . <Control-f> find
+    bind . <Control-F> find
 
     ttk::style theme use $tileTheme
 }
