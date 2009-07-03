@@ -1307,11 +1307,17 @@ proc mark {w item type unread} {
     global cacheDir
 
     set old [ getItemValue $w $item unread ]
-    if {$unread != $old} {
+    if { $unread != $old } { 
         setItemValue $w $item unread $unread
         addUnreadChild $w [ $w parent $item ] [ expr $unread - $old ]
         updateItemState $w $item
-        if { $w == $::topicTree } {
+        if { $w == $::topicTree ||
+            ( $item != "messages" &&
+                $item != "sent" &&
+                $item != "draft" &&
+                $item != "outcoming"
+            ) } {
+
             if { [ regexp -lineanchor {^\d+$} $item ] } {
                 if { $unread == "0" } {
                     set f [ open [ file join $cacheDir "$item.topic" ] "w" ]

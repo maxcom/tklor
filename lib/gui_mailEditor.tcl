@@ -147,6 +147,7 @@ proc editMessage {title letter buttons default command} {
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $destroyScript
     bind $f <Escape> $destroyScript
+    bind $f.textFrame.textContainer.text <Control-a> "$f.textFrame.textContainer.text tag add sel 0.0 end;break"
     bind $f.textFrame.textContainer.text <Control-Return> "[ list \
         [ namespace current ]::processClick \
         $f $storage $default $command \
