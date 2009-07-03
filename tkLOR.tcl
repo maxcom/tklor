@@ -530,7 +530,7 @@ proc parsePage {topic data} {
                 updateItemState $w $id
 
                 if { $expandNewMessages } {
-                    if { [ getItemValue $w [ getItemValue $w $id parent ] unread ] != "1" ) } {$w see $id}
+                    if { [ getItemValue $w [ getItemValue $w $id parent ] unread ] != "1" } {$w see $id}
                 }
             }
         }
@@ -846,6 +846,7 @@ proc startWait {} {
     set y [ expr ( $mh - $h ) / 2  ]
     if { $y > "0" } {set y "+$y"}
     wm geometry $f [ join [ list $w "x" $h $x $y ] "" ]
+    wm resizable $f 0 0
     wm deiconify $f
     grab $f
 }
