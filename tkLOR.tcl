@@ -776,7 +776,7 @@ proc initHttp {} {
     global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
     if { $useProxy != "0" } {
-        ::autoproxy::init 
+        ::autoproxy::init
         if { $proxyAutoSelect == "0" } {
             ::autoproxy::configure -proxy_host $proxyHost -proxy_port $proxyPort
         }
@@ -1000,10 +1000,9 @@ proc updateTopicList {{section ""}} {
     if { $section == "forum" } {
         foreach {id title} $forumGroups {
             updateTopicList "forum$id"
-
-            stopWait
-            return
         }
+        stopWait
+        return
     }
 
     deflambda processTopic {parent id nick header} {
@@ -1126,10 +1125,14 @@ proc reply {w item} {
     global topicTree
     global currentTopic
 
-    if { $w == $topicTree || $item == "topic" } {
+    if { $w == $topicTree } {
         openUrl [ ::lor::topicReply $item ]
     } else {
-        openUrl [ ::lor::messageReply $item $currentTopic ]
+        if { $item == "topic" } {
+             openUrl [ ::lor::topicReply $currentTopic ]
+        } else {
+            openUrl [ ::lor::messageReply $item $currentTopic ]
+        }
     }
 }
 
