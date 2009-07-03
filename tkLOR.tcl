@@ -173,7 +173,7 @@ proc initMenu {} {
     global topicTree messageTree
     global messageMenu topicMenu messageTextMenu
 
-    menu .menu -type menubar
+    menu .menu -tearoff 0
     .menu add cascade -label "LOR" -menu .menu.lor
     .menu add cascade -label "View" -menu .menu.view
     .menu add cascade -label "Topic" -menu .menu.topic
