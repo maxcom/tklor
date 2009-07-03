@@ -817,11 +817,24 @@ proc processArgv {} {
 }
 
 proc startWait {} {
-    . configure -cursor clock
+    set f .waitWindow
+    catch {destroy $f}
+    toplevel $f
+    pack [ ttk::label $f.label -text "Please, wait..." ]
+    update
+
+    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry . ] md mw mh mx my
+    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $f ] d w h x y
+    set x [ expr ( $mw - $w ) / 2  ]
+    if { $x > "0" } {set x "+$x"}
+    set y [ expr ( $mh - $h ) / 2  ]
+    if { $y > "0" } {set y "+$y"}
+    wm geometry $f [ join [ list $w "x" $h $x $y ] "" ]
+    grab $f
 }
 
 proc stopWait {} {
-    . configure -cursor ""
+    catch {destroy .waitWindow}
 }
 
 proc loadConfigFile {fileName} {
