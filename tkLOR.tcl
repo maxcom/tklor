@@ -514,6 +514,7 @@ proc renderHtmlTag {w stack tag slash param text} {
     set pos [ $w index end-1chars ]
     if { $slash != "/" } {
         switch -exact -- $tag {
+            pre -
             i {
                 $stack push [ list $tag $pos ]
             }
@@ -548,6 +549,7 @@ proc renderHtmlTag {w stack tag slash param text} {
         }
     } else {
         switch -exact -- $tag {
+            pre -
             a -
             i -
             p {
