@@ -1,54 +1,47 @@
-# Copyright 1999-2007 Gentoo Foundation
+# Copyright 1999-2008 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 
-inherit eutils
-
-DESCRIPTION="LOR reader"
-HOMEPAGE="http://tklor.googlecode.com/"
-MYPV="APP_VERSION"
-SRC_URI="http://tklor.googlecode.com/files/${PN}_${MYPV}-1.tar.gz"
-	
-IUSE=""
-
-DEPEND=">=dev-lang/tcl-8.5_beta1
-	>=dev-lang/tk-8.5_beta1"
+DESCRIPTION="Tcl/Tk client for reading linux.org.ru"
+HOMEPAGE="http://code.google.com/p/tklor/"
+SRC_URI="http://tklor.googlecode.com/files/${PN}_${PV}-1.tar.gz"
 
 LICENSE="GPL-3"
-KEYWORDS="~alpha ~amd64 sparc x86 ~x86"
 SLOT="0"
+KEYWORDS="~x86 ~amd64"
+IUSE=""
+
+DEPEND="|| ( ( dev-tcltk/tile
+               >=dev-lang/tcl-8.4
+			   >=dev-lang/tk-8.4 )
+			 ( >=dev-lang/tcl-8.5_beta1
+               >=dev-lang/tk-8.5_beta1 ) )
+	    dev-tcltk/tcllib"
+RDEPEND=${DEPEND}
 
 src_compile() {
-	# dont run make, because the Makefile is broken with all=install
-	echo -n
+	return 0
 }
 
-src_install() {
-	
-	cd ${WORKDIR}/${PN}-${MYPV} || die "cd failed!"
+src_install() {	
 	dodir /usr/share/tklor
 	cp tkLOR ${D}/usr/share/tklor
-	dodir /usr/share/tklor/examples
-	cp config userConfig ${D}/usr/share/tklor/examples
 	insinto /usr/share/pixmaps
 	doins tklor.xpm
 	insinto /usr/share/applications
-	doins tklor.desktop
-	
+	doins tklor.desktop	
 
-	cat <<-EOF > tkLOR
-	#!/bin/sh
-	exec wish /usr/share/tklor/tkLOR -name tklor
-	EOF
 	chmod +x tkLOR
 	dobin tkLOR
-	dosym tkLOR /usr/bin/tklor
+	dosym ../share/tklor/tkLOR /usr/bin/tklor
+	dosym ../share/tklor/tkLOR /usr/bin/tkLOR
 	dodoc readme
+	docinto examples
+	dodoc config userConfig
 }
 
 pkg_postinst() {
 	einfo "========== tkLOR successfully installed ==========="
-	einfo "     take a look at /usr/share/tklor/examples      "
-	einfo "          and  /usr/share/doc/tkor-APP_VERSION           "
+	einfo "     take a look at /usr/share/doc/${P}            "
 	einfo "                happy trolling;)                   "
 }
