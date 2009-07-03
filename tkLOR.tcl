@@ -822,6 +822,7 @@ proc startWait {} {
     toplevel $f
     pack [ ttk::label $f.label -text "Please, wait..." ]
     update
+    wm withdraw $f
 
     regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry . ] md mw mh mx my
     regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $f ] d w h x y
@@ -830,6 +831,7 @@ proc startWait {} {
     set y [ expr ( $mh - $h ) / 2  ]
     if { $y > "0" } {set y "+$y"}
     wm geometry $f [ join [ list $w "x" $h $x $y ] "" ]
+    wm deiconify $f
     grab $f
 }
 
@@ -861,12 +863,15 @@ proc loadConfig {} {
     loadConfigFile [ file join $configDir "userConfig" ]
 }
 
-proc updateTopicList {{section ""}} {
+proc updateTopicList {{section ""} {recursive ""}} {
     global forumGroups newsGroups
 
+    if {$recursive == ""} startWait
     if {$section == "" } {
-        updateTopicList news
-        updateTopicList forum
+        updateTopicList news 1
+        updateTopicList forum 1
+
+        if {$recursive == ""} stopWait
         return
     }
 
@@ -874,7 +879,7 @@ proc updateTopicList {{section ""}} {
         news* {
             if { $section == "news" } {
                 foreach {id title} $newsGroups {
-                    updateTopicList "news$id"
+                    updateTopicList "news$id" 1
                 }
             } else {
                 parseNews [ string trimleft $section "news" ]
@@ -883,7 +888,7 @@ proc updateTopicList {{section ""}} {
         forum* {
             if { $section == "forum" } {
                 foreach {id title} $forumGroups {
-                    updateTopicList "forum$id"
+                    updateTopicList "forum$id" 1
                 }
             } else {
                 parseForum [ string trimleft $section "forum" ]
@@ -893,12 +898,11 @@ proc updateTopicList {{section ""}} {
             # No action at this moment
         }
     }
+    if {$recursive == ""} stopWait
 }
 
 proc parseForum {forum} {
     global lorUrl
-
-    startWait
 
     set url "http://$lorUrl/group.jsp?group=$forum"
     set err 0
@@ -915,8 +919,6 @@ proc parseForum {forum} {
     if $err {
         tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
     }
-
-    stopWait
 }
 
 proc parseTopicList {forum data} {
@@ -1117,8 +1119,6 @@ proc parseNews {group} {
     global lorUrl
     upvar #0 allTopicsWidget w
 
-    startWait
-
     foreach item [ $w children "news$group" ] {
         set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
         addUnreadChild $w "news$group" "-$count"
@@ -1140,8 +1140,6 @@ proc parseNews {group} {
     if $err {
         tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
     }
-
-    stopWait
 }
 
 proc parseNewsPage {group data} {
