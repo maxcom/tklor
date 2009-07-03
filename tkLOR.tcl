@@ -123,6 +123,7 @@ proc initPopups {} {
     set messageMenu [ menu .messageMenu -tearoff 0 ]
     $messageMenu add command -label "Reply" -command "reply"
     $messageMenu add command -label "User info" -command "userInfo"
+    $messageMenu add command -label "Open in browser" -command "openMessage"
     $messageMenu add separator
     $messageMenu add command -label "Mark as read" -command "markMessage message 0"
     $messageMenu add command -label "Mark as unread" -command "markMessage message 1"
@@ -376,8 +377,7 @@ proc setTopic {topic} {
     set currentTopic $topic
     set err 1
     set errStr ""
-    set url "http://pingu/lor.html"
-    #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
+    set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
@@ -778,8 +778,7 @@ proc parseForum {forum} {
 
     startWait
 
-    set url "http://pingu/lor-group.html"
-    #set url "http://$lorUrl/group.jsp?group=$forum"
+    set url "http://$lorUrl/group.jsp?group=$forum"
     set err 0
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
@@ -942,6 +941,53 @@ proc markAllMessages {unread} {
     foreach item [ $w children "" ] {
         mark $w $item thread $unread
     }
+}
+
+proc reply {} {
+    upvar #0 topicWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
+    }
+}
+
+proc userInfo {} {
+    upvar #0 topicWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
+    }
+}
+
+proc openMessage {} {
+    upvar #0 topicWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
+    }
+}
+
+proc openUrl {url} {
+    global tcl_platform
+
+    if { [ string first Windows $tcl_platform(os) ] != -1 } {
+        set prog "start"
+    } else {
+        set prog "x-www-browser"
+    }
+    catch {exec $prog $url &}
 }
 
 ############################################################################
