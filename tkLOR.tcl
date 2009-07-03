@@ -44,8 +44,6 @@ if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir ".\\lib"
 }
 
-set lorUrl "www.linux.org.ru"
-
 ############################################################################
 #                                 VARIABLES                                #
 ############################################################################
@@ -256,7 +254,7 @@ proc initMenu {} {
 
     set m [ menu .menu.help -tearoff 0 ]
     $m add command -label "Project home" -command {openUrl $appHome}
-    $m add command -label "About LOR" -command {openUrl "http://$lorUrl/server.jsp"}
+    $m add command -label "About LOR" -command {openUrl "$::lor::lorUrl/server.jsp"}
     $m add separator
     $m add command -label "About" -command helpAbout -accelerator "F1"
 
@@ -436,8 +434,6 @@ proc renderHtml {w msg} {
 }
 
 proc renderHtmlTag {w stack tag slash param text} {
-    global lorUrl
-
     set text [ ::htmlparse::mapEscapes $text ]
     regsub -lineanchor -- {^[\n\r \t]+} $text {} text
     regsub -lineanchor -- {[\n\r \t]+$} $text { } text
@@ -464,7 +460,7 @@ proc renderHtmlTag {w stack tag slash param text} {
             a {
                 if [ regexp -- {href="{0,1}([^"> ]+)"{0,1}} $param dummy url ] {
                     if { ![ regexp -lineanchor {^\w+://} $url ] } {
-                        set url "http://$lorUrl/$url"
+                        set url "$::lor::lorUrl/$url"
                     }
                     set tagName [ join [ list "link" [ generateId ] ] "" ]
                     $w tag configure $tagName -underline 1 -foreground blue
@@ -563,9 +559,9 @@ proc configureTags {w} {
 }
 
 proc setTopic {topic} {
-    global currentTopic lorUrl appName
+    global currentTopic appName
     global messageTree messageTextWidget
-    global currentHeader currentNick currentPrevNick currentTime
+    global currentHeader currentNick
     global autonomousMode
     global expandNewMessages
 
@@ -582,60 +578,43 @@ proc setTopic {topic} {
         clearTreeItemChildrens $messageTree ""
         set currentHeader ""
         set currentNick ""
-        set currentPrevNick ""
-        set currentTime ""
         renderHtml $messageTextWidget ""
     }
 
     set currentTopic $topic
-    set err 1
-    set errStr ""
-    set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
     loadTopicTextFromCache $topic
+    setFocusedItem $messageTree "topic"
     loadCachedMessages $topic
 
     if { ! $autonomousMode } {
-        if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
-            if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-                parseTopicText $topic [ ::http::data $token ]
-                parsePage $topic [ ::http::data $token ]
-                set err 0
-            } else {
-                set errStr [ ::http::code $token ]
+        deflambda processText {topic nick header text time approver approveTime} {
+            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
+            set header [ htmlToText $header ]
+            updateTopicText $topic $header $nick
+            insertMessage "topic" $nick $header $time $text "" "" 1 force
+        } $topic
+        deflambda processMessage {w id nick header time msg parent parentNick} {
+            if { $parent == "" } {
+                set parent "topic"
+                set parentNick [ getItemValue $w "topic" nick ]
             }
-            ::http::cleanup $token
-        }
-        if $err {
+            if { ![ $w exists $id ] } {
+                insertMessage $id $nick $header $time $msg $parent $parentNick 1
+            }
+        } $messageTree
+
+        if [ catch {lor::parseTopic $topic $processText $processMessage} errStr ] {
             tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
         }
     }
     focus $messageTree
     update
     updateWindowTitle
-    setFocusedItem $messageTree "topic"
     if { $expandNewMessages == "1" } {
         nextUnread $messageTree ""
     }
     stopWait
-}
-
-proc parseTopicText {topic data} {
-    if [ regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
-        set topicText $msg
-        set topicNick $nick
-        set topicTime $time
-        set topicHeader [ htmlToText $header ]
-        saveTopicTextToCache $topic [ htmlToText $header ] $topicText $nick $time $approver $approveTime
-    } else {
-        set topicText "Unable to parse topic text :("
-        set topicNick ""
-        set topicHeader ""
-        set topicTime ""
-        saveTopicTextToCache $topic "" $topicText "" "" "" ""
-    }
-    updateTopicText $topic $topicHeader $topicNick
-    insertMessage "topic" $topicNick $topicHeader $topicTime $topicText "" "" 1 force
 }
 
 proc insertMessage {id nick header time msg parent parentNick unread {force ""}} {
@@ -662,22 +641,6 @@ proc insertMessage {id nick header time msg parent parentNick unread {force ""}}
     updateItemState $w $id
     if { $id == "topic" } {
         $w item $id -open 1
-    }
-}
-
-proc parsePage {topic data} {
-    upvar #0 messageTree w
-
-    foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
-            if { $parent == "" } {
-                set parent "topic"
-                set parentNick [ getItemValue $w "topic" nick ]
-            }
-            if { ! [ $w exists $id ] } {
-                insertMessage $id $nick $header $time $msg $parent $parentNick 1
-            }
-        }
     }
 }
 
@@ -1001,6 +964,8 @@ proc updateTopicList {{section ""}} {
     global forumGroups
     global autonomousMode
     global appName
+    global topicTree
+    global threadListSize
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -1020,64 +985,34 @@ proc updateTopicList {{section ""}} {
         stopWait
         return
     }
+    if { $section == "forum" } {
+        foreach {id title} $forumGroups {
+            updateTopicList "forum$id"
 
-    switch -glob -- $section {
-        news {
-            parseGroup $section 1
-        }
-        gallery {
-            parseGroup $section 3
-        }
-        votes {
-            parseGroup $section 5
-        }
-        forum {
-            foreach {id title} $forumGroups {
-                updateTopicList "forum$id"
-            }
-        }
-        forum* {
-            parseGroup $section 2 [ string trimleft $section "forum" ]
-        }
-        default {
-            # No action at this moment
+            stopWait
+            return
         }
     }
+
+    deflambda processTopic {parent id nick header} {
+        global configDir threadSubDir
+
+        set header [ htmlToText [ ::htmlparse::mapEscapes $header ] ]
+        addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
+    } $section
+
+    ::lor::getTopicList $section $processTopic
+
+    set w $topicTree
+    foreach item [ lrange [ $w children $section ] $threadListSize end ] {
+        set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
+        if { $count != "0" } {
+            addUnreadChild $w $section "-$count"
+        }
+        $w delete $item
+    }
+
     stopWait
-}
-
-proc parseGroup {parent section {group ""}} {
-    global lorUrl
-    global appName
-    global threadListSize
-
-    set url "http://$lorUrl/section-rss.jsp?section=$section"
-    if { $group != "" } {
-        append url "&group=$group"
-    }
-    set err 1
-
-    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
-        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseRss [ ::http::data $token ] [ list "addTopicFromCache" $parent ]
-
-            set w $::topicTree
-            foreach item [ lrange [ $w children $parent ] $threadListSize end ] {
-                set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-                if { $count != "0" } {
-                    addUnreadChild $w $parent "-$count"
-                }
-                $w delete $item
-            }
-            set err 0
-        } else {
-            set errStr [ ::http::code $token ]
-        }
-        ::http::cleanup $token
-    }
-    if $err {
-        tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
-    }
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1177,70 +1112,27 @@ proc markAllMessages {w unread} {
 
 proc reply {w item} {
     global topicTree
-    global lorUrl currentTopic
+    global currentTopic
 
-    if { $w == $topicTree } {
-        switch -regexp $item {
-            {^news$} {
-                openUrl "http://$lorUrl/add-section.jsp?section=1"
-            }
-            {^forum$} {
-                openUrl "http://$lorUrl/add-section.jsp?section=2"
-            }
-            {^forum\d+$} {
-                openUrl "http://$lorUrl/add.jsp?group=[ string trim $item forum ]"
-            }
-            {^gallery$} {
-                openUrl "http://$lorUrl/add.jsp?group=4962"
-            }
-            {^votes$} {
-                openUrl "http://$lorUrl/add-poll.jsp"
-            }
-            {^\d+$} {
-                openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
-            }
-        }
+    if { $w == $topicTree || $item == "topic" } {
+        openUrl [ ::lor::topicReply $item ]
     } else {
-        if { $item != "topic" } {
-            openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
-        } else {
-            openUrl "http://$lorUrl/comment-message.jsp?msgid=$currentTopic"
-        }
+        openUrl [ ::lor::messageReply $item $currentTopic ]
     }
 }
 
 proc userInfo {w item} {
-    global lorUrl
-    openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
+    openUrl [ ::lor::userInfo [ getItemValue $w $item nick ] ]
 }
 
 proc openMessage {w item} {
     global topicTree
-    global lorUrl currentTopic
+    global currentTopic
 
     if { $w == $topicTree } {
-        switch -regexp $item {
-            {^news$} {
-                openUrl "http://$lorUrl/view-news.jsp?section=1"
-            }
-            {^forum$} {
-                openUrl "http://$lorUrl/view-section.jsp?section=2"
-            }
-            {^forum\d+$} {
-                openUrl "http://$lorUrl/group.jsp?group=[ string trim $item forum ]"
-            }
-            {^gallery$} {
-                openUrl "http://$lorUrl/view-news.jsp?section=3"
-            }
-            {^votes$} {
-                openUrl "http://$lorUrl/group.jsp?group=19387"
-            }
-            {^\d+$} {
-                openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
-            }
-        }
+        openUrl [ ::lor::getTopicUrl $item ]
     } else {
-        openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
+        openUrl [ ::lor::getMessageUrl $item $topic ]
     }
 }
 
@@ -1534,9 +1426,11 @@ proc processItems {w item script} {
 }
 
 proc setFocusedItem {w item} {
-    $w see $item
-    $w focus $item
-    $w selection set $item
+    if [ $w exists $item ] {
+        $w see $item
+        $w focus $item
+        $w selection set $item
+    }
 }
 
 proc updateWindowTitle {} {
@@ -1719,36 +1613,6 @@ proc isCategoryFixed {id} {
     } ]
 }
 
-proc parseRss {data script} {
-    global configDir threadSubDir
-
-    #decoding binary data
-    set data [ encoding convertfrom "utf-8" $data ]
-
-    foreach {dummy1 item} [ regexp -all -inline -- {<item>(.*?)</item>} $data ] {
-        array set v {
-            title ""
-            link ""
-            guid ""
-            pubDate ""
-            description ""
-        }
-        foreach {dummy2 tag content} [ regexp -all -inline -- {<(\w+)>([^<]*)</\w+>} $item ] {
-            array set v [ list $tag $content ]
-        }
-        if { ![ regexp -lineanchor {msgid=(\d+)$} $v(link) dummy3 id ] } {
-            puts $dummy3
-            continue
-        }
-        set header [ htmlToText [ ::htmlparse::mapEscapes $v(title) ] ]
-        set msg $v(description)
-        # at this moment nick field are not present in RSS feed
-        set nick ""
-        set msg [ string trim [ ::htmlparse::mapEscapes $msg ] ]
-        eval [ concat $script [ list $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ] ] ]
-    }
-}
-
 proc initBindings {} {
     global topicTree messageTree
     global messageTextWidget
@@ -1917,6 +1781,7 @@ proc loadAppLibs {} {
     package require gaa_tileDialogs 1.0
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
+    package require lorParser 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
