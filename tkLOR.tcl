@@ -81,6 +81,9 @@ set updateOnStart 0
 set doubleClickAllTopics 0
 set markIgnoredMessagesAsRead 0
 
+set colorList {{tklor blue foreground}}
+set colorCount [ llength $colorList ]
+
 set tileTheme "default"
 
 set findString ""
@@ -143,6 +146,9 @@ set options {
     }
     "User tags" {
         "Tags"  userTagList userTagList { list "Nick" "Tag" }
+    }
+    "Colors" {
+        "Colors"    colorList   colorList { list "Regexp" "Color" "Element" }
     }
     "Normal font" {
         "font"  fontPart    fontPart(item) ""
@@ -587,6 +593,8 @@ proc updateMessage {item} {
 
 proc configureTags {w} {
     global fontPart
+    global colorList
+    global colorCount
 
     foreach a { none unread } {
         foreach b { none child } {
@@ -596,6 +604,19 @@ proc configureTags {w} {
 
                 $w tag configure $id -font [ join [ list $fontPart(item) $fontPart($a) $fontPart($b) $fontPart($c) ] " " ]
             }
+        }
+    }
+
+    for {set i 0} {$i < $colorCount} {incr i} {
+        $w tag configure "color$i" -foreground "" -background ""
+    }
+    for {set i 0} {$i < [ llength $colorList ]} {incr i} {
+        set color [ lindex [ lindex $colorList $i ] 1 ]
+        set mode [ lindex [ lindex $colorList $i ] 2 ]
+        if { $mode == "foreground" } {
+            $w tag configure "color$i" -foreground $color -background ""
+        } else {
+            $w tag configure "color$i" -background $color -foreground ""
         }
     }
 }
@@ -763,6 +784,7 @@ proc getItemText {w item} {
 
 proc updateItemState {w item} {
     global userTagList
+    global colorList
 
     if { $item == "" } return
 
@@ -776,12 +798,26 @@ proc updateItemState {w item} {
     if [ isUserIgnored [ getItemValue $w $item nick ] ] {
         append tag "_ignored"
     }
-    $w item $item -tags [ list $tag ]
+    set tagList [ list $tag ]
+
+    if { $w == $::allTopicsWidget } {
+        set text [ getItemValue $w $item text ]
+    } else {
+        set text [ getItemValue $w $item msg ]
+    }
+    for {set i 0} {$i < [ llength $colorList ] } {incr i} {
+        set re [ lindex [ lindex $colorList $i ] 0 ]
+        if [ regexp -nocase -lineanchor -- $re $text ] {
+            lappend tagList "color$i"
+        }
+    }
+
+    $w item $item -tags $tagList
 
     set text [ getItemText $w $item ]
     foreach i $userTagList {
         if { [ lindex $i 0 ] == [ getItemValue $w $item nick ] } {
-            append text [ join [ list " (" [ lindex [ lindex $i 1 ] 0 ] ")" ] "" ]
+            append text [ join [ list " (" [ lindex $i 1 ] ")" ] "" ]
         }
     }
     $w item $item -text $text
@@ -1055,9 +1091,13 @@ proc loadConfigFile {fileName} {
 
 proc loadConfig {} {
     global configDir
+    global colorList
+    global colorCount
 
     loadConfigFile [ file join $configDir "config" ]
     loadConfigFile [ file join $configDir "userConfig" ]
+
+    set colorCount [ llength $colorList ]
 }
 
 proc updateTopicList {{section ""}} {
@@ -1447,6 +1487,7 @@ proc packOptionsItem {w name item type val opt} {
             pack $v -anchor w -fill x
             pack $ff -anchor w -fill both
             pack $f -anchor w -fill both
+            bind $v <Double-Button-1> [ concat $modifyScript [ list $v ] ]
             pack [ buttonBox $name \
                 [ list -text "Add..." -command [ concat $addScript [ list $v ] ] ] \
                 [ list -text "Modify..." -command [ concat $modifyScript [ list $v ] ] ] \
@@ -1565,6 +1606,8 @@ proc applyOptions {} {
     global topicTextWidget messageWidget
     global messageTextFont
     global color
+    global colorList
+    global colorCount
 
     initHttp
 
@@ -1580,6 +1623,8 @@ proc applyOptions {} {
     catch {$messageWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
 
     initBindings
+
+    set colorCount [ llength $colorList ]
 }
 
 proc saveOptions {} {
@@ -2036,7 +2081,9 @@ proc initBindings {} {
 }
 
 proc chooseColor {parent w} {
-    set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]
+    if [ catch {set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]} ] {
+        set color [ tk_chooseColor -parent $parent ]
+    }
     if { $color != "" } {
         $w configure -text $color
     }
@@ -2056,7 +2103,7 @@ proc tagUser {w item} {
                 lambda {w pos vals} {
                     global userTagList
                     array set arr $vals
-                    lset userTagList $pos [ list $arr(nick) [ list $arr(tag) ] ]
+                    lset userTagList $pos [ list $arr(nick) $arr(tag) ]
                     array unset arr
                 } $w $i \
             ]
@@ -2070,7 +2117,7 @@ proc tagUser {w item} {
         lambda {w vals} {
             global userTagList
             array set arr $vals
-            lappend userTagList [ list $arr(nick) [ list $arr(tag) ] ]
+            lappend userTagList [ list $arr(nick) $arr(tag) ]
             array unset arr
         } $w \
     ]
@@ -2141,6 +2188,9 @@ proc generateOptionsFrame {d optList page} {
             userTagList {
                 packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
             }
+            colorList {
+                packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addColorListItem" "modifyColorListItem" ]
+            }
             default {
                 packOptionsItem $d $f.value $item $type $val [ eval $opt ]
             }
@@ -2183,7 +2233,8 @@ proc fetchOptionsFrameValues {optList page ws} {
                 lappend result $res
             }
             ignoreList -
-            userTagList {
+            userTagList -
+            colorList {
                 lappend result [ getOptionsItemValue [ lindex $ws $i ].value "list" ]
             }
             default {
@@ -2263,6 +2314,39 @@ proc isUserIgnored {nick} {
     global ignoreList
 
     return [ expr { [ lsearch -exact $ignoreList $nick ] != -1 } ]
+}
+
+proc addColorListItem {w} {
+    onePageOptionsDialog "Add color regexp" {
+        "Regexp" string regexp  "" ""
+        "Color"  color color    "red" ""
+        "Element" readOnlyCombo element "foreground" { list foreground background }
+    } [ list \
+        lambda {w vals} {
+            array set arr $vals
+            $w insert {} end -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
+            array unset arr
+        } $w \
+    ]
+}
+
+proc modifyColorListItem {w} {
+    set id [ $w focus ]
+    if { $id == "" } {
+        addColorListItem $w
+    } else {
+        onePageOptionsDialog "Modify color regexp" [ list \
+            "Regexp" string regexp  [ $w item $id -text ] "" \
+            "Color"  color color    [ lindex [ $w item $id -values ] 0 ] "" \
+            "Element" readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
+        ] [ list \
+            lambda {w id vals} {
+                array set arr $vals
+                $w item $id -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
+                array unset arr
+            } $w $id \
+        ]
+    }
 }
 
 ############################################################################
