@@ -18,77 +18,121 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_mbox 1.0
+package provide gaa_mbox 1.1
 
 package require Tcl 8.4
 package require cmdline 1.2.5
 
-namespace eval ::gaa {
 namespace eval mbox {
 
 namespace export \
-    parseFile \
-    parseStream \
+    parse \
     writeToFile \
     writeToStream
 
-proc parseFile {fileName script args} {
-    array set param [ ::cmdline::getoptions args {
-        {encoding.arg   ""  "Encoding"}
-    } ]
-    set f [ open $fileName "r" ]
-    if { $param(encoding) != ""} {
-        fconfigure $f -encoding $param(encoding)
-    }
-    if [ catch {
-        parseStream $f $script
-    } errMsg ] {
-        close $f
-        error $errMsg
-    }
-    close $f
-}
+set id 0
 
-proc parseStream {stream script} {
-    while { [ gets $stream s ] >=0 } {
-        if [ regexp -lineanchor -- {^From:{0,1} (.+)$} $s dummy nick ] {
-            break
-        }
-    }
+proc parseLetter {stream id command onerror oncomplete} {
+    variable letter$id
+    variable state$id
+
+    set letter [ set letter$id ]
+    set state [ set state$id ]
+    array unset lt
+    array set lt $letter
+
     if [ eof $stream ] {
-        return ""
+        if [ catch {close $stream} err ] {
+            eval [ concat $onerror [ list $err ] ]
+        }
+        set state EOF
+    } else {
+        gets $stream s
     }
-    while { ! [eof $stream ] } {
-        set cur ""
-        lappend cur "From" $nick
-
-        while { [ gets $stream s ] >=0 } {
-            if { $s == "" } {
-                break
-            }
-            if [ regexp -lineanchor -- {^([\w-]+): (.+)$} $s dummy tag val ] {
-                lappend cur $tag $val
+    if { $state == "EOF" ||
+            ( [ regexp -lineanchor -- {^From:{0,1} (.+)$} $s dummy nick ] &&
+                ( $state == "BODYSPACE" || $state == "BEGIN" ) ) } {
+        if { ! [ regexp {^\s*$} $letter ] } {
+            if [ catch {eval [ concat $command [ list $letter ] ]} err ] {
+                eval [ concat $onerror [ list $err ] ]
             }
         }
-
-        set body ""
-        while { [ gets $stream s ] >=0 } {
-            if [ regexp -lineanchor -- {^From:{0,1} (.+)$} $s dummy nick ] {
-                break
-            } else {
-                if [ regexp -lineanchor {^>(>*From:{0,1} .*)$} $s dummy ss ] {
-                    set s $ss
-                }
-                append body "$s\n"
+        if { $state != "EOF" } {
+            set state$id HEAD
+            set letter$id [ list "From" $nick ]
+            return 1
+        } else {
+            eval $oncomplete
+            return 0
+        }
+    }
+    if { $s == "" } {
+        switch -exact $state {
+            HEAD {
+                set state$id BODY
+                set lt(body) ""
+                set letter$id [ array get lt ]
+            }
+            BODY {
+                set state$id BODYSPACE
+            }
+            BODYSPACE {
+                set lt(body) "$lt(body)\n"
+                set letter$id [ array get lt ]
             }
         }
-        lappend cur "body" [ string trimright $body "\n" ]
+        return 1
+    }
+    if { $state == "HEAD" } {
+        if [ regexp -lineanchor -- {^([\w-]+): (.+)$} $s dummy tag val ] {
+            set lt($tag) $val
+        } else {
+            eval [ concat $onerror \
+                [ list "Invalid data in the header section: $s" ] \
+            ]
+        }
+    } else {
+        if [ regexp -lineanchor {^>(>*From:{0,1} .*)$} $s dummy ss ] {
+            set s $ss
+        }
+        set lt(body) "$lt(body)\n$s"
+    }
+    set letter$id [ array get lt ]
+    return 1
+}
 
-        eval [ concat $script [ list $cur ] ]
+proc parse {fileName script args} {
+    variable id
+
+    array set p [ ::cmdline::getoptions args {
+        {encoding.arg   ""      "Encoding"}
+        {noasync                "Parse file in synchronous mode"}
+        {oncomplete.arg ""      "Script to execute on complete(async mode)"}
+        {onerror.arg    "error" "Script to execute on error(async mode)"}
+    } ]
+    set stream [ open $fileName "r" ]
+    if { $p(encoding) != ""} {
+        fconfigure $stream -encoding $p(encoding)
+    }
+    incr id
+
+    variable letter$id
+    variable state$id
+
+    set letter$id ""
+    set state$id "BEGIN"
+
+    if $p(noasync) {
+        while { [ parseLetter $stream $id $script "error" "" ] == 1 } {}
+    } else {
+        fconfigure $stream -buffering line
+        fileevent $stream readable \
+            [ list [ namespace current ]::parseLetter \
+                $stream $id $script $p(onerror) $p(oncomplete) ]
     }
 }
 
-proc writeToFile {fileName letters args} {
+proc writeToFile {fileName letter args} {
     array set param [ ::cmdline::getoptions args {
         {encoding.arg   ""  "Encoding"}
         {append             "Append to file instead of overwriting"}
@@ -102,7 +146,7 @@ proc writeToFile {fileName letters args} {
     if {$param(encoding) != ""} {
         fconfigure $f -encoding $param(encoding)
     }
-    foreach letter $letters {
+    foreach letter $letter {
         writeToStream $f $letter
     }
     close $f
@@ -132,5 +176,4 @@ proc writeToStream {stream letter} {
     puts $stream ""
 }
 
-}
 }

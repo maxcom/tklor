@@ -35,6 +35,8 @@ set appName "tkLOR"
 # will be set by backend callback method
 set backendId ""
 
+set plugin "tclsh tormozcat.tcl"
+
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 set appHome "http://code.google.com/p/tklor/"
@@ -469,7 +471,7 @@ proc exitProc {} {
         }
     }
 
-    saveTopicToCache $currentTopic
+#    saveTopicToCache $currentTopic
     saveTopicListToCache
     saveOptions
     catch {remoting::sendRemote -async $backendId exit}
@@ -642,7 +644,7 @@ proc setTopic {topic} {
     global expandNewMessages
     global backendId
 
-    stopAllTasks getMessageList
+#    stopAllTasks getMessageList
     update
 
     setPerspective reading
@@ -664,54 +666,61 @@ proc setTopic {topic} {
 
         loadTopicTextFromCache $topic
         setFocusedItem $messageTree "topic"
+        update
         loadCachedMessages $topic
     }
-    if { ! $autonomousMode } {
-        defCallbackLambda processText {topic nick header text time approver approveTime} {
-            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-                return
-            }
-            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
-            set header [ htmlToText $header ]
-            updateTopicText $topic $header $nick
-            insertMessage topic $nick $header $time $text {} {} 1 force
-        } $topic
-        defCallbackLambda processMessage {w id nick header time msg parent parentNick} {
-            global appName
+#    if { ! $autonomousMode } { ...}
+        #TODO here
+        loadMessagesFromFile 2903217 "|$::plugin 2903217"
+#{...    }
 
-            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-                return
-            }
-            if [ catch {
-                if { $parent == "" } {
-                    set parent "topic"
-                    set parentNick [ getItemValue $w "topic" nick ]
-                }
-                if { ![ $w exists $id ] } {
-                    update
-                    insertMessage $id $nick $header $time $msg $parent $parentNick 1
-                }
-            } err ] {
-                errorProc [ mc "Error while inserting item %s:\n%s" $id $err ] $::errorInfo
-            }
-        } $messageTree
-        defCallbackLambda finish {messageTree expandNewMessages} {
-            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-                taskCompleted getMessageList
-                return
-            }
-            focus $messageTree
-            update
-            updateWindowTitle
-            if { $expandNewMessages == "1" } {
-                nextUnread $messageTree ""
-                focus $messageTree
-            }
-            taskCompleted getMessageList
-        } $messageTree $expandNewMessages
 
-        addTask getMessageList remoting::sendRemote -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProcCallback $finish ]
-    }
+#    if { ! $autonomousMode } {
+#        defCallbackLambda processText {topic nick header text time approver approveTime} {
+#            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+#                return
+#            }
+#            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
+#            set header [ htmlToText $header ]
+#            updateTopicText $topic $header $nick
+#            insertMessage topic $nick $header $time $text {} {} 1 force
+#        } $topic
+#        defCallbackLambda processMessage {w id nick header time msg parent parentNick} {
+#            global appName
+#
+#            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+#                return
+#            }
+#            if [ catch {
+#                if { $parent == "" } {
+#                    set parent "topic"
+#                    set parentNick [ getItemValue $w "topic" nick ]
+#                }
+#                if { ![ $w exists $id ] } {
+#                    update
+#                    insertMessage $id $nick $header $time $msg $parent $parentNick 1
+#                }
+#            } err ] {
+#                errorProc [ mc "Error while inserting item %s:\n%s" $id $err ] $::errorInfo
+#            }
+#        } $messageTree
+#        defCallbackLambda finish {messageTree expandNewMessages} {
+#            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+#                taskCompleted getMessageList
+#                return
+#            }
+#            focus $messageTree
+#            update
+#            updateWindowTitle
+#            if { $expandNewMessages == "1" } {
+#                nextUnread $messageTree ""
+#                focus $messageTree
+#            }
+#            taskCompleted getMessageList
+#        } $messageTree $expandNewMessages
+#
+#        addTask getMessageList remoting::sendRemote -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProcCallback $finish ]
+#    }
 }
 
 proc insertMessage {id nick header time msg parent parentNick unread {force ""}} {
@@ -893,7 +902,7 @@ proc saveTopicTextToCache {topic header text nick time approver approveTime} {
     lappend letter "X-LOR-Approver" $approver
     lappend letter "X-LOR-Approve-Time" $approveTime
     lappend letter "body" $text
-    ::gaa::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
+    ::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
 }
 
 proc loadTopicTextFromCache {topic} {
@@ -907,7 +916,7 @@ proc loadTopicTextFromCache {topic} {
             updateTopicText $topic $res(Subject) $res(From)
             insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
         } $topic
-        ::gaa::mbox::parseFile $fname $script -encoding utf-8
+        ::mbox::parse $fname $script -encoding utf-8 -noasync
     }
 }
 
@@ -926,17 +935,20 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
         lappend letter "X-LOR-ReplyTo-Id" $replyToId
     }
     lappend letter "body" $text
-    ::gaa::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
+    ::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
 }
 
 proc loadCachedMessages {topic} {
     global cacheDir
+    loadMessagesFromFile [ file join $cacheDir $topic ] $topic
+}
+
+proc loadMessagesFromFile {fname topic} {
     upvar #0 messageTree w
 
-    set fname [ file join $cacheDir $topic ]
     deflambda processLetter {letter} {
         array set res $letter
-        catch {
+#        catch { ...}
             if { [ lsearch -exact [ array names res ] "To" ] != -1 } {
                 set parentNick $res(To)
                 set parent $res(X-LOR-ReplyTo-Id)
@@ -949,12 +961,12 @@ proc loadCachedMessages {topic} {
                 set parent "topic"
             }
             insertMessage $res(X-LOR-Id) $res(From) $res(Subject) $res(X-LOR-Time) $res(body) $parent $parentNick $res(X-LOR-Unread)
-        }
+#{...        }
         array unset res
     }
-    catch {
-        ::gaa::mbox::parseFile $fname $processLetter -encoding utf-8
-    }
+#    catch { ...}
+        ::mbox::parse $fname $processLetter -encoding utf-8
+#{...    }
 }
 
 proc clearDiskCache {topic} {
@@ -1086,6 +1098,7 @@ proc updateTopicList {{section ""}} {
         taskCompleted getTopicList
     } $section
 
+error "TODO: temporary disabled"
     addTask getTopicList remoting::sendRemote -async $backendId [ list lor::getTopicList $section $processTopic errorProcCallback $onComplete ]
 }
 
@@ -1944,7 +1957,6 @@ proc loadAppLibs {} {
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
     namespace import ::gaa::tools::*
-    namespace import tkLor::taskManager::*
 }
 
 proc setPerspective {mode {force ""}} {
@@ -2137,10 +2149,12 @@ proc updateTaskList {} {
     array unset categoriesMap
 }
 
-proc bgerror {msg} {
-    logger::log "bgerror: $msg"
-    logger::log "bgerror extended info: $::errorInfo"
-}
+#TODO: return it
+#proc bgerror {msg} {
+#    logger::log "bgerror: $msg"
+#    logger::log "bgerror extended info: $::errorInfo"
+#    errorProc $msg $::errorInfo
+#}
 
 proc openLoginWindow {} {
     global backendId
@@ -2364,6 +2378,7 @@ proc sendReply {f topic message} {
     defCallbackLambda finish {type} {
         taskCompleted $type
     } postMessage
+error "TODO: temporary disabled"
     addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
 }
 
@@ -2435,7 +2450,7 @@ update
 runBackend
 
 applyOptions
-setUpdateHandler updateTaskList
+::taskManager::setUpdateHandler updateTaskList
 
 update
 
@@ -2450,3 +2465,7 @@ if { $updateOnStart == "1" } {
 }
 
 setPerspective $currentPerspective
+
+#TODO: remove it
+update
+setTopic 2903217
