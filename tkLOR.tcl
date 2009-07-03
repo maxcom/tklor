@@ -1529,38 +1529,15 @@ proc removeListItem {w} {
 }
 
 proc nextUnread {w item} {
-    set cur $item
-    set fromChild 0
-    while 1 {
-        if { !$fromChild } {
-            set next [ lindex [ $w children $cur ] 0 ]
-        } else {
-            set next ""
-        }
-        set fromChild 0
-        if { $next == "" } {
-            set next [ $w next $cur ]
-            if { $next == "" } {
-                if { [ $w parent $cur ] == "" } {
-                    set next [ lindex [ $w children "" ] 0 ]
-                } else {
-                    set next [ $w parent $cur ]
-                    set fromChild 1
-                }
-            }
-        }
-        set cur $next
-        if { $cur == $item && ! $fromChild } {
-            return
-        }
-        if { [ getItemValue $w $cur unread ] == "1" } {
-            $w see $cur
-            $w focus $cur
-            $w selection set $cur
-            click $w $cur
-            return
-        }
+    set cur [ processItems $w $item [ list matchUnreadItem $w ] ]
+    if { $cur != "" } {
+        setFocusedItem $w $cur
+        click $w $cur
     }
+}
+
+proc matchUnreadItem {w item} {
+    return [ expr [ getItemValue $w $item unread ] != "1" ]
 }
 
 proc openContextMenu {w menu} {
@@ -1596,10 +1573,11 @@ proc inputStringDialog {title label var script} {
 
 proc find {} {
     global findPos
+    global topicWidget
 
-    set findPos ""
+    set findPos [ $topicWidget focus ]
 
-    inputStringDialog "Search" "Search for:" findString {findNext}
+    inputStringDialog "Search" "Search regexp:" findString {findNext}
 }
 
 proc findNext {} {
@@ -1611,9 +1589,7 @@ proc findNext {} {
     set findPos $cur
 
     if { $cur != "" } {
-        $w see $cur
-        $w focus $cur
-        $w selection set $cur
+        setFocusedItem $w $cur
         click $w $cur
     } else {
         tk_messageBox -title $appName -message "Message not found!" -icon info
@@ -1621,7 +1597,7 @@ proc findNext {} {
 }
 
 proc matchItemText {w sub item} {
-    return [ expr [ string first $sub [ getItemValue $w $item msg ] ] == -1 ]
+    return [ expr [ regexp -nocase -- $sub [ getItemValue $w $item msg ] ] == "0" ]
 }
 
 proc processItems {w item script} {
@@ -1649,6 +1625,12 @@ proc processItems {w item script} {
             return ""
         }
     }
+}
+
+proc setFocusedItem {w item} {
+    $w see $item
+    $w focus $item
+    $w selection set $item
 }
 
 ############################################################################
