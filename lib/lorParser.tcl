@@ -70,6 +70,7 @@ proc parseTopic {topic topicTextCommand messageCommand} {
         upvar #0 $datavar data $statevar state
         upvar #0 $token httpState
 
+        fconfigure $socket -encoding "utf-8"
         set httpData [ read $socket 4096 ]
         set nbytes [ string length $data ]
 

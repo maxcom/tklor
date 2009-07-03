@@ -55,6 +55,8 @@ if { $xdg_cache_home == "" } {
 }
 set cacheDir [ file join $xdg_cache_home $appName ]
 
+set tclshPath [ auto_execok "tclsh" ]
+
 if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir "/usr/lib/tkLOR"
 } else {
@@ -372,6 +374,7 @@ proc initMessageWidget {} {
 
     set mf [ ttk::frame .msgFrame -relief sunken ]
 
+#TODO: use "grid", Luke!
     set width 10
 
     set f [ ttk::frame $mf.header ]
@@ -615,9 +618,9 @@ proc configureTags {w} {
 }
 
 proc setTopic {topic} {
-    global currentTopic appName
+    global appName
     global messageTree messageTextWidget
-    global currentHeader currentNick currentPrevNick currentTime
+    global currentTopic currentHeader currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
 
@@ -645,7 +648,7 @@ proc setTopic {topic} {
     }
     if { ! $autonomousMode } {
         #TODO here
-        #loadMessagesFromTask $topic
+        #loadMessagesFromFile $topic
     }
 
 
@@ -697,15 +700,35 @@ proc setTopic {topic} {
 #    }
 }
 
-proc insertMessage {id nick header time msg parent parentNick unread {force ""}} {
+proc insertMessage {replace letter} {
     upvar #0 messageTree w
     global markIgnoredMessagesAsRead
 
+    array set res $letter
+    if [ info exists res(To) ]  {
+        set parentNick $res(To)
+        set parent $res(X-LOR-ReplyTo-Id)
+        set id $res(X-LOR-Id)
+    } else {
+        set parentNick ""
+        set parent ""
+        set id "topic"
+    }
+    if [ info exists res(X-LOR-Unread) ] {
+        set unread $res(X-LOR-Unread)
+    } else {
+        set unread 1
+    }
+    set nick $res(From)
+    set time $res(X-LOR-Time)
+    set msg $res(body)
+    set header [ htmlToText $res(Subject) ]
+    array unset res
     if [ $w exists $id ] {
-        if { $force == ""} {
+        if { !$replace } {
             return
         }
-        set unread 0
+        set unread [ getItemValue $w $id unread ]
     } else {
         $w insert $parent end -id $id -text $nick
         setItemValue $w $id unreadChild 0
@@ -713,7 +736,7 @@ proc insertMessage {id nick header time msg parent parentNick unread {force ""}}
     foreach i {nick time msg parent parentNick} {
         setItemValue $w $id $i [ set $i ]
     }
-    setItemValue $w $id header [ htmlToText $header ]
+    setItemValue $w $id header $header
     setItemValue $w $id unread 0
     if { $unread && ( ![ isUserIgnored $nick ] || $markIgnoredMessagesAsRead != "1" ) } {
         mark $w $id item 1
@@ -886,13 +909,14 @@ proc loadTopicFromCache {topic oncomplete} {
 
     set topicHeader ""
     set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
-    deflambda script {topic letter} {
+    deflambda script {letter} {
         global topicHeader
 
         array set res $letter
         set topicHeader "$res(Subject)\($res(From)\)"
-        insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
-    } $topic
+        array unset res
+        insertMessage 1 $letter
+    }
 
     set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
     if [ catch {
@@ -902,13 +926,14 @@ proc loadTopicFromCache {topic oncomplete} {
     } else {
         setFocusedItem $messageTree "topic"
         update 
-        loadMessagesFromTask \
+        return [ loadMessagesFromFile \
             [ file join $cacheDir $topic ] \
             $topic \
             $oncomplete \
             -title [ mc "Loading topic %s" $topic ] \
             -cat \
-            -onerror $onerr
+            -onerror $onerr \
+        ]
     }
 }
 
@@ -930,26 +955,12 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
     ::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
 }
 
-proc loadMessagesFromTask {task topic oncomplete args} {
+proc loadMessagesFromFile {fileName topic oncomplete args} {
     upvar #0 messageTree w
 
     deflambda processLetter {letter} {
-        array set res $letter
-        if [ info exists res(To) ]  {
-            set parentNick $res(To)
-            set parent $res(X-LOR-ReplyTo-Id)
-        } else {
-            set parentNick ""
-            set parent ""
-        }
-        #for all items without parent it assumed to "topic"
-        if { $parent == "" } {
-            set parent "topic"
-        }
-        insertMessage $res(X-LOR-Id) $res(From) $res(Subject) $res(X-LOR-Time) $res(body) $parent $parentNick $res(X-LOR-Unread)
-        array unset res
+        after idle [ list insertMessage 0 $letter ]
     }
-
     set id [ ::mbox::initParser $processLetter ]
     set arg [ list \
         -onoutput [ list ::mbox::parseLine $id ] \
@@ -958,7 +969,9 @@ proc loadMessagesFromTask {task topic oncomplete args} {
             $oncomplete \
         ] ";" ] \
     ]
-    eval [ concat [ list ::taskManager::addTask $task ] $arg $args ]
+    return [ eval \
+        [ concat [ list ::taskManager::addTask $fileName ] $arg $args ] \
+    ]
 }
 
 proc clearDiskCache {topic} {
@@ -2321,20 +2334,22 @@ proc messageBox {args} {
 
 proc callPlugin {action arg args} {
     global libDir
+    global tclshPath
     global appId
     global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization
     global proxyUser proxyPassword
 
     set command [ concat \
-        [ list [ auto_execok "tclsh" ] "$libDir/lorBackend.tcl" "-$action" ] \
+        [ list $tclshPath "$libDir/lorBackend.tcl" "-$action" ] \
         $arg \
     ]
     foreach {var key} {
-            proxyHost           proxyhost
-            proxyPort           proxyport
-            proxyUser           proxyuser
-            proxyPassword       proxypassword
-            libDir              libDir} {
+            appId           useragent
+            proxyHost       proxyhost
+            proxyPort       proxyport
+            proxyUser       proxyuser
+            proxyPassword   proxypassword
+            libDir          libDir} {
         lappend command "-$key" [ set $var ]
     }
     foreach {var key} {
