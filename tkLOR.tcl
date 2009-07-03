@@ -1525,6 +1525,9 @@ proc applyOptions {} {
     ]
     }
 
+    option add *Text.font $messageTextFont
+    option add *Text.foreground $color(htmlFg)
+    option add *Text.background $color(htmlBg)
     catch {$messageTextWidget configure -font $messageTextFont}
     catch {$messageTextWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
 

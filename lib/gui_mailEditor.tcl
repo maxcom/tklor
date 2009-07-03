@@ -86,7 +86,7 @@ proc editMessage {title letter buttons default command} {
     grid \
         [ text $ww.text \
             -yscrollcommand "$ww.scroll set" \
-            -height 25 \
+            -height 15 \
             -wrap word \
             -undo true \
         ] \
@@ -94,9 +94,6 @@ proc editMessage {title letter buttons default command} {
         -sticky nswe
     $ww.text insert 0.0 [ set ${storage}(body) ]
     unset ${storage}(body)
-#TODO: move to initialization
-#    catch {$ww.text configure -font $::messageTextMonospaceFont}
-#    catch {$ww.text configure -foreground $::color(htmlFg) -background $::color(htmlBg)}
 
     grid columnconfigure $ww 0 -weight 1
     grid rowconfigure $ww 0 -weight 1

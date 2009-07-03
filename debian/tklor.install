@@ -13,3 +13,4 @@ lib/lorParser.tcl usr/lib/tkLOR
 lib/pkgIndex.tcl usr/lib/tkLOR
 lib/taskManager.tcl usr/lib/tkLOR
 lib/msgs/ru.msg usr/lib/tkLOR/msgs
+lib/gui_mailEditor.tcl usr/lib/tkLOR
