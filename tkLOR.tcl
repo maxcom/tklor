@@ -189,7 +189,7 @@ proc initMenu {} {
     global messageMenu topicMenu messageTextMenu
 
     menu .menu -type menubar
-    .menu add cascade -label "LOR" -menu .menu.lor
+    .menu add cascade -label "LOR" -menu .menu.lor -underline 0
     .menu add cascade -label "View" -menu .menu.view
     .menu add cascade -label "Topic" -menu .menu.topic
     .menu add cascade -label "Message" -menu .menu.message
@@ -1892,7 +1892,7 @@ if { [ tk appname $appName ] != $appName } {
 initDirs
 loadAppLibs
 
-set backend [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ]
+set backend [ list [ auto_execok tclsh ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir ]
 
 initMainWindow
 initMenu
