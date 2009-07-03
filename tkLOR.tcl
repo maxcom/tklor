@@ -784,9 +784,13 @@ proc addTopic {} {
         set id ""
         regexp {msgid=(\d+)} $str dummy id
         regexp -lineanchor {^(\d+)$} $str dummy id
-        if { $id != "" && ![ $topicTree exists $id ] } {
-            addTopicFromCache "favorites" $id "" $str 1
-            showFavoritesTree {Select category and topic text} $str [ list addTopicToFavorites $topicTree $id ] "favorites" .
+        if { $id != "" } {
+            if { ![ $topicTree exists $id ] } {
+                addTopicFromCache "favorites" $id "" $str 1
+                showFavoritesTree {Select category and topic text} $str [ list addTopicToFavorites $topicTree $id ] "favorites" .
+            } else {
+                setFocusedItem $topicTree $id
+            }
         }
     }
     inputStringDialog \
