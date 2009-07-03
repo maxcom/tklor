@@ -216,8 +216,10 @@ proc helpAbout {} {
 
 proc exitProc {} {
     global appName
+    global currentTopic
 
     if { [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
+        saveTopicToCache $currentTopic
         exit
     }
 }
@@ -286,8 +288,6 @@ proc setTopic {topic} {
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
 
-    return;#debugging
-
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
             parseTopicText $topic [ ::http::data $token ]
@@ -307,7 +307,6 @@ proc parseTopicText {topic data} {
     global topicNick topicHeader
 
     if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(\w+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w]+">\*</a>\) \(([^)]+)\)<br><i>[^ ]+ (\w+) \(<a href="whois.jsp\?nick=\w+">\*</a>\) ([^<]+)</i></div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
-        #puts "matched-topic: {$header} {$msg} {$nick} {$time} {$approver} {$approveTime}"
         set topicText $msg
         set topicNick $nick
         set topicHeader $header
@@ -318,7 +317,7 @@ proc parseTopicText {topic data} {
         set topicHeader ""
         saveTopicTextToCache $topic "" $topicText "" "" "" ""
     }
-    updateTopicText $topicText
+    updateTopicText $topicHeader $topicText
 }
 
 proc parsePage {topic data} {
@@ -326,14 +325,12 @@ proc parsePage {topic data} {
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ (\w+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>(\w+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 prev prevNick id header msg nick time ] {
-            #puts "matched: {$prev} {$prevNick} {$id} {$header} {\$msg} {$nick} {$time}"
-
-            $topicWidget insert $prev end -id $id -text $nick -values [ list $header $time $msg 1 0 $prev $prevNick ]
-            addUnreadChild $prev
-            updateItemState $id
+            if { ! [ $topicWidget exists $id ] } {
+                $topicWidget insert $prev end -id $id -text $nick -values [ list $header $time $msg 1 0 $prev $prevNick ]
+                addUnreadChild $prev
+                updateItemState $id
+            }
 #            after 100
-
-            saveMessage $topic $id $header $msg $nick $time $prevNick $prev 1
         }
     }
 }
@@ -465,7 +462,7 @@ proc parseMbox {fileName} {
                 append body "$s\n"
             }
         }
-        lappend cur "body" $body
+        lappend cur "body" [ string trimright $body "\n" ]
 
         lappend res $cur
     }
@@ -514,10 +511,10 @@ proc loadCachedMessages {topic} {
     global appName threadSubDir
     global topicWidget
 
+    catch {
     foreach letter [ parseMbox [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] ] {
+        array set res $letter
         catch {
-            array set res $letter
-
             if { [ lsearch -exact [ array names res ] "Reply-To" ] != -1 } {
                 set prevNick $res(Reply-To)
                 set prev $res(X-LOR-ReplyTo-Id)
@@ -527,12 +524,37 @@ proc loadCachedMessages {topic} {
             }
             set id $res(X-LOR-Id)
 
-            $topicWidget insert $prev end -id $id -text $res(From) -values [ list $res(Subject) $res(X-LOR-Time) $res(body) 1 0 $prev $prevNick ]
-            addUnreadChild $prev
+            $topicWidget insert $prev end -id $id -text $res(From) -values [ list $res(Subject) $res(X-LOR-Time) $res(body) $res(X-LOR-Unread) 0 $prev $prevNick ]
+            if $res(X-LOR-Unread) {
+                addUnreadChild $prev
+            }
             updateItemState $id
-
-            array unset res
         }
+        array unset res
+    }
+    }
+}
+
+proc clearDiskCache {topic} {
+    global appName threadSubDir
+
+    set f [ open [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] "w+" ]
+    close $f
+}
+
+proc saveTopicRecursive {topic item} {
+    global topicWidget
+
+    foreach id [ $topicWidget children $item ] {
+        saveMessage $topic $id [ getItemValue $id header ] [ getItemValue $id msg ] [ getItemValue $id nick ] [ getItemValue $id time ] [ getItemValue $id parentNick ] [ getItemValue $id parent ] [ getItemValue $id unread ]
+        saveTopicRecursive $topic $id
+    }
+}
+
+proc saveTopicToCache {topic} {
+    if { $topic != "" } {
+        clearDiskCache $topic
+        saveTopicRecursive $topic ""
     }
 }
 
