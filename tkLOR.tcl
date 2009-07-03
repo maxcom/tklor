@@ -458,6 +458,17 @@ proc exitProc {} {
     global currentTopic
     global backendId
 
+    set total 0
+    set nonEmptyCategory ""
+    foreach category [ getQueues ] {
+        incr total [ getTasksCount $category ]
+    }
+    if { $total != 0 } {
+        if { [ tk_messageBox -title $appName -message [ mc "There are %s running tasks. Are you want to exit and stop it?" $total ] -type yesno -icon question ] == "no" } {
+            return
+        }
+    }
+
     saveTopicToCache $currentTopic
     saveTopicListToCache
     saveOptions
@@ -2000,7 +2011,6 @@ proc runBackend {} {
     exec $wishPath [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId -debug $debug &
 
     tkwait variable backendId
-    logger::log "backend id: $::backendId"
 }
 
 proc defCallbackLambda {name params script args} {
@@ -2074,7 +2084,7 @@ proc updateTaskList {} {
     ]
     set total 0
     set nonEmptyCategory ""
-    foreach category {getMessageList getTopicList postMessage} {
+    foreach category [ getQueues ] {
         set count [ getTasksCount $category ]
         incr total $count
 

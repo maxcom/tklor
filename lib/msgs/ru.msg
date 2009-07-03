@@ -154,4 +154,5 @@
         "Auto URL"              "Автораспознавание гиперссылок"
         "Error while substituting signature:\n%s"       "Ошибка при подстановке переменных в подписи:\n%s"
         "An error occured while posting '%s':\n%s"      "Произошла ошибка при отправке сообщения '%s':\n%s"
+        "There are %s running tasks. Are you want to exit and stop it?"         "Выполняется %s фоновых задач. Хотите их остановить и выйти?"
 }

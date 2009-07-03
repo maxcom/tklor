@@ -33,7 +33,8 @@ namespace export \
     taskCompleted \
     isTaskStopped \
     setUpdateHandler \
-    getTasksCount
+    getTasksCount \
+    getQueues
 
 struct::queue getMessageList
 struct::queue getTopicList
@@ -48,6 +49,10 @@ array set stopped {
 }
 
 variable lastMessageTime 0
+
+proc getQueues {} {
+    return {getMessageList getTopicList postMessage}
+}
 
 proc addTask {queue args} {
     variable stopped

@@ -141,7 +141,6 @@ if {$debug != "0"} {
 }
 
 set myId [ remoting::startServer $processId ]
-logger::log "backend id: $myId"
 remoting::sendRemote -async $appName [ list set backendId $myId ]
 
 gaa::httpTools::init \
