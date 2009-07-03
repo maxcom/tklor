@@ -122,7 +122,7 @@ array set color {
 }
 
 set options {
-    "Global" {
+    "Global options" {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
         "Autonomous mode"   hidden  autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
@@ -164,8 +164,8 @@ set options {
         "Normal font"       font    messageTextFont ""
         "Monospace font"    font    messageTextMonospaceFont ""
         "Quote font"        font    messageTextQuoteFont ""
-        "Font color"        color   color(htmlFg) ""
-        "Background"        color   color(htmlBg) ""
+        "Message font color"        color   color(htmlFg) ""
+        "Message background"        color   color(htmlBg) ""
     }
     "Forum groups" {
         "Visible forum groups"  selectList  forumVisibleGroups  {set lor::forumGroups}
@@ -1303,10 +1303,10 @@ proc showOptionsDialog {} {
         set sub ""
         foreach {item type var opt} $optList {
             if {$type != "hidden"} {
-                lappend sub $item $type $var [ set ::$var ] $opt
+                lappend sub [ mc $item ] $type $var [ set ::$var ] $opt
             }
         }
-        lappend opts $category
+        lappend opts [ mc $category ]
         lappend opts $sub
     }
 
@@ -1575,6 +1575,7 @@ proc ignoreUser {w item} {
 proc showFavoritesTree {title name script parent parentWindow} {
     set f [ join [ list ".favoritesTreeDialog" [ generateId ] ] "" ]
     toplevel $f -class Dialog
+    wm withdraw $f
     wm title $f $title
 
     pack [ ttk::label $f.label -text [ mc "Item name: " ] ] -fill x
@@ -1615,6 +1616,8 @@ proc showFavoritesTree {title name script parent parentWindow} {
         [ list -text [ mc "Cancel" ] -command $cancelScript ] \
     ] -side bottom -fill x
 
+    wm deiconify $f
+    wm transient $f $parentWindow
     update
     focus $nameWidget
     wm protocol $f WM_DELETE_WINDOW $cancelScript
@@ -1628,7 +1631,7 @@ proc addToFavorites {w id} {
     global topicTree
 
     if { ![ isCategoryFixed $id ] } {
-        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $topicTree $id ] [ getItemValue $topicTree $id parent ] .
+        showFavoritesTree [ mc "Select category and topic text" ] [ getItemValue $w $id text ] [ list addTopicToFavorites $topicTree $id ] [ getItemValue $topicTree $id parent ] .
     }
 }
 
@@ -1656,7 +1659,7 @@ proc createCategory {categoryWidget parentWidget parent name} {
 proc fillCategoryWidget {categoryWidget parent} {
     global topicTree
 
-    $categoryWidget insert {} end -id favorites -text Favorites
+    $categoryWidget insert {} end -id favorites -text [ mc "Favorites" ]
     processItems $topicTree "favorites" [ lambda {from to item} {
         if { ![ regexp -lineanchor {^\d+$} $item ] } {
             $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
