@@ -64,6 +64,7 @@ set currentMessage ""
 
 set topicNick ""
 set topicHeader ""
+set topicTime ""
 
 set useProxy 0
 set proxyAutoSelect 0
@@ -161,7 +162,10 @@ proc initPopups {} {
     $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
-    $topicMenu add command -label "Refresh" -command "refreshTopicList"
+    $topicMenu add command -label "Refresh list" -command "refreshTopicList"
+    $topicMenu add command -label "Reply" -command "topicReply"
+    $topicMenu add command -label "User info" -command "topicUserInfo"
+    $topicMenu add command -label "Open in browser" -command "topicOpenMessage"
     $topicMenu add separator
     $topicMenu add command -label "Mark as read" -command "markTopic topic 0"
     $topicMenu add command -label "Mark as unread" -command "markTopic topic 1"
@@ -182,7 +186,7 @@ proc initAllTopicsTree {} {
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Messages" -anchor w
     $allTopicsWidget column #0 -width 250
-    $allTopicsWidget column unreadChild -width 30
+    $allTopicsWidget column unreadChild -width 30 -stretch 0
 
     $allTopicsWidget insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
     foreach {id title} $newsGroups {
@@ -208,9 +212,20 @@ proc initAllTopicsTree {} {
 proc initTopicText {} {
     global topicTextWidget
     global htmlRenderer
+    global topicNick topicTime
 
     set mf [ frame .topicTextFrame ]
     pack [ ttk::label $mf.header -textvariable topicHeader -font "-size 14 -weight bold" ] -fill x
+
+    set width 10
+
+    set f [ frame $mf.nick ]
+    pack [ ttk::label $f.label -text "From: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable topicNick ] -side left
+    pack $f -fill x
+
+    set f [ frame $mf.time ]
+    pack [ ttk::label $f.label -text "Time: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable topicTime ] -side left
+    pack $f -fill x
 
     set f [ frame $mf.textFrame ]
     switch -exact $htmlRenderer {
@@ -387,7 +402,7 @@ proc configureTags {w} {
 proc setTopic {topic} {
     global currentTopic lorUrl appName
     global topicWidget messageWidget
-    global currentHeader currentNick currentPrevNick currentTime
+    global currentHeader currentNick currentPrevNick currentTime topicNick topicTime
 
     startWait
 
@@ -403,6 +418,8 @@ proc setTopic {topic} {
     set currentNick ""
     set currentPrevNick ""
     set currentTime ""
+    set topicNick ""
+    set topicTime ""
     renderHtml $messageWidget ""
 
     set currentTopic $topic
@@ -430,17 +447,19 @@ proc setTopic {topic} {
 }
 
 proc parseTopicText {topic data} {
-    global topicNick topicHeader
+    global topicNick topicHeader topicTime
 
     if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         set topicText $msg
         set topicNick $nick
+        set topicTime $time
         set topicHeader [ replaceHtmlEntities $header ]
         saveTopicTextToCache $topic [ replaceHtmlEntities $header ] $topicText $nick $time $approver $approveTime
     } else {
         set topicText "Unable to parse topic text :("
         set topicNick ""
         set topicHeader ""
+        set topicTime ""
         saveTopicTextToCache $topic "" $topicText "" "" "" ""
     }
     updateTopicText $topicHeader $topicText
@@ -1049,6 +1068,42 @@ proc openMessage {} {
     set item [ $w identify row $mouseX $mouseY ]
     if { $item != "" } {
         openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
+    }
+}
+
+proc topicReply {} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
+    }
+}
+
+proc topicUserInfo {} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
+    }
+}
+
+proc topicOpenMessage {} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
     }
 }
 
