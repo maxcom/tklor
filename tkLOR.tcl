@@ -137,6 +137,8 @@ set deliverTaskId ""
 
 set loggedIn 0
 
+set rightViewState "UNKNOWN"
+
 set debug 0
 
 array set fontPart {
@@ -223,15 +225,18 @@ proc initMenu {} {
     .menu add cascade \
         -label [ mc "Topic" ] \
         -menu .menu.topic \
-        -underline 0
+        -underline 0 \
+        -state disabled
     .menu add cascade \
         -label [ mc "Message" ] \
         -menu .menu.message \
-        -underline 0
+        -underline 0 \
+        -state disabled
     .menu add cascade \
         -label [ mc "Search" ] \
         -menu .menu.search \
-        -underline 0
+        -underline 0 \
+        -state disabled
     .menu add cascade \
         -label [ mc "Help" ] \
         -menu .menu.help \
@@ -859,22 +864,14 @@ proc click {w item} {
     }
     if { $w == $topicTree } {
         if [ regexp -lineanchor -- {^\d} $item ] {
-            set st disabled
+            set ::rightViewState MESSAGE
         } elseif {  $item == "sent" || 
                     $item == "draft" || 
                     $item == "outcoming" } {
-            set st normal
+            set ::rightViewState LOCAL
         } else {
             updateItemState $w $item
             return
-        }
-        foreach {m a b} [ list \
-            .menu.message   8 9 \
-            $messageMenu    6 7 \
-        ] {
-            foreach i [ list $a $b ] {
-                $m entryconfigure $i -state $st
-            }
         }
         setTopic $item
     } else {
@@ -2088,6 +2085,29 @@ proc setPerspective {mode {force ""}} {
     global currentPerspective
     global topicTree messageTree
 
+    if { $mode == "navigation" } {
+        .menu entryconfigure 2 -state normal
+        .menu entryconfigure 3 -state disabled
+        .menu entryconfigure 4 -state disabled
+    } elseif { $mode == "reading" } {
+        .menu entryconfigure 2 -state disabled
+        .menu entryconfigure 3 -state normal
+        .menu entryconfigure 4 -state normal
+
+        if { $::rightViewState == "MESSAGE" } {
+            set st disabled
+        } else {
+            set st normal
+        }
+        foreach {m a b} [ list \
+            .menu.message   8 9 \
+            $::messageMenu  6 7 \
+        ] {
+            foreach i [ list $a $b ] {
+                $m entryconfigure $i -state $st
+            }
+        }
+    }
     if { $force == "" && $perspectiveAutoSwitch == "0" } {
         return
     }
