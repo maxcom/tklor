@@ -60,6 +60,7 @@ set topicTextWidget ""
 set currentHeader ""
 set currentNick ""
 set currentTopic ""
+set currentMessage ""
 
 set topicNick ""
 set topicHeader ""
@@ -72,6 +73,9 @@ set proxyUser ""
 set proxyPassword ""
 
 set ignoreList ""
+
+set messageMenu ""
+set topicMenu ""
 
 set forumGroups {
     126     General
@@ -113,13 +117,39 @@ proc initMenu {} {
     .  configure -menu .menu
 }
 
+proc initPopups {} {
+    global messageMenu topicMenu
+
+    set messageMenu [ menu .messageMenu -tearoff 0 ]
+    $messageMenu add command -label "Reply" -command "reply"
+    $messageMenu add command -label "User info" -command "userInfo"
+    $messageMenu add separator
+    $messageMenu add command -label "Mark as read" -command "markMessage message 0"
+    $messageMenu add command -label "Mark as unread" -command "markMessage message 1"
+    $messageMenu add command -label "Mark thread as read" -command "markMessage thread 0"
+    $messageMenu add command -label "Mark thread as unread" -command "markMessage thread 1"
+    $messageMenu add command -label "Mark all as read" -command "markAllMessages 0"
+    $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
+
+    set topicMenu [ menu .topicMenu -tearoff 0 ]
+    $topicMenu add command -label "Mark as read" -command "markTopic topic 0"
+    $topicMenu add command -label "Mark as unread" -command "markTopic topic 1"
+    $topicMenu add command -label "Mark thread as read" -command "markTopic thread 0"
+    $topicMenu add command -label "Mark thread as unread" -command "markTopic thread 1"
+    $topicMenu add separator
+    $topicMenu add command -label "Mark messages as read" -command "markTopicRead"
+    $topicMenu add command -label "Mark messages as unread" -command "markTopicUnread"
+    $topicMenu add separator
+    $topicMenu add command -label "Move to favorites" -command "addToFavorites"
+}
+
 proc initAllTopicsTree {} {
     global allTopicsWidget
     global forumGroups
 
     set f [ frame .allTopicsFrame ]
     set allTopicsWidget [ ttk::treeview $f.allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
-    
+
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Messages" -anchor w
@@ -136,6 +166,7 @@ proc initAllTopicsTree {} {
     $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
 
     bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
+    bind $allTopicsWidget <ButtonPress-3> "topicPopup %X %Y %x %y"
 
     ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
     pack $f.scroll -side right -fill y
@@ -180,6 +211,7 @@ proc initTopicTree {} {
     configureTags $topicWidget
 
     bind $topicWidget <<TreeviewSelect>> "messageClick"
+    bind $topicWidget <ButtonPress-3> "messagePopup %X %Y %x %y"
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
@@ -322,7 +354,8 @@ proc configureTags {w} {
 
 proc setTopic {topic} {
     global currentTopic lorUrl appName
-    global topicWidget
+    global topicWidget messageWidget
+    global currentHeader currentNick currentPrevNick currentTime
 
     startWait
 
@@ -334,11 +367,17 @@ proc setTopic {topic} {
         $topicWidget delete $item
     }
 
+    set currentHeader ""
+    set currentNick ""
+    set currentPrevNick ""
+    set currentTime ""
+    renderHtml $messageWidget ""
+
     set currentTopic $topic
     set err 1
     set errStr ""
     set url "http://pingu/lor.html"
-    set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
+    #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
@@ -413,14 +452,18 @@ proc setItemValue {w item valueName value} {
 
 proc messageClick {} {
     upvar #0 topicWidget w
+    global currentMessage
 
     set item [ $w focus ]
-    updateMessage $item
-    if [ getItemValue $w $item unread ] {
-        setItemValue $w $item unread 0
-        addUnreadChild $w [ getItemValue $w $item parent ] -1
+    if { $item != $currentMessage } {
+        set currentMessage $item
+        updateMessage $item
+        if [ getItemValue $w $item unread ] {
+            setItemValue $w $item unread 0
+            addUnreadChild $w [ getItemValue $w $item parent ] -1
+        }
+        updateItemState $w $item
     }
-    updateItemState $w $item
 }
 
 proc addUnreadChild {w item {count 1}} {
@@ -736,7 +779,7 @@ proc parseForum {forum} {
     startWait
 
     set url "http://pingu/lor-group.html"
-    set url "http://$lorUrl/group.jsp?group=$forum"
+    #set url "http://$lorUrl/group.jsp?group=$forum"
     set err 0
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
@@ -841,6 +884,66 @@ proc topicClick {} {
     }
 }
 
+proc mark {w item type unread} {
+    set old [ getItemValue $w $item unread ]
+    if {$unread != $old} {
+        setItemValue $w $item unread $unread
+        addUnreadChild $w [ getItemValue $w $item parent ] [ expr $unread - $old ]
+        updateItemState $w $item
+    }
+    if {$type == "thread"} {
+        foreach i [ $w children $item ] {
+            mark $w $i $type $unread
+        }
+    }
+}
+
+proc messagePopup {xx yy x y} {
+    global messageMenu mouseX mouseY
+
+    set mouseX $x
+    set mouseY $y
+
+    tk_popup $messageMenu $xx $yy
+}
+
+proc markMessage {thread unread} {
+    upvar #0 topicWidget w
+    global mouseX mouseY
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        mark $w $item $thread $unread
+    }
+}
+
+proc topicPopup {xx yy x y} {
+    global topicMenu mouseX mouseY
+
+    set mouseX $x
+    set mouseY $y
+
+    tk_popup $topicMenu $xx $yy
+}
+
+proc markTopic {thread unread} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        mark $w $item $thread $unread
+    }
+}
+
+proc markAllMessages {unread} {
+    upvar #0 topicWidget w
+
+    foreach item [ $w children "" ] {
+        mark $w $item thread $unread
+    }
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -852,6 +955,7 @@ initDirs
 initHttp
 
 initMenu
+initPopups
 initMainWindow
 
 update
