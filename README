@@ -44,10 +44,6 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
     # wish tkLOR.tcl -libDir=/home/jopa/prog/tkLOR/lib
 
-*   If on your system 'wish' are not located in $PATH, use -wishPath command-line key.
-
-    # /usr/local/tcltk/wish85 tkLOR.tcl -wishPath=/usr/local/tcltk/wish85
-
 ## For Debian GNU/Linux:
 
 # aptitude install tcl8.4 tk8.4 tcllib tk-tile
@@ -62,4 +58,5 @@ Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile in
 
 *   install ActiveTcl from http://www.activestate.com/store/freedownload.aspx?prdGuid=f0cd6399-fefb-466e-ba17-220dcd6f4078
 *   install tcllib from http://sourceforge.net/project/showfiles.php?group_id=12883
-*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib -wishPath=/usr/local/bin/wish8.5"
+*   add a symlink to /usr/local/bin/wish8.5 in any directory in $PATH or add /usr/local/bin into PATH environment variable.
+*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib"

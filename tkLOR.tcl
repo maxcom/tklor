@@ -32,10 +32,9 @@ package require msgcat 1.3
 namespace import ::msgcat::*
 
 set appName "tkLOR"
-# will be set by backend callback method
-set backendId ""
 
 set plugin "tclsh tormozcat.tcl"
+set loggedIn 0
 
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
@@ -55,8 +54,6 @@ if { $xdg_cache_home == "" } {
     set xdg_cache_home [ file join $::env(HOME) ".cache" ]
 }
 set cacheDir [ file join $xdg_cache_home $appName ]
-
-set wishPath [ auto_execok wish ]
 
 if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir "/usr/lib/tkLOR"
@@ -129,10 +126,6 @@ set messageTextQuoteFont "-slant italic"
 set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 19109}
 
 set tasksWidgetVisible 0
-
-set debug 0
-
-set backendStarted 0
 
 array set fontPart {
     none ""
@@ -454,7 +447,6 @@ proc helpAbout {} {
 proc exitProc {} {
     global appName
     global currentTopic
-    global backendId
 
     set total 0
     foreach category [ getQueues ] {
@@ -474,7 +466,6 @@ proc exitProc {} {
 #    saveTopicToCache $currentTopic
     saveTopicListToCache
     saveOptions
-    catch {remoting::sendRemote -async $backendId exit}
 
     exit
 }
@@ -642,7 +633,6 @@ proc setTopic {topic} {
     global currentHeader currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
-    global backendId
 
 #    stopAllTasks getMessageList
     update
@@ -1018,7 +1008,7 @@ proc loadConfigFile {fileName} {
 
         uplevel #0 $data
     } err ] {
-        errorProc [ mc "Error loading file %s\n%s" $fileName $err ] $::errorInfo
+        errorProc [ mc "Error loading file %s" $fileName ] $err $::errorInfo
     }
 }
 
@@ -1041,7 +1031,6 @@ proc updateTopicList {{section ""}} {
     global appName
     global topicTree
     global forumVisibleGroups
-    global backendId
 
     if { $autonomousMode } {
         goOnline
@@ -1073,6 +1062,7 @@ proc updateTopicList {{section ""}} {
         return
     }
 
+error "TODO: temporary disabled"
     defCallbackLambda processTopic {parent id nick header} {
         global cacheDir
 
@@ -1098,7 +1088,6 @@ proc updateTopicList {{section ""}} {
         taskCompleted getTopicList
     } $section
 
-error "TODO: temporary disabled"
     addTask getTopicList remoting::sendRemote -async $backendId [ list lor::getTopicList $section $processTopic errorProcCallback $onComplete ]
 }
 
@@ -1949,10 +1938,8 @@ proc loadAppLibs {} {
     package require gaa_tileDialogs 1.2
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
-    package require gaa_remoting 2.0
     package require lorParser 1.2
     package require tkLor_taskManager 1.0
-    package require gaa_logger 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
@@ -1991,17 +1978,14 @@ proc showWindow {} {
     wm deiconify .
 }
 
-proc errorProc {err {extInfo ""}} {
+proc errorProc {title err {extInfo ""}} {
     global appName
 
-    logger::log $err
-    if {$extInfo != ""} {
-        logger::log "Extended info: $extInfo"
-    }
+    puts stderr "$err $extInfo"
     messageBox \
         -title [ mc "%s error" $appName ] \
-        -message $err \
-        -detail $extInfo \
+        -message "$title" \
+        -detail "$err" \
         -parent . \
         -type ok \
         -icon error
@@ -2037,28 +2021,6 @@ proc updateForumGroups {} {
     updateItemState $w "forum"
 }
 
-proc runBackend {} {
-    global backend configDir libDir appId wishPath debug
-    global backendId
-
-    exec $wishPath [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId -debug $debug &
-
-    tkwait variable backendId
-}
-
-proc defCallbackLambda {name params script args} {
-    global appName
-
-    uplevel [ list set $name \
-        [ concat \
-            [ list ::gaa::lambda::lambdaProc {params script args} {
-                remoting::sendRemote tkLOR [ concat [ list lambdaProc $params $script ] $args ]
-            } $params $script ] \
-            $args \
-        ] \
-    ]
-}
-
 proc initTasksWindow {} {
     global tasksWidget
     global appName
@@ -2070,26 +2032,26 @@ proc initTasksWindow {} {
 
     bind $tasksWidget <Escape> toggleTaskList
 
-    set w [ ttk::treeview $tasksWidget.list -columns {count} ]
+    set w [ ttk::treeview $tasksWidget.list ]
     $w heading #0 -text [ mc "Category" ] -anchor w
-    $w heading count -text [ mc "Count" ] -anchor w
-    $w column count -width 30
-    pack $w -fill both -expand 1
+    grid $w -sticky nswe
 
     deflambda stopScript {w} {
         foreach item [ $w selection ] {
-            stopTask $item
+            ::taskManager::stopTask $item
         }
     } $w
     deflambda stopAllScript {w} {
-        foreach item [ $w selection ] {
-            stopAllTasks $item
+        foreach item [ $w children {} ] {
+            ::taskManager::stopTask $item
         }
     } $w
-    pack [ buttonBox $tasksWidget \
+    grid [ buttonBox $tasksWidget \
         [ list -text [ mc "Stop" ] -command $stopScript ] \
         [ list -text [ mc "Stop all" ] -command $stopAllScript ] \
-    ] -fill x -side bottom -expand 1
+    ] -sticky nswe
+    grid columnconfigure $tasksWidget 0 -weight 1
+    grid rowconfigure $tasksWidget 0 -weight 1
 }
 
 proc toggleTaskList {} {
@@ -2110,32 +2072,20 @@ proc updateTaskList {} {
     global statusBarWidget
     set w $tasksWidget.list
 
-    array set categoriesMap [ list \
-        getMessageList [ mc "Getting messages" ] \
-        getTopicList   [ mc "Getting topics list" ] \
-        postMessage    [ mc "Message posting" ] \
-    ]
-    set total 0
-    set nonEmptyCategory ""
-    foreach category [ getQueues ] {
-        set count [ getTasksCount $category ]
-        incr total $count
-
-        if { $count == 0 } {
-            if [ $w exists $category ] {
-                $w delete $category
-            }
-        } else {
-            set nonEmptyCategory $category
-            if [ $w exists $category ] {
-                $w delete $category
-            }
-            $w insert {} end -id $category -text $categoriesMap($category) -values [ list $count ]
-        }
+    set tasks [ ::taskManager::getTasks ]
+    set total [ expr [ llength $tasks ] / 2 ]
+    if { $total >= 1 } {
+        set nonEmptyCategory [ lindex $tasks 1 ]
+    } else {
+        set nonEmptyCategory ""
+    }
+    $w delete [ $w children {} ]
+    foreach {id title} $tasks {
+        $w insert {} end -id $id -text $title
     }
     if { $total != 0 } {
         if { $total == 1 } {
-            $statusBarWidget.text configure -text $categoriesMap($nonEmptyCategory)
+            $statusBarWidget.text configure -text $nonEmptyCategory
         } else {
             $statusBarWidget.text configure -text [ mc "%s operations running" $total ]
         }
@@ -2146,7 +2096,6 @@ proc updateTaskList {} {
         $statusBarWidget.progress stop
         $statusBarWidget.progress state disabled
     }
-    array unset categoriesMap
 }
 
 #TODO: return it
@@ -2156,66 +2105,31 @@ proc updateTaskList {} {
 #    errorProc $msg $::errorInfo
 #}
 
-proc openLoginWindow {} {
-    global backendId
-    global autonomousMode
-    global appName
+proc loginCallback {str} {
+    global loginCookie loggedIn
 
-    set f [ toplevel .loginWindow -class Dialog ]
-    update
-    wm title $f $appName
-    wm withdraw $f
-    wm resizable $f 1 0
-    wm protocol $f WM_DELETE_WINDOW { }
-    pack [ ttk::label $f.label -text [ mc "Logging in. Please wait..." ] ] -fill x -expand yes
-    pack [ ttk::progressbar $f.p -value 0 -orient horizontal -mode indeterminate -length 400 ] -fill x -expand yes
-    wm transient $f .
-    wm deiconify $f
-    update
-    grab $f
-    $f.p start
-}
-
-proc closeLoginWindow {} {
-    set f .loginWindow
-
-    grab release $f
-    wm withdraw $f
-    destroy $f
-}
-
-proc loginCallback {loggedIn} {
-    global autonomousMode appName
-
-    closeLoginWindow
-    if { ! $loggedIn } {
-        if { [ messageBox \
-            -message [ mc "Login failed" ] \
-            -icon warning \
-            -parent . \
-            -type retrycancel \
-        ] == "cancel" } {
-            set autonomousMode 1
-        } else {
-            login
-        }
-    }
+    set loginCookie $str
+    set loggedIn 1
 }
 
 proc login {} {
     global lorLogin lorPassword
-    global backendId
 
-    if { ![ remoting::sendRemote $backendId lor::isLoggedIn ] } {
-        openLoginWindow
-        remoting::sendRemote -async $backendId login $lorLogin $lorPassword
-    }
+    set f [ callPlugin login {} \
+        -title [ mc "Logging in" ] \
+        -mode "r+" \
+        -onoutput loginCallback \
+        -onerror [ list errorProc [ mc "Login failed" ] ] \
+    ]
+    puts $f "login: $lorLogin"
+    puts $f "password: $lorPassword"
+    puts $f ""
 }
 
 proc logout {} {
-    global backendId
+    global loggedIn
 
-    remoting::sendRemote -async $backendId lor::logout
+    set loggedIn 0
 }
 
 proc goOnline {} {
@@ -2364,8 +2278,6 @@ proc quoteText {text} {
 }
 
 proc sendReply {f topic message} {
-    global backendId
-
     set header [ $f.textFrame.header get ]
     set text [ $f.textFrame.textContainer.text get 0.0 end ]
     set preformattedText [ $f.optionsFrame.format current ]
@@ -2375,10 +2287,10 @@ proc sendReply {f topic message} {
         set text [ normalizeText $text ]
     }
 
+error "TODO: temporary disabled"
     defCallbackLambda finish {type} {
         taskCompleted $type
     } postMessage
-error "TODO: temporary disabled"
     addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
 }
 
@@ -2388,11 +2300,9 @@ proc normalizeText {text} {
     return $text
 }
 
+#TODO: rewrite algo
 proc deliveryError {topic message header text preformattedText autoUrl errStr errExtInfo} {
-    global appName backendId
-
-    logger::log "message delivery error: $errStr"
-    logger::log "extended info: $errExtInfo"
+    global appName
 
     if { [ messageBox \
         -message [ mc "An error occured while posting '%s':\n%s" $header ] \
@@ -2422,6 +2332,35 @@ proc messageBox {args} {
     return [ eval [ concat tk_messageBox [ array get opts ] ] ]
 }
 
+proc callPlugin {action arg args} {
+    global libDir
+    global appId
+    global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization
+    global proxyUser proxyPassword
+
+    set command [ concat \
+        [ list "$libDir/lorBackend.tcl" "-$action" ] \
+        $arg \
+    ]
+    foreach {var key} {
+            proxyHost           proxyhost
+            proxyPort           proxyport
+            proxyUser           proxyuser
+            proxyPassword       proxypassword
+            libDir              libDir} {
+        lappend command "-$key" [ set $var ]
+    }
+    foreach {var key} {
+            useProxy            useproxy
+            proxyAutoSelect     autoproxy
+            proxyAuthorization  proxyauth} {
+        if [ set $var ] {
+            lappend command "-$key"
+        }
+    }
+    return [ eval [ concat [ list taskManager::addTask $command ] $args ] ]
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -2432,13 +2371,9 @@ initDirs
 loadAppLibs
 loadConfig
 
-if {$debug != "0"} {
-    logger::configure $appName
-}
-
-if { [ remoting::startServer $appName ] != $appName } {
-    remoting::sendRemote -async $appName {showWindow}
-    exit
+if { [ tk appname $appName ] != $appName } {
+    send -async $appName {showWindow}
+    exit 1
 }
 
 initMainWindow
@@ -2446,8 +2381,6 @@ initTasksWindow
 initMenu
 
 update
-
-runBackend
 
 applyOptions
 ::taskManager::setUpdateHandler updateTaskList
@@ -2467,5 +2400,8 @@ if { $updateOnStart == "1" } {
 setPerspective $currentPerspective
 
 #TODO: remove it
-update
-setTopic 2903217
+#update
+#setTopic 2903217
+
+login
+

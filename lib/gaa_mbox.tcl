@@ -50,7 +50,7 @@ proc parseLetter {stream id command onerror oncomplete} {
         gets $stream s
     }
     if { $state == "EOF" ||
-            ( [ regexp -lineanchor -- {^From:{0,1} (.+)$} $s dummy nick ] &&
+            ( [ regexp {^From:{0,1} (.+)$} $s dummy nick ] &&
                 ( $state == "BODYSPACE" || $state == "BEGIN" ) ) } {
         if { ! [ regexp {^\s*$} $letter ] } {
             if [ catch {eval [ concat $command [ list $letter ] ]} err ] {
@@ -84,7 +84,7 @@ proc parseLetter {stream id command onerror oncomplete} {
         return 1
     }
     if { $state == "HEAD" } {
-        if [ regexp -lineanchor -- {^([\w-]+): (.+)$} $s dummy tag val ] {
+        if [ regexp {^([\w-]+): (.+)$} $s dummy tag val ] {
             set lt($tag) $val
         } else {
             eval [ concat $onerror \
@@ -92,7 +92,7 @@ proc parseLetter {stream id command onerror oncomplete} {
             ]
         }
     } else {
-        if [ regexp -lineanchor {^>(>*From:{0,1} .*)$} $s dummy ss ] {
+        if [ regexp {^>(>*From:{0,1} .*)$} $s dummy ss ] {
             set s $ss
         }
         set lt(body) "$lt(body)\n$s"
@@ -168,7 +168,7 @@ proc writeToStream {stream letter} {
     puts $stream ""
 
     foreach line [ split $body "\n" ] {
-        if [ regexp -lineanchor {^>*From } $line ] {
+        if [ regexp {^>*From } $line ] {
             puts -nonewline $stream ">"
         }
         puts $stream $line

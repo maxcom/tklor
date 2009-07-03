@@ -18,107 +18,96 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide tkLor_taskManager 1.0
+package provide tkLor_taskManager 1.1
 
 package require Tcl 8.4
-package require struct::queue 1.4
+package require cmdline 1.2.5
 
-namespace eval tkLor {
 namespace eval taskManager {
 
 namespace export \
     addTask \
     stopTask \
-    stopAllTasks \
-    taskCompleted \
-    isTaskStopped \
     setUpdateHandler \
-    getTasksCount \
-    getQueues
-
-struct::queue getMessageList
-struct::queue getTopicList
-struct::queue postMessage
+    getTasks \
+    closeChannel
 
 set updateScript ""
 
-array set stopped {
-    getMessageList  0
-    getTopicList    0
-    postMessage     0
-}
+array set tasks ""
 
-variable lastMessageTime 0
-
-proc getQueues {} {
-    return {getMessageList getTopicList postMessage}
-}
-
-proc addTask {queue args} {
-    variable stopped
-    variable updateScript
-
-    $queue put $args
-    if { [ $queue size ] == 1 } {
-        runFromQueue $queue
-    }
-    uplevel #0 $updateScript
-}
-
-proc stopTask {queue} {
-    variable stopped
-
-    array set stopped [ list $queue 1 ]
-}
-
-proc stopAllTasks {queue} {
-    variable stopped
-    variable updateScript
-
-    array set stopped [ list $queue 1 ]
-    if { [ $queue size ] != 0 } {
-        set s [ $queue get ]
-        $queue clear
-        $queue unget $s
+proc readableHandler {f onoutput onerror oncomplete} {
+    if { [ gets $f str ] < 0 } {
+        if [ eof $f ] {
+            closeChannel $f $onerror
+            uplevel #0 $oncomplete
+        }
     } else {
-        $queue clear
-    }
-    uplevel #0 $updateScript
-}
-
-proc runFromQueue {queue} {
-    variable stopped
-    variable updateScript
-    variable lastMessageTime
-
-    array set stopped [ list $queue 0 ]
-    if { [ $queue size ] != 0 } {
-        set delta [ expr [ clock seconds ] - $lastMessageTime ]
-        if { $queue == "postMessage" && $delta <= 30 } {
-            after [ expr ( 30 - $delta ) * 1000 ] ::tkLor::taskManager::runFromQueue $queue
-            return
-        } else {
-            set script [ $queue peek ]
-            eval $script
+        if { $onoutput != "" } {
+            lappend onoutput $str
+            uplevel #0 $onoutput
         }
     }
-    uplevel #0 $updateScript
 }
 
-proc taskCompleted {queue} {
-    variable lastMessageTime
+proc addTask {command args} {
+    variable updateScript
+    variable tasks
 
-    $queue get
-    if { $queue == "postMessage" } {
-        set lastMessageTime [ clock seconds ]
+    array set p [ ::cmdline::getoptions args [ list \
+        [ list title.arg      $command    "Title to display in task manager" ] \
+        [ list mode.arg       "r"         "File open mode" ] \
+        [ list encoding.arg   "utf-8"     "Encoding" ] \
+        [ list onoutput.arg   ""          "Script to execute on output(1 arg)" ] \
+        [ list onerror.arg    ""          "Script to execute on error(1 arg)" ] \
+        [ list oncomplete.arg ""          "Script to execute on command finish" ] \
+    ] ]
+
+    set f [ open "|$command" $p(mode) ]
+    if { $p(encoding) != ""} {
+        fconfigure $f -encoding $p(encoding)
     }
-    runFromQueue $queue
+
+    set tasks($f) $p(title)
+
+    fconfigure $f -blocking 0 -buffering line
+    fileevent $f readable [ list \
+        [ namespace current ]::readableHandler \
+            $f \
+            $p(onoutput) \
+            $p(onerror) \
+            $p(oncomplete) \
+    ]
+
+    uplevel #0 $updateScript
+    return $f
 }
 
-proc isTaskStopped {queue} {
-    variable stopped
+proc closeChannel {id {onerror ""}} {
+    variable updateScript
+    variable tasks
 
-    return $stopped($queue)
+    unset tasks($id)
+    uplevel #0 $updateScript
+    fconfigure $id -blocking 1
+    if [ catch {close $id} err ] {
+        if { $onerror != "" } {
+            lappend onerror $err
+            uplevel #0 $onerror
+        } else {
+            error $err $::errorInfo
+        }
+    }
+}
+
+proc stopTask {id} {
+    variable updateScript
+    variable tasks
+
+    unset tasks($id)
+    uplevel #0 $updateScript
+    fconfigure $id -blocking 0
+    close $id
 }
 
 proc setUpdateHandler {script} {
@@ -127,15 +116,9 @@ proc setUpdateHandler {script} {
     set updateScript $script
 }
 
-proc getTasksCount {queue} {
-    variable stopped
-
-    if { [ $queue size ] != 0 } {
-        return [ expr [ $queue size ] - $stopped($queue) ]
-    } else {
-        return 0
-    }
+proc getTasks {} {
+    return [ array get tasks ]
 }
 
 }
-}
+

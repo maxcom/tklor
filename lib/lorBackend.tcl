@@ -1,3 +1,4 @@
+#!/bin/sh
 ############################################################################
 #    Copyright (C) 2008 by Alexander Galanin                               #
 #    gaa.nnov@mail.ru                                                      #
@@ -18,19 +19,11 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
+# \
+exec tclsh "$0" "$@"
+
 package require Tcl 8.4
 package require cmdline 1.2.5
-package require base64 2.3.2
-
-set appName tkLOR
-set processId tkLOR-backend
-
-set xdg_config_home ""
-catch {set xdg_config_home $::env(XDG_CONFIG_HOME)}
-if { $xdg_config_home == "" } {
-    set xdg_config_home [ file join $::env(HOME) ".config" ]
-}
-set configDir [ file join $xdg_config_home $appName ]
 
 if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir "/usr/lib/tkLOR"
@@ -39,117 +32,79 @@ if {[ string first Windows $tcl_platform(os) ] == -1} {
 }
 
 ############################################################################
-#                                 VARIABLES                                #
-############################################################################
-
-set useProxy 0
-set proxyAutoSelect 0
-set proxyHost ""
-set proxyPort ""
-set proxyAuthorization 0
-set proxyUser ""
-set proxyPassword ""
-set debug 0
-
-############################################################################
 #                                 FUNCTIONS                                #
 ############################################################################
 
-proc loadConfigFile {fileName} {
-    if { ![ file exists $fileName ] } {
-        return
-    }
-    catch {
-        set f [ open $fileName "r" ]
-        fconfigure $f -encoding utf-8
-        set data [ read $f ]
-        close $f
-
-        uplevel #0 $data
-    }
-}
-
-proc loadConfig {} {
-    global configDir
-
-    loadConfigFile [ file join $configDir "config" ]
-    loadConfigFile [ file join $configDir "userConfig" ]
-}
-
-proc loadAppLibs {} {
-    global libDir
+proc loadAppLibs {libDir} {
     global auto_path
 
     lappend auto_path $libDir
 
-    package require gaa_lambda 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
-    package require gaa_remoting 2.0
-    package require gaa_logger 1.0
-
-    namespace import ::gaa::lambda::*
-}
-
-proc errorProcCallback {err {extInfo ""}} {
-    remoting::sendRemote -async tkLOR [ list errorProc $err $extInfo ]
 }
 
 proc bgerror {msg} {
-    logger::log "bgerror: $msg"
-    logger::log "bgerror extended info: $::errorInfo"
+    error $msg $::errorInfo
 }
 
-proc login {login password} {
-    if [ catch {lor::login $login $password} ] {
-        remoting::sendRemote -async tkLOR "loginCallback 0"
-    } else {
-        remoting::sendRemote -async tkLOR "loginCallback 1"
+proc parseArgs {stream} {
+    set res ""
+    while { [ gets $stream line ] >= 0 } {
+        if { $line == "" } {
+            break
+        }
+        if [ regexp {([\w-]+):\s*(.*)} $line dummy key val ] {
+            lappend res $key $val
+        } else {
+            error "Unable to parse string '$line'"
+        }
     }
-}
-
-proc deliveryErrorCallback {topic message header text preformattedText autoUrl errStr {errExtInfo ""}} {
-    remoting::sendRemote -async tkLOR [ list deliveryError $topic $message $header $text $preformattedText $autoUrl $errStr $errExtInfo ]
+    return $res
 }
 
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
 
-wm withdraw .
+foreach stream {stdin stdout} {
+    fconfigure $stream -encoding "utf-8"
+}
 
-array set param [ ::cmdline::getoptions argv [ list \
-    [ list configDir.arg  $configDir    "Config directory" ] \
-    [ list libDir.arg     $libDir       "Library path" ] \
-    [ list appId.arg      $appName      "Application ID" ] \
-    [ list debug.arg      $debug        "Debug flag" ] \
+array set p [ ::cmdline::getoptions argv [ list \
+    [ list libDir.arg           $libDir "Library path" ] \
+    [ list get.arg              ""      "Get messages from thread <id>" ] \
+    [ list login                        "Log in to LOR" ] \
+    [ list useragent.arg        "tkLOR" "HTTP User-Agent" ] \
+    [ list useproxy                     "Use proxy" ] \
+    [ list autoproxy                    "Use proxy autoconfiguration" ] \
+    [ list proxyhost.arg        ""      "Proxy host" ] \
+    [ list proxyport.arg        ""      "Proxy port" ] \
+    [ list proxyauth                    "Proxy authorization" ] \
+    [ list proxyuser.arg        ""      "Proxy user" ] \
+    [ list proxypassword.arg    ""      "Proxy password" ] \
 ] ]
 
-if { $param(configDir) != "" } {
-    set configDir $param(configDir)
+loadAppLibs $p(libDir)
+
+set httpParams {-charset "utf-8"}
+foreach key {useproxy autoproxy useragent proxyhost proxyport 
+        proxyauth proxyuser proxypassword} {
+    lappend httpParams $p($key)
 }
-if { $param(libDir) != "" } {
-    set libDir $param(libDir)
-}
-set debug $param(debug)
+eval [ concat gaa::httpTools::init $httpParams ]
 
-loadConfig
-loadAppLibs
-
-if {$debug != "0"} {
-    logger::configure $processId
+if { $p(get) != "" } {
+    #TODO
+    exit 0
 }
 
-set myId [ remoting::startServer $processId ]
-remoting::sendRemote -async $appName [ list set backendId $myId ]
+if $p(login) {
+    array set arg [ parseArgs stdin ]
+    puts -nonewline "VERY-COOL-LOGIN-COOKIE"
+    exit 0
+}
 
-gaa::httpTools::init \
-    -useragent      $param(appId) \
-    -proxy          $useProxy \
-    -autoproxy      $proxyAutoSelect \
-    -proxyhost      $proxyHost \
-    -proxyport      $proxyPort \
-    -proxyauth      $proxyAuthorization \
-    -proxyuser      $proxyUser \
-    -proxypassword  $proxyPassword \
-    -charset        "utf-8"
+puts stderr "No actions given"
+exit 1
+
