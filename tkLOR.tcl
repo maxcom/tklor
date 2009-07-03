@@ -228,6 +228,7 @@ proc initMenu {} {
 
     set m [ menu .menu.help -tearoff 0 ]
     $m add command -label "Project home" -command {openUrl $appHome}
+    $m add command -label "About LOR" -command {openUrl "http://$lorUrl/server.jsp"}
     $m add separator
     $m add command -label "About" -command helpAbout -accelerator "F1"
 
@@ -346,6 +347,9 @@ proc initTopicTree {} {
     $topicWidget heading #0 -text "Nick" -anchor w
     $topicWidget heading header -text "Title" -anchor w
     $topicWidget heading time -text "Time" -anchor w
+
+    $topicWidget column header -width 1
+    $topicWidget column time -width 1
 
     configureTags $topicWidget
 
