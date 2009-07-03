@@ -466,6 +466,8 @@ proc renderHtmlTag {w stack tag slash param text} {
                     }
                     set tagName [ join [ list "link" [ generateId ] ] "" ]
                     $w tag configure $tagName -underline 1 -foreground blue
+                    set url [ ::htmlparse::mapEscapes $url ]
+                    regsub -all -- {%} $url {%%} url
                     $w tag bind $tagName <ButtonPress-1> [ list "openUrl" $url ]
                     $stack push [ list $tagName $pos ]
                 } else {
