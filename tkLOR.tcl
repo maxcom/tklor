@@ -662,6 +662,9 @@ proc click {w item} {
 }
 
 proc addUnreadChild {w item {count 1}} {
+    if { ![ string is integer [ getItemValue $w $item unreadChild ] ] } {
+        setItemValue $w $item unreadChild 0
+    }
     setItemValue $w $item unreadChild [ expr [ getItemValue $w $item unreadChild ] + $count ]
     if { $item != "" } {
         addUnreadChild $w [ getItemValue $w $item parent ] $count
