@@ -22,8 +22,8 @@ package provide lorParser 1.0
 
 package require Tcl 8.4
 package require http 2.0
-package require cmdline 1.2.5
 package require gaa_lambda 1.0
+package require htmlparse 1.1
 
 namespace eval lor {
 
@@ -154,7 +154,7 @@ proc parseRss {data script} {
     foreach {dummy1 item} [ regexp -all -inline -- {<item>(.*?)</item>} $data ] {
         set v ""
         foreach {dummy2 tag content} [ regexp -all -inline -- {<([\w-]+)>([^<]*)</[\w-]+>} $item ] {
-            lappend v $tag $content
+            lappend v $tag [ ::htmlparse::mapEscapes $content ]
         }
         eval [ concat $script [ list $v ] ]
     }

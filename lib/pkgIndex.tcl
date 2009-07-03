@@ -13,3 +13,4 @@ package ifneeded gaa_tileDialogs 1.0 [list source [file join $dir gaa_tileDialog
 package ifneeded gaa_tools 1.0 [list source [file join $dir gaa_tools.tcl]]
 package ifneeded gaa_mbox 1.0 [list source [file join $dir gaa_mbox.tcl]]
 package ifneeded lorParser 1.0 [list source [file join $dir lorParser.tcl]]
+package ifneeded gaa_httpTools 1.0 [list source [file join $dir gaa_httpTools.tcl]]

@@ -25,8 +25,6 @@ exec wish "$0" "$@"
 package require Tcl 8.4
 package require Tk 8.4
 package require tile 0.8
-package require http 2.0
-package require autoproxy
 package require htmlparse 1.1
 package require struct::stack 1.3
 
@@ -771,27 +769,6 @@ proc refreshTopic {} {
     }
 }
 
-proc initHttp {} {
-    global appId
-    global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
-
-    if { $useProxy != "0" } {
-        ::autoproxy::init
-        if { $proxyAutoSelect == "0" } {
-            ::autoproxy::configure -proxy_host $proxyHost -proxy_port $proxyPort
-        }
-        if { $proxyAuthorization != "0" } {
-            ::autoproxy::configure -basic -username $proxyUser -password $proxyPassword
-        }
-        ::http::config -proxyfilter ::autoproxy::filter
-    } else {
-        ::http::config -proxyfilter ""
-    }
-
-    ::http::config -useragent "$appId"
-    set ::http::defaultCharset "utf-8"
-}
-
 proc initDirs {} {
     global appName configDir threadSubDir
 
@@ -1008,7 +985,7 @@ proc updateTopicList {{section ""}} {
     deflambda processTopic {parent id nick header} {
         global configDir threadSubDir
 
-        set header [ htmlToText [ ::htmlparse::mapEscapes $header ] ]
+        set header [ htmlToText $header ]
         addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
     } $section
 
@@ -1285,7 +1262,7 @@ proc showOptionsDialog {} {
         -script applyOptions
 }
 
-proc applyOptions {} {
+proc applyOptions {{nosave ""}} {
     global topicTree messageTree
     global tileTheme
     global messageTextWidget
@@ -1293,8 +1270,19 @@ proc applyOptions {} {
     global color
     global colorList
     global colorCount
+    global appId
+    global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
-    initHttp
+    gaa::httpTools::init \
+        -useragent $appId \
+        -proxy $useProxy \
+        -autoproxy $proxyAutoSelect \
+        -proxyhost $proxyHost \
+        -proxyport $proxyPort \
+        -proxyauth $proxyAuthorization \
+        -proxyuser $proxyUser \
+        -proxypassword $proxyPassword \
+        -charset "utf-8"
 
     configureTags $topicTree
     configureTags $messageTree
@@ -1307,6 +1295,10 @@ proc applyOptions {} {
     initBindings
 
     set colorCount [ llength $colorList ]
+
+    if { $nosave != "" } {
+        saveOptions
+    }
 }
 
 proc saveOptions {} {
@@ -1811,6 +1803,7 @@ proc loadAppLibs {} {
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require lorParser 1.0
+    package require gaa_httpTools 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
@@ -1849,7 +1842,7 @@ loadAppLibs
 initMainWindow
 initMenu
 
-applyOptions
+applyOptions -nosave
 
 update
 
