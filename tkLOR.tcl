@@ -601,6 +601,8 @@ proc parsePage {topic data} {
                     setItemValue $w $id $i [ set $i ]
                 }
                 setItemValue $w $id header [ replaceHtmlEntities $header ]
+                setItemValue $w $id unread 0
+                setItemValue $w $id unreadChild 0
                 mark $w $id item 1
                 updateItemState $w $id
             }
@@ -979,7 +981,7 @@ proc updateTopicList {{section ""} {recursive ""}} {
                     updateTopicList "news$id" 1
                 }
             } else {
-                parseNews [ string trimleft $section "news" ]
+                parseGroup $section [ string trimleft $section "news" ]
             }
         }
         forum* {
@@ -988,7 +990,7 @@ proc updateTopicList {{section ""} {recursive ""}} {
                     updateTopicList "forum$id" 1
                 }
             } else {
-                parseForum [ string trimleft $section "forum" ]
+                parseGroup $section [ string trimleft $section "forum" ]
             }
         }
         default {
@@ -998,15 +1000,15 @@ proc updateTopicList {{section ""} {recursive ""}} {
     if {$recursive == ""} stopWait
 }
 
-proc parseForum {forum} {
+proc parseGroup {parent group} {
     global lorUrl
 
-    set url "http://$lorUrl/group.jsp?group=$forum"
+    set url "http://$lorUrl/group.jsp?group=$group"
     set err 0
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseTopicList $forum [ ::http::data $token ]
+            parseTopicList $parent [ ::http::data $token ]
             set err 0
         } else {
             set errStr [ ::http::code $token ]
@@ -1018,30 +1020,27 @@ proc parseForum {forum} {
     }
 }
 
-proc parseTopicList {forum data} {
+proc parseTopicList {parent data} {
     upvar #0 allTopicsWidget w
     global configDir threadSubDir
 
-    foreach item [ $w children "forum$forum" ] {
+    foreach item [ $w children $parent ] {
         set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-        addUnreadChild $w "forum$forum" "-$count"
+        addUnreadChild $w $parent "-$count"
         $w delete $item
     }
-    setItemValue $w "forum$forum" unreadChild 0
+    setItemValue $w $parent unreadChild 0
 
     foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
-                $w insert "forum$forum" end -id $id -text [ replaceHtmlEntities $header ]
+                $w insert $parent end -id $id -text [ replaceHtmlEntities $header ]
                 setItemValue $w $id text [ replaceHtmlEntities $header ]
-                setItemValue $w $id parent "forum$forum"
+                setItemValue $w $id parent $parent
                 setItemValue $w $id nick $nick
+                setItemValue $w $id unread 0
                 setItemValue $w $id unreadChild 0
-                if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
-                    mark $w $id item 1
-                } else {
-                    mark $w $id item 0
-                }
+                mark $w $id item [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
                 updateItemState $w $id
             }
         }
@@ -1193,57 +1192,6 @@ proc openUrl {url} {
         set prog $browser
     }
     catch {exec $prog $url &}
-}
-
-proc parseNews {group} {
-    global lorUrl
-    upvar #0 allTopicsWidget w
-
-    foreach item [ $w children "news$group" ] {
-        set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-        addUnreadChild $w "news$group" "-$count"
-        $w delete $item
-    }
-
-    set url "http://$lorUrl/group.jsp?group=$group"
-    set err 0
-
-    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
-        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseNewsPage $group [ ::http::data $token ]
-            set err 0
-        } else {
-            set errStr [ ::http::code $token ]
-        }
-        ::http::cleanup $token
-    }
-    if $err {
-        tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
-    }
-}
-
-proc parseNewsPage {group data} {
-    upvar #0 allTopicsWidget w
-    global configDir threadSubDir
-
-    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
-        if { $id != "" } {
-            catch {
-                $w insert "news$group" end -id $id -text [ replaceHtmlEntities $header ]
-                setItemValue $w $id text [ replaceHtmlEntities $header ]
-                setItemValue $w $id parent "news$group"
-                setItemValue $w $id nick $nick
-                setItemValue $w $id unreadChild 0
-                if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
-                    setItemValue $w $id unread 1
-                    mark $w $id item 1
-                } else {
-                    mark $w $id item 0
-                }
-                updateItemState $w $id
-            }
-        }
-    }
 }
 
 proc replaceHtmlEntities {text} {
