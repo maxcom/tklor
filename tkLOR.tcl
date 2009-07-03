@@ -310,7 +310,7 @@ proc initTopicTree {} {
     global forumVisibleGroups
 
     set f [ ttk::frame .topicTreeFrame -width 250 -relief sunken ]
-    set w [ ttk::treeview $f.w -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
+    set w [ ttk::treeview $f.w -columns {nick unread unreadChild text msg} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
 
     configureTags $w
     $w heading #0 -text [ mc "Title" ] -anchor w
@@ -318,27 +318,30 @@ proc initTopicTree {} {
     $w column #0 -width 220
     $w column unreadChild -width 30 -stretch 0
 
-    $w insert "" end -id news -text [ mc "News" ] -values [ list "" 0 0 "" [ mc "News" ] ]
-    updateItemState $w "news"
+    $w insert {} end -id messages -text [ mc "Messages" ] -values [ list "" 0 0 [ mc "Messages" ] ]
+    $w insert messages end -id draft -text [ mc "Draft" ] -values [ list "" 0 0 [ mc "Draft" ] ]
+    updateItemState $w draft
+    $w insert messages end -id sent -text [ mc "Sent" ] -values [ list "" 0 0 [ mc "Sent" ] ]
+    updateItemState $w sent
 
-    $w insert "" end -id gallery -text [ mc "Gallery" ] -values [ list "" 0 0 "" [ mc "Gallery" ] ]
-    updateItemState $w "gallery"
+    $w insert "" end -id news -text [ mc "News" ] -values [ list "" 0 0 [ mc "News" ] ]
+    $w insert "" end -id gallery -text [ mc "Gallery" ] -values [ list "" 0 0 [ mc "Gallery" ] ]
+    $w insert "" end -id votes -text [ mc "Votes" ] -values [ list "" 0 0 [ mc "Votes" ] ]
 
-    $w insert "" end -id votes -text [ mc "Votes" ] -values [ list "" 0 0 "" [ mc "Votes" ] ]
-    updateItemState $w "votes"
-
-    $w insert "" end -id forum -text [ mc "Forum" ] -values [ list "" 0 0 "" [ mc "Forum" ] ]
+    $w insert "" end -id forum -text [ mc "Forum" ] -values [ list "" 0 0 [ mc "Forum" ] ]
     foreach {id title} $::lor::forumGroups {
         if { [ lsearch $forumVisibleGroups $id ] != -1 } {
-            $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
+            $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0  $title ]
             updateItemState $w "forum$id"
         }
     }
     sortChildrens $w "forum"
-    updateItemState $w "forum"
 
-    $w insert "" end -id favorites -text [ mc "Favorites" ] -values [ list "" 0 0 "" [ mc "Favorites" ] ]
-    updateItemState $w "favorites"
+    $w insert "" end -id favorites -text [ mc "Favorites" ] -values [ list "" 0 0 [ mc "Favorites" ] ]
+
+    foreach item [ $w children "" ] {
+        updateItemState $w $item
+    }
 
     ttk::scrollbar $f.scroll -command "$w yview"
     pack $f.scroll -side right -fill y
@@ -350,7 +353,7 @@ proc initMessageTree {} {
     upvar #0 messageTree w
 
     set f [ ttk::frame .messageTreeFrame -relief sunken ]
-    set w [ ttk::treeview $f.w -columns {nick header time msg unread unreadChild parent parentNick text} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
+    set w [ ttk::treeview $f.w -columns {nick header time msg unread unreadChild text} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
     $w heading #0 -text [ mc "Nick" ] -anchor w
     $w heading header -text [ mc "Header" ] -anchor w
     $w heading time -text [ mc "Time" ] -anchor w
@@ -579,18 +582,22 @@ proc renderHtmlTag {w stack tag slash param text} {
     $w insert end $text
 }
 
-proc updateMessage {item} {
+proc showMessageInMainWindow {msg} {
     global messageTextWidget
     global currentHeader currentNick currentPrevNick currentTime
-    upvar #0 messageTree w
 
-    set msg [ getItemValue $w $item msg ]
-    set currentHeader [ getItemValue $w $item header ]
-    set currentNick [ getItemValue $w $item nick ]
-    set currentPrevNick [ getItemValue $w $item parentNick ]
-    set currentTime [ getItemValue $w $item time ]
+    array set letter $msg
+    set currentHeader $letter(Subject)
+    set currentNick $letter(From)
+    if [ info exists letter(To) ] {
+    	set currentPrevNick $letter(To)
+    } else {
+	set currentPrevNick ""
+    }
+    set currentTime $letter(X-LOR-Time)
 
-    renderHtml $messageTextWidget $msg
+    renderHtml $messageTextWidget $letter(body)
+    array unset letter
 }
 
 proc configureTags {w} {
@@ -706,21 +713,17 @@ proc insertMessage {replace letter} {
     array set res $letter
     set nick $res(From)
     set time $res(X-LOR-Time)
-    set msg $res(body)
+    set msg $letter
     set header [ htmlToText $res(Subject) ]
     if [ info exists res(To) ]  {
         set id $res(X-LOR-Id)
         set parent $res(X-LOR-ReplyTo-Id)
-        if { $res(To) != "" } {
-            set parentNick $res(To)
-        } else {
+        if { $res(To) == "" } {
             set parent "topic"
-            set parentNick [ getItemValue $w "topic" nick ]
         }
     } else {
         set id "topic"
         set parent ""
-        set parentNick ""
     }
     if [ info exists res(X-LOR-Unread) ] {
         set unread $res(X-LOR-Unread)
@@ -737,7 +740,7 @@ proc insertMessage {replace letter} {
         $w insert $parent end -id $id -text $nick
         setItemValue $w $id unreadChild 0
     }
-    foreach i {nick time msg parent parentNick} {
+    foreach i {nick time msg} {
         setItemValue $w $id $i [ set $i ]
     }
     setItemValue $w $id header $header
@@ -772,6 +775,7 @@ proc setItemValue {w item valueName value} {
 proc click {w item} {
     global topicTree
     mark $w $item item 0
+    showMessageInMainWindow [ getItemValue $w $item msg ]
     if { $w == $topicTree } {
         if { [ regexp -lineanchor -- {^\d} $item ] } {
             setTopic $item
@@ -780,7 +784,6 @@ proc click {w item} {
         global currentMessage
 
         set currentMessage $item
-        updateMessage $item
     }
     updateItemState $w $item
 
@@ -793,7 +796,7 @@ proc addUnreadChild {w item {count 1}} {
     }
     setItemValue $w $item unreadChild [ expr [ getItemValue $w $item unreadChild ] + $count ]
     if { $item != "" } {
-        addUnreadChild $w [ getItemValue $w $item parent ] $count
+        addUnreadChild $w [ $w parent $item ] $count
     }
     updateItemState $w $item
 }
@@ -950,21 +953,6 @@ proc loadTopicFromCache {topic oncomplete} {
     ]
 }
 
-proc saveMessage {stream id header text nick time replyTo replyToId unread} {
-    set letter ""
-    lappend letter "From" $nick
-    lappend letter "Subject" $header
-    lappend letter "X-LOR-Time" $time
-    lappend letter "X-LOR-Id" $id
-    lappend letter "X-LOR-Unread" $unread
-    if { $replyTo != "" } {
-        lappend letter "To" $replyTo
-        lappend letter "X-LOR-ReplyTo-Id" $replyToId
-    }
-    lappend letter "body" $text
-    ::mbox::writeToStream $stream $letter
-}
-
 proc loadMessagesFromFile {fileName topic oncomplete args} {
     upvar #0 messageTree w
 
@@ -988,7 +976,7 @@ proc saveTopicRecursive {stream item} {
     upvar #0 messageTree w
 
     foreach id [ $w children $item ] {
-        saveMessage $stream $id [ getItemValue $w $id header ] [ getItemValue $w $id msg ] [ getItemValue $w $id nick ] [ getItemValue $w $id time ] [ getItemValue $w $id parentNick ] [ getItemValue $w $id parent ] [ getItemValue $w $id unread ]
+        ::mbox::writeToStream $stream [ getItemValue $w $id msg ]
         saveTopicRecursive $stream $id
     }
 }
@@ -1099,6 +1087,7 @@ proc updateTopicList {{section ""}} {
         set id $lt(X-LOR-Id)
         addTopicFromCache $section $id $lt(From) $header \
             [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ] \
+            $letter \
             tobegin
     }
     set onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
@@ -1135,7 +1124,8 @@ proc updateTopicList {{section ""}} {
         -onerror $onerror
 }
 
-proc addTopicFromCache {parent id nick text unread {tobegin ""}} {
+#TODO: remove extra parameters(v 1.2+)
+proc addTopicFromCache {parent id nick text unread {msg ""} {tobegin ""}} {
     upvar #0 topicTree w
 
     if { ! [ $w exists $id ] } {
@@ -1150,7 +1140,11 @@ proc addTopicFromCache {parent id nick text unread {tobegin ""}} {
         setItemValue $w $id text $text
         setItemValue $w $id unread 0
         setItemValue $w $id unreadChild 0
-        setItemValue $w $id parent $parent
+        if { $msg != "" } {
+            setItemValue $w $id msg $msg
+        } else {
+            setItemValue $w $id msg {From "" To "" X-LOR-Time "" Subject "" body ""}
+        }
         mark $w $id item $unread
         updateItemState $w $id
     }
@@ -1189,7 +1183,7 @@ proc mark {w item type unread} {
     set old [ getItemValue $w $item unread ]
     if {$unread != $old} {
         setItemValue $w $item unread $unread
-        addUnreadChild $w [ getItemValue $w $item parent ] [ expr $unread - $old ]
+        addUnreadChild $w [ $w parent $item ] [ expr $unread - $old ]
         updateItemState $w $item
         if { $w == $::topicTree } {
             if { [ regexp -lineanchor {^\d+$} $item ] } {
@@ -1315,7 +1309,7 @@ proc addTopicToFavorites {w item category caption} {
         set category "favorites"
     }
     if { $item != $category } {
-        set parentSave [ getItemValue $w $item parent ]
+        set parentSave [ $w parent $item ]
         set fromChildsSave [ $w children $parentSave ]
         $w detach $item
         set childs [ $w children $category ]
@@ -1328,10 +1322,9 @@ proc addTopicToFavorites {w item category caption} {
             return
         }
         if [ getItemValue $w $item unread ] {
-            addUnreadChild $w [ getItemValue $w $item parent ] -1
+            addUnreadChild $w [ $w parent $item ] -1
             addUnreadChild $w $category
         }
-        setItemValue $w $item parent $category
     }
     setItemValue $w $item text $caption
     updateItemState $w $item
@@ -1341,7 +1334,7 @@ proc deleteTopic {w item} {
     if { ![ isCategoryFixed $item ] } {
         set s [ expr [ getItemValue $w $item unreadChild ]+[ getItemValue $w $item unread ] ]
         if {$s > 0} {
-            addUnreadChild $w [ getItemValue $w $item parent ] -$s
+            addUnreadChild $w [ $w parent $item ] -$s
         }
         $w delete $item
         $w focus [ lindex [ $w children {} ] 0 ]
@@ -1673,6 +1666,7 @@ proc ignoreUser {w item} {
     }
 }
 
+#TODO: must be only one window. new items addition must be performed via context menu
 proc showFavoritesTree {title name script parent parentWindow} {
     set f [ join [ list ".favoritesTreeDialog" [ generateId ] ] "" ]
     toplevel $f -class Dialog
@@ -1746,7 +1740,6 @@ proc createCategory {categoryWidget parentWidget parent name} {
 
     $w insert $parent end -id $id -text $name
     setItemValue $w $id text $name
-    setItemValue $w $id parent $parent
     setItemValue $w $id nick ""
     setItemValue $w $id unread 0
     setItemValue $w $id unreadChild 0
@@ -1763,7 +1756,7 @@ proc fillCategoryWidget {categoryWidget parent} {
     $categoryWidget insert {} end -id favorites -text [ mc "Favorites" ]
     processItems $topicTree "favorites" [ closure {from to} {item} {
         if { ![ regexp -lineanchor {^\d+$} $item ] } {
-            $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
+            $to insert [ $from parent $item ] end -id $item -text [ getItemValue $from $item text ]
         }
         return 1
     } ]
@@ -2143,6 +2136,9 @@ proc updateTaskList {} {
 proc bgerror {msg} {
     puts stderr "bgerror: $msg"
     puts stderr "bgerror extended info: $::errorInfo"
+
+#TODO: normalize and beautifulize
+    errorProc "bgerror" $msg
 }
 
 proc loginCallback {str} {
@@ -2187,9 +2183,10 @@ proc goOnline {} {
     }
 }
 
-#TODO: beautifulize window
+#TODO: beautifulize window(v 1.1)
 proc postMessage {topic {item ""}} {
     global appName
+    upvar #0 messageTree w
 
     goOnline
     if { $::autonomousMode } {
@@ -2199,11 +2196,11 @@ proc postMessage {topic {item ""}} {
     global currentMessage
     if { $item == "" } {
         set currentMessage "topic"
-        updateMessage "topic"
+        showMessageInMainWindow [ getItemValue $w "topic" msg ]
         set text [ $::messageTextWidget get 0.0 end ]
     } else {
         set currentMessage $item
-        updateMessage $item
+        showMessageInMainWindow [ getItemValue $w $item msg ]
         set text [ $::messageTextWidget get 0.0 end ]
     }
     set text [ quoteText $text ]
