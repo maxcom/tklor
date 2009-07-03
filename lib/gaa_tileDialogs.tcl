@@ -158,7 +158,8 @@ proc packOptionsItem {w name item type val opt} {
                             set res [ font actual system ]
                         }
                         $w configure -text $res
-                    } $w ]
+                    } $w ] \
+                    -parent $w
             } $w $name ] ] -anchor w -fill x
         }
         string -
