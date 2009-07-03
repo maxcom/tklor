@@ -643,7 +643,7 @@ proc showMessageInMainWindow {msg} {
     global currentSubject currentNick currentPrevNick currentTime
 
     array set letter $msg
-    set currentSubject [ htmlToText $letter(Subject) ]
+    set currentSubject [ ::htmlparse::mapEscapes $letter(Subject) ]
     set currentNick $letter(From)
     if [ info exists letter(To) ] {
     	set currentPrevNick $letter(To)
@@ -783,7 +783,7 @@ proc insertMessage {replace letter} {
     set nick $res(From)
     set time $res(X-LOR-Time)
     set msg $letter
-    set header [ htmlToText $res(Subject) ]
+    set header [ ::htmlparse::mapEscapes $res(Subject) ]
     if [ info exists res(To) ]  {
         set id $res(X-LOR-Id)
         if [ info exists res(X-LOR-ReplyTo-Id) ] {
@@ -1007,7 +1007,8 @@ proc loadTopicFromCache {topic oncomplete} {
         global topicHeader
 
         array set res $letter
-        set topicHeader "[ htmlToText $res(Subject) ]\($res(From)\)"
+        set topicHeader \
+            "[ ::htmlparse::mapEscapes $res(Subject) ]\($res(From)\)"
         array unset res
         insertMessage 1 $letter
     }
@@ -1190,7 +1191,7 @@ proc updateTopicList {{section ""}} {
         global cacheDir
 
         array set lt $letter
-        set header [ htmlToText $lt(Subject) ]
+        set header [ ::htmlparse::mapEscapes $lt(Subject) ]
         set id $lt(X-LOR-Id)
         addTopicFromCache $section $id $lt(From) $header \
             [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ] \
@@ -1380,32 +1381,6 @@ proc openUrl {url} {
         set prog $browser
     }
     catch {exec $prog $url &}
-}
-
-proc htmlToText {text} {
-    foreach {re s} {
-        {<img src="/\w+/\w+/votes\.gif"[^>]*>} "\[\\&\]"
-        "<img [^>]*?>" "[image]"
-        "<!--.*?-->" ""
-        "<tr>" "\n"
-        "</tr>" ""
-        "</{0,1}table>" ""
-        "</{0,1}td(?: colspan=\\d+){0,1}>" " "
-        "</{0,1}pre>" ""
-        "\n<br>" "\n"
-        "<br>\n" "\n"
-        "<br>" "\n"
-        "<p>" "\n"
-        "</p>" ""
-        "<a href=\"([^\"]+)\"[^>]*>[^<]*</a>" "\\1"
-        "</{0,1}i>" ""
-        "</{0,1}(?:u|o)l>" ""
-        "<li>" "\n * "
-        "</li>" ""
-        "\n{3,}" "\n\n" } {
-        regsub -all -nocase -- $re $text $s text
-    }
-    return [ ::htmlparse::mapEscapes $text ]
 }
 
 proc addTopicToFavorites {w item category caption} {
@@ -2094,6 +2069,7 @@ proc loadAppLibs {} {
     package require lorParser 1.2
     package require tkLor_taskManager 1.1
     package require gui_mailEditor 1.0
+    package require mailUtils 1.0
 
     namespace import ::lambda::*
     namespace import ::gaa::tileDialogs::*
@@ -2299,33 +2275,6 @@ proc goOnline {} {
     }
 }
 
-proc makeReplyToMessage {origLetter} {
-    global lorLogin
-    global currentTopic
-    global appId
-
-    array set orig $origLetter
-    array set letter ""
-
-    set letter(From) $lorLogin
-    set letter(Subject) [ makeReplyHeader [ htmlToText $orig(Subject) ] ]
-    set letter(To) $orig(From)
-    if [ info exists orig(X-LOR-Id) ] {
-        if { $orig(X-LOR-Id) == $currentTopic } {
-            set letter(Reply-To) $currentTopic
-        } else {
-            set letter(Reply-To) "$currentTopic.$orig(X-LOR-Id)"
-        }
-    } else {
-        set letter(Reply-To) $currentTopic
-    }
-    set letter(X-Mailer) $appId
-    set letter(body) [ quoteText [ htmlToText $orig(body) ] ]
-    array unset orig
-
-    return [ array get letter ]
-}
-
 proc postMessage {topic item} {
     upvar #0 messageTree w
 
@@ -2334,46 +2283,13 @@ proc postMessage {topic item} {
     }
     ::mailEditor::editMessage \
         [ mc "Compose message" ] \
-        [ makeReplyToMessage [ getItemValue $w $item msg ] ] \
+        [ ::mailUtils::makeReplyToMessage [ getItemValue $w $item msg ] ] \
         [ list \
             outcoming   [ mc "Send" ] \
             draft       [ mc "Save" ] \
         ] \
         outcoming \
         putMailToQueue
-}
-
-proc makeReplyHeader {header} {
-    set re {^re(?:\^(\d+)|()):\s+}
-    set count 0
-
-    while { [ regexp -nocase -lineanchor -- $re $header dummy c ] != 0 } {
-        if { $c == "" } {
-            set c 1
-        }
-        incr count $c
-        regsub -nocase -lineanchor -- $re $header {} header
-    }
-
-    if { $count != 0 } {
-        return "Re^[ expr $count + 1 ]: $header"
-    } else {
-        return "Re: $header"
-    }
-}
-
-proc quoteText {text} {
-    set res ""
-    foreach line [ split $text "\n" ] {
-        if { [ string trim $line ] != "" } {
-            if { [ string compare -length 1 $line ">" ] == 0 } {
-                lappend res ">$line"
-            } else {
-                lappend res "> $line"
-            }
-        }
-    }
-    return [ join $res "\n\n" ]
 }
 
 proc putMailToQueue {queueName newLetter} {

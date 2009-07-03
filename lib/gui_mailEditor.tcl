@@ -23,6 +23,7 @@ package provide gui_mailEditor 1.0
 package require Tcl 8.4
 package require Tk 8.4
 package require tile 0.8
+package require gaa_tileDialogs 1.0
 
 namespace eval mailEditor {
 
@@ -135,7 +136,10 @@ proc editMessage {title letter buttons default command} {
         ]
     }
     lappend btn [ list -text [ mc "Cancel" ] -command $destroyScript ]
-    grid [ eval [ concat [ list buttonBox $f ] $btn ] ] -sticky nswe
+    grid [ eval [ concat \
+        [ list ::gaa::tileDialogs::buttonBox $f ] \
+        $btn \
+    ] ] -sticky nswe
 
     grid columnconfigure $f 0 -weight 1
     grid rowconfigure $f 1 -weight 1
