@@ -307,14 +307,18 @@ proc onePageOptionsDialog {args} {
 }
 
 proc buttonBox {parent args} {
-    set f [ ttk::frame $parent.buttonBox ]
+    set f [ ttk::frame $parent.buttonBox -padding 4 ]
     set b ""
     set i 0
     foreach p $args {
-        set b [ concat [ eval [ concat [ list "ttk::button" "$f.button$i" ] $p ] ] $b ]
+        set id [ join [ list $f ".button" $i "Frame" ] "" ]
+        ttk::frame $id -padding 4
+        eval [ concat [ list ttk::button $id.button ] $p ]
+        pack $id.button
+        set b [ concat [ list $id ] $b ]
         incr i
     }
-    eval "pack $b -side right"
+    eval "pack [ join $b ] -side right"
     return $f
 }
 
