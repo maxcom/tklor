@@ -18,17 +18,17 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_lambda 1.1
+package provide gaa_lambda 1.2
 
 package require Tcl 8.4
 
-namespace eval ::gaa {
 namespace eval lambda {
 
 namespace export \
     lambda \
     deflambda \
-    lambdaProc
+    closure \
+    defclosure
 
 proc lambdaLowlevel {paramsVar scriptVar argsVar} {
     set params [ uplevel [ list set $paramsVar ] ]
@@ -50,16 +50,49 @@ proc lambdaProc {params script args} {
         ( [ lindex $params end ] != "args" && [ llength $params ] != [ llength $args ] )} {
         error "Arguments count mismatch: expected $params, but $args passed."
     }
-    ::gaa::lambda::lambdaLowlevel params script args
+    ::lambda::lambdaLowlevel params script args
 }
 
 proc lambda {params script args} {
-    return [ concat [ list ::gaa::lambda::lambdaProc $params $script ] $args ]
+    return [ concat [ list [ namespace current ]::lambdaProc $params $script ] $args ]
 }
 
 proc deflambda {id params script args} {
-    uplevel [ list set $id [ concat [ list ::gaa::lambda::lambdaProc $params $script ] $args ] ]
+    uplevel [ list set $id [ concat [ list [ namespace current ]::lambdaProc $params $script ] $args ] ]
+}
+
+proc closure {locals params script args} {
+    set localParams ""
+    set localArgs ""
+    foreach p $locals {
+        lappend localParams $p
+        lappend localArgs [ uplevel [ list set $p ] ]
+    }
+    return [ concat \
+        [ list [ namespace current ]::lambdaProc \
+            [ concat $localParams $params ] \
+            $script \
+        ] \
+        [ concat $localArgs $args ] \
+    ]
+}
+
+proc defclosure {id locals params script args} {
+    set localParams ""
+    set localArgs ""
+    foreach p $locals {
+        lappend localParams $p
+        lappend localArgs [ uplevel [ list set $p ] ]
+    }
+    uplevel [ concat \
+        [ list deflambda \
+            $id \
+            [ concat $localParams $params ] \
+            $script \
+        ] \
+        [ concat $localArgs $args ] \
+    ]
 }
 
 }
-}
+

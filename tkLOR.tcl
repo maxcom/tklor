@@ -33,7 +33,6 @@ namespace import ::msgcat::*
 
 set appName "tkLOR"
 
-set plugin "tclsh tormozcat.tcl"
 set loggedIn 0
 
 set appVersion "APP_VERSION"
@@ -655,10 +654,10 @@ proc setTopic {topic} {
 
         set currentTopic $topic
 
-        set loadTaskId [ loadTopicFromCache $topic [ lambda {topic} {
+        set loadTaskId [ loadTopicFromCache $topic [ closure {topic} {} {
             set loadTaskId ""
             getNewMessages $topic
-        } $topic ] ]
+        } ] ]
     } else {
         getNewMessages $topic
     }
@@ -672,7 +671,7 @@ proc getNewMessages {topic} {
 
     set parser [ ::mbox::initParser [ list insertMessage 0 ] ]
     set onerror [ list errorProc [ mc "Error while getting messages" ] ]
-    deflambda oncomplete {parser onerror} {
+    defclosure oncomplete {parser onerror} {} {
         global loadTaskId expandNewMessages messageTree
 
         if [ catch {
@@ -688,7 +687,7 @@ proc getNewMessages {topic} {
             nextUnread $messageTree ""
             focus $messageTree
         }
-    } $parser $onerror
+    }
 
     set loadTaskId [ callPlugin get [ list $topic ] \
         -title [ mc "Getting new messages" ] \
@@ -901,19 +900,19 @@ proc saveTopicTextToCache {topic letter} {
 
 proc loadTopicFromCache {topic oncomplete} {
     global cacheDir
-    global messageTree topicTree
+    global messageTree
     global topicHeader
 
     set topicHeader ""
     set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
-    deflambda script {topic letter} {
+    defclosure script {topic} {letter} {
         global topicHeader
 
         array set res $letter
         set topicHeader "$res(Subject)\($res(From)\)"
         array unset res
         insertMessage 1 $letter
-    } $topic
+    }
 
     if { ![ file exists $fname ] } {
         uplevel #0 $oncomplete
@@ -926,7 +925,7 @@ proc loadTopicFromCache {topic oncomplete} {
         eval [ concat $onerr [ list $err $::errorInfo ] ]
         return
     }
-    if { ! [ $topicTree exists "topic" ] } {
+    if { ! [ $messageTree exists "topic" ] } {
         # Topic text are not loaded. Ignoring this error silently...
         uplevel #0 $oncomplete
         return
@@ -1089,7 +1088,7 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    deflambda fun {section letter} {
+    defclosure fun {section} {letter} {
         global cacheDir
 
         array set lt $letter
@@ -1097,10 +1096,10 @@ proc updateTopicList {{section ""}} {
         set id $lt(X-LOR-Id)
         addTopicFromCache $section $id $lt(From) $header \
             [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
-    } $section
+    }
     set onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
     set parser [ ::mbox::initParser $fun ]
-    deflambda oncomplete {parser section onerror} {
+    defclosure oncomplete {parser section onerror} {} {
         upvar #0 topicTree w
         global threadListSize
 
@@ -1123,7 +1122,7 @@ proc updateTopicList {{section ""}} {
             lappend onerror $err $errInfo
             uplevel #0 $onerror
         }
-    } $parser $section $onerror
+    }
     set category [ getItemValue $topicTree $section text ]
     callPlugin list [ list $section ] \
         -title [ mc "Fetching new topics in category %s" $category ] \
@@ -1467,18 +1466,18 @@ proc modifyIgnoreListItem {w parent} {
         inputStringDialog \
             -title [ mc "Ignore list" ] \
             -label [ mc "Enter nick" ] \
-            -script [ lambda {w text} {
+            -script [ closure {w} {text} {
                 $w item [ $w focus ] -text $text
-            } $w ] \
+            } ] \
             -default [ $w item [ $w focus ] -text ] \
             -parent $parent
     }
 }
 
 proc nextUnread {w item} {
-    set cur [ processItems $w $item [ lambda {w item} {
+    set cur [ processItems $w $item [ closure {w} {item} {
         return [ expr [ getItemValue $w $item unread ] != "1" ]
-    } $w ] ]
+    } ] ]
     if { $cur != "" } {
         setFocusedItem $w $cur
         click $w $cur
@@ -1529,9 +1528,9 @@ proc findNext {} {
     if { ![$w exists $findPos] } {
         set findPos ""
     }
-    set cur [ processItems $w $findPos [ lambda {w findString item} {
+    set cur [ processItems $w $findPos [ closure {w findString} {item} {
         return [ expr [ regexp -nocase -- $findString [ getItemValue $w $item msg ] ] == "0" ]
-    } $w $findString ] ]
+    } ] ]
     set findPos $cur
 
     if { $cur != "" } {
@@ -1686,7 +1685,7 @@ proc showFavoritesTree {title name script parent parentWindow} {
 
     set okScript [ join \
         [ list \
-            [ lambda {script categoryWidget nameWidget} {
+            [ closure {script categoryWidget nameWidget} {} {
                 eval [ concat \
                     $script \
                     [ list \
@@ -1694,14 +1693,14 @@ proc showFavoritesTree {title name script parent parentWindow} {
                         [ $nameWidget get ]
                     ] \
                 ]
-            } $script $categoryWidget $nameWidget ] \
+            } ] \
             [ list "destroy" "$f" ] \
         ] ";" \
     ]
     set cancelScript "destroy $f"
-    set newCategoryScript [ lambda {f categoryWidget parent} {
+    set newCategoryScript [ closure {f categoryWidget parent} {} {
             showFavoritesTree [ mc "Select new category name and location" ] [ mc "New category" ] [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ] $parent
-        } $f $categoryWidget $parentWindow \
+        } \
     ]
 
     pack [ buttonBox $f \
@@ -1754,12 +1753,12 @@ proc fillCategoryWidget {categoryWidget parent} {
     global topicTree
 
     $categoryWidget insert {} end -id favorites -text [ mc "Favorites" ]
-    processItems $topicTree "favorites" [ lambda {from to item} {
+    processItems $topicTree "favorites" [ closure {from to} {item} {
         if { ![ regexp -lineanchor {^\d+$} $item ] } {
             $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
         }
         return 1
-    } $topicTree $categoryWidget ]
+    } ]
     if [ catch {setFocusedItem $categoryWidget $parent} ] {
         setFocusedItem $categoryWidget "favorites"
     }
@@ -1866,12 +1865,12 @@ proc tagUser {w item parent} {
                     [ mc "Nick" ] string nick $nick "" \
                     [ mc "Tag"  ] string tag  [ lindex $item 1 ] "" \
                 ] \
-                -script [ lambda {w pos vals} {
+                -script [ closure {w i} {vals} {
                     global userTagList
                     array set arr $vals
-                    lset userTagList $pos [ list $arr(nick) $arr(tag) ]
+                    lset userTagList $i [ list $arr(nick) $arr(tag) ]
                     array unset arr
-                } $w $i ] \
+                } ] \
                 -parent $parent
             return
         }
@@ -1882,12 +1881,12 @@ proc tagUser {w item parent} {
             [ mc "Nick" ] string nick $nick "" \
             [ mc "Tag"  ] string tag  "" "" \
         ] \
-        -script [ lambda {w vals} {
+        -script [ closure {w} {vals} {
             global userTagList
             array set arr $vals
             lappend userTagList [ list $arr(nick) $arr(tag) ]
             array unset arr
-        } $w ] \
+        } ] \
         -parent $parent
 }
 
@@ -1898,11 +1897,11 @@ proc addUserTagListItem {w parent} {
             [ mc "Nick" ] string nick "" "" \
             [ mc "Tag"  ] string tag  "" "" \
         ] \
-        -script [ lambda {w vals} {
+        -script [ closure {w} {vals} {
             array set arr $vals
             $w insert {} end -text $arr(nick) -values [ list $arr(tag) ]
             array unset arr
-        } $w ] \
+        } ] \
         -parent $parent
 }
 
@@ -1917,11 +1916,11 @@ proc modifyUserTagListItem {w parent} {
                 [ mc "Nick" ] string nick [ $w item $id -text ] "" \
                 [ mc "Tag"  ] string tag  [ lindex [ $w item $id -values ] 0 ] "" \
             ] \
-            -script [ lambda {w id vals} {
+            -script [ closure {w id} {vals} {
                 array set arr $vals
                 $w item $id -text $arr(nick) -values [ list $arr(tag) ]
                 array unset arr
-            } $w $id ] \
+            } ] \
             -parent $parent
     }
 }
@@ -1940,11 +1939,11 @@ proc addColorListItem {w parent} {
             [ mc "Color" ] color color    "red" "" \
             [ mc "Element" ] readOnlyCombo element "foreground" { list foreground background } \
         ] \
-        -script [ lambda {w vals} {
+        -script [ lambda {w} {vals} {
             array set arr $vals
             $w insert {} end -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
             array unset arr
-        } $w ] \
+        } ] \
         -parent $parent
 }
 
@@ -1960,11 +1959,11 @@ proc modifyColorListItem {w parent} {
                 [ mc "Color" ] color color    [ lindex [ $w item $id -values ] 0 ] "" \
                 [ mc "Element" ] readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
             ] \
-            -script [ lambda {w id vals} {
+            -script [ closure {w id} {vals} {
                 array set arr $vals
                 $w item $id -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
                 array unset arr
-            } $w $id ] \
+            } ] \
             -parent $parent
     }
 }
@@ -1975,14 +1974,14 @@ proc loadAppLibs {} {
 
     lappend auto_path $libDir
 
-    package require gaa_lambda 1.1
+    package require gaa_lambda 1.2
     package require gaa_tileDialogs 1.2
     package require gaa_tools 1.0
-    package require gaa_mbox 1.0
+    package require gaa_mbox 1.1
     package require lorParser 1.2
-    package require tkLor_taskManager 1.0
+    package require tkLor_taskManager 1.1
 
-    namespace import ::gaa::lambda::*
+    namespace import ::lambda::*
     namespace import ::gaa::tileDialogs::*
     namespace import ::gaa::tools::*
 }
@@ -2076,11 +2075,11 @@ proc initTasksWindow {} {
     set w [ ttk::treeview $tasksWidget.list -show tree ]
     grid $w -sticky nswe
 
-    deflambda stopScript {w} {
+    defclosure stopScript {w} {} {
         foreach item [ $w selection ] {
             ::taskManager::stopTask $item
         }
-    } $w
+    }
     grid [ buttonBox $tasksWidget \
         [ list -text [ mc "Stop" ] -command $stopScript ] \
         [ list -text [ mc "Stop all" ] -command stopAllTasks ] \
@@ -2133,12 +2132,10 @@ proc updateTaskList {} {
     }
 }
 
-#TODO: return it
-#proc bgerror {msg} {
-#    logger::log "bgerror: $msg"
-#    logger::log "bgerror extended info: $::errorInfo"
-#    errorProc "bgerror" $msg $::errorInfo
-#}
+proc bgerror {msg} {
+    puts stderr "bgerror: $msg"
+    puts stderr "bgerror extended info: $::errorInfo"
+}
 
 proc loginCallback {str} {
     global loginCookie loggedIn

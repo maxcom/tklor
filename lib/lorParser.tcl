@@ -22,7 +22,7 @@ package provide lorParser 1.3
 
 package require Tcl 8.4
 package require http 2.0
-package require gaa_lambda 1.0
+package require gaa_lambda 1.2
 package require htmlparse 1.1
 
 namespace eval lor {
@@ -66,7 +66,7 @@ proc parseTopic {topic topicTextCommand messageCommand} {
     set $datavar ""
     set $statevar TOPIC
 
-    ::gaa::lambda::deflambda handler {datavar statevar topicCommand messageCommand socket token} {
+    ::lambda::defclosure handler {datavar statevar topicCommand messageCommand} {socket token} {
         upvar #0 $datavar data $statevar state
         upvar #0 $token httpState
 
@@ -89,7 +89,7 @@ proc parseTopic {topic topicTextCommand messageCommand} {
             }
         }
         return $nbytes
-    } $datavar $statevar $topicTextCommand $messageCommand
+    }
     if [ catch {
         set token [ ::http::geturl $url -blocksize 4096 -handler $handler ]
         if { ! ( [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 ) } {
@@ -164,7 +164,7 @@ proc parseGroup {command section {group ""}} {
         append url "&group=$group"
     }
 
-    ::gaa::lambda::deflambda processRssItem {command item} {
+    ::lambda::defclosure processRssItem {command} {item} {
         array set v {
             author ""
             title ""
@@ -182,7 +182,7 @@ proc parseGroup {command section {group ""}} {
         set date $v(pubDate)
         set nick $v(author)
         uplevel #0 [ concat $command [ list $id $nick $header $date $msg ] ]
-    } $command
+    }
 
     if [ catch {
             set token [ ::http::geturl $url ]
@@ -386,7 +386,7 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
     if [ catch {::http::geturl $url \
         -headers $headers \
         -query [ eval [ concat ::http::formatQuery $queryList ] ] \
-        -command [ ::gaa::lambda::lambda {onError onComplete token} {
+        -command [ ::lambda::closure {onError onComplete} {token} {
             if [ catch {
                 # here 302 too :)
                 if { [ ::http::status $token ] != "ok" || [ ::http::ncode $token ] != 302 } {
@@ -397,7 +397,7 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
             }
             catch {::http::cleanup $token}
             eval $onComplete
-        } $onError $onComplete ]
+        } ]
     } err ] {
         eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl $err $::errorInfo ] ]
         eval $onComplete

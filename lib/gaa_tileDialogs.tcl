@@ -70,13 +70,13 @@ proc packOptionsItem {w name item type val opt} {
             pack [ buttonBox $name \
                 [ list -text [ mc "Add..." ] -command [ concat $addScript [ list $v $w ] ] ] \
                 [ list -text [ mc "Modify..." ] -command [ concat $modifyScript [ list $v $w ] ] ] \
-                [ list -text [ mc "Remove" ] -command [ ::gaa::lambda::lambda {w} {
+                [ list -text [ mc "Remove" ] -command [ ::lambda::lambda {w} {
                         foreach item [ $w selection ] {
                             $w delete $item
                         }
                     } $v ] \
                 ] \
-                [ list -text [ mc "Move up" ] -command [ ::gaa::lambda::lambda {w} {
+                [ list -text [ mc "Move up" ] -command [ ::lambda::lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -89,7 +89,7 @@ proc packOptionsItem {w name item type val opt} {
                         }
                     } $v ] \
                 ] \
-                [ list -text [ mc "Move down" ] -command [ ::gaa::lambda::lambda {w} {
+                [ list -text [ mc "Move down" ] -command [ ::lambda::lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -117,7 +117,7 @@ proc packOptionsItem {w name item type val opt} {
                     $v selection add $id
                 }
             }
-            bind $v <space> [ ::gaa::lambda::lambda {v} {
+            bind $v <space> [ ::lambda::lambda {v} {
                 set cur [ $v focus ]
                 if {$cur != ""} {
                    $v selection toggle $cur
@@ -137,7 +137,7 @@ proc packOptionsItem {w name item type val opt} {
             $name insert end $val
         }
         color {
-            pack [ ttk::button $name -text $val -command [ ::gaa::lambda::lambda {parent w} {
+            pack [ ttk::button $name -text $val -command [ ::lambda::lambda {parent w} {
                 if [ catch {set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]} ] {
                     set color [ tk_chooseColor -parent $parent ]
                 }
@@ -147,7 +147,7 @@ proc packOptionsItem {w name item type val opt} {
             } $w $name ] ] -anchor w -fill x
         }
         font {
-            pack [ ttk::button $name -text $val -command [ ::gaa::lambda::lambda {parent w} {
+            pack [ ttk::button $name -text $val -command [ ::lambda::lambda {parent w} {
                 set val [ $w cget -text ]
                 array set ff $val
                 set names [ array names ff ]
@@ -256,7 +256,7 @@ proc tabbedOptionsDialog {args} {
             lappend fetchList $item $type $var $opt
         }
 
-        lappend okList [ ::gaa::lambda::lambda {optList page ws script} {
+        lappend okList [ ::lambda::lambda {optList page ws script} {
                 set vals [ ::gaa::tileDialogs::fetchOptionsFrameValues $optList $page $ws ]
                 set var ""
                 for {set i 0} {$i < [ llength $vals ]} {incr i} {
@@ -322,7 +322,7 @@ proc onePageOptionsDialog {args} {
         lappend genList $item $type $value $opt
         lappend fetchList $item $type $var $opt
     }
-    modalDialogConfigure $f [ ::gaa::lambda::lambda {optList page ws script} {
+    modalDialogConfigure $f [ ::lambda::lambda {optList page ws script} {
             set vals [ ::gaa::tileDialogs::fetchOptionsFrameValues $optList $page $ws ]
             set var ""
             for {set i 0} {$i < [ llength $vals ]} {incr i} {
@@ -370,7 +370,7 @@ proc inputStringDialog {args} {
     $ff.entry insert end $param(default)
     $ff.entry selection range 0 end
 
-    set script [ ::gaa::lambda::lambda {f script} {
+    set script [ ::lambda::lambda {f script} {
             eval [ concat $script [ list [ $f.entry get ] ] ]
         } $ff $param(script) ]
 
