@@ -68,7 +68,6 @@ set proxyPassword ""
 set browser ""
 
 set ignoreList ""
-set nickToIgnore ""
 
 set messageMenu ""
 set topicMenu ""
@@ -1484,7 +1483,7 @@ proc showOptionsDialog {} {
     update
 
     wm resizable $d 0 0
-    wm protocol $d WM_DELETE_WINDOW $discardOptions
+    wm protocol $d WM_DELETE_WINDOW discardOptions
     centerToParent $d .
     grab $d
 }
@@ -1602,20 +1601,14 @@ proc centerToParent {window parent} {
 }
 
 proc addIgnoreListItem {w} {
-    global nickToIgnore
-
-    set nickToIgnore ""
-    inputStringDialog "Ignore list" "Enter nick:" nickToIgnore "$w insert {} end -text \$nickToIgnore"
+    inputStringDialog "Ignore list" "Enter nick:" [ list $w "insert" "{}" "end" "-text" ]
 }
 
 proc modifyIgnoreListItem {w} {
-    global nickToIgnore
-
     if { [ $w focus ] == "" } {
         addIgnoreListItem $w
     } else {
-        set nickToIgnore [ $w item [ $w focus ] -text ]
-        inputStringDialog "Ignore list" "Enter nick:" nickToIgnore "$w item \[ $w focus \] -text \$nickToIgnore"
+        inputStringDialog "Ignore list" "Enter nick:" [ list $w "item" "\[ $w focus \]" "-text" ] [ $w item [ $w focus ] -text ]
     }
 }
 
@@ -1651,19 +1644,29 @@ proc openContextMenu {w menu} {
     }
 }
 
-proc inputStringDialog {title label var script} {
-    set f .inputStringDialog
-    set okScript [ join [ list "destroy $f" $script ] ";" ]
-    set cancelScript "destroy $f"
+proc inputStringDialog {title label script {val ""}} {
+    set f [ join [ list .inputStringDialog [ generateId ] ] "" ]
 
     toplevel $f
     wm title $f $title
     pack [ ttk::label $f.label -text $label ] -fill x
-    pack [ ttk::entry $f.entry -textvariable $var ] -fill x
+    pack [ ttk::entry $f.entry ] -fill x
+    $f.entry insert end $val
+    $f.entry selection range 0 end
+
+    set okScript [ join \
+        [ list \
+            [ list "eval" [ join [ concat $script [ list "\[ $f.entry get \]" ] ] ] ] \
+            [ list "destroy" "$f" ] \
+        ] ";" \
+    ]
+    set cancelScript [ list "destroy" $f ]
+
     pack [ buttonBox $f \
         [ list -text "OK" -command $okScript ] \
         [ list -text "Cancel" -command $cancelScript ] \
     ] -side bottom -fill x
+
     update
     wm resizable $f 1 0
     centerToParent $f .
@@ -1675,12 +1678,18 @@ proc inputStringDialog {title label var script} {
 }
 
 proc find {} {
-    global findPos
+    global findPos findString
     global topicWidget
 
     set findPos [ $topicWidget focus ]
 
-    inputStringDialog "Search" "Search regexp:" findString {findNext}
+    inputStringDialog "Search" "Search regexp:" "findFirst" $findString
+}
+
+proc findFirst {str} {
+    global findString
+    set findString $str
+    findNext
 }
 
 proc findNext {} {
@@ -1694,8 +1703,6 @@ proc findNext {} {
     if { $cur != "" } {
         setFocusedItem $w $cur
         click $w $cur
-    } else {
-        tk_messageBox -title $appName -message "Message not found!" -icon info
     }
 }
 
