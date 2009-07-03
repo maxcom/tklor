@@ -32,10 +32,10 @@ namespace export \
     invokeMaster \
     killSlave
 
-proc invokeSlave {slave onComplete arg} {
+proc invokeSlave {slave onComplete onError arg} {
     set f [ open [ concat "|$slave" [ list "<<" $arg ] ] "r" ]
     fconfigure $f -encoding utf-8
-    fileevent $f readable [ ::gaa::lambda::lambda {f onComplete} {
+    fileevent $f readable [ ::gaa::lambda::lambda {f onComplete onError} {
         if { ![ eof $f ] } {
             set count [ gets $f ]
             if [ string is integer -strict $count ] {
@@ -43,10 +43,12 @@ proc invokeSlave {slave onComplete arg} {
                 eval $cmd
             }
         } else {
-            close $f
+            if [ catch {close $f} err ] {
+                eval [ concat $onError [ list $err ] ]
+            }
             eval $onComplete
         }
-    } $f $onComplete ]
+    } $f $onComplete $onError ]
     return $f
 }
 

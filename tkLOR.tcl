@@ -607,7 +607,7 @@ proc setTopic {topic} {
             } $topic $nick $header $text $time $approver $approveTime ]
         } $topic
         deflambda processMessage {w id nick header time msg parent parentNick} {
-            invokeMaster [ ::gaa::lambda::lambda {w id nick header time msg parent parentNick} {
+            invokeMaster [ lambda {w id nick header time msg parent parentNick} {
                 if { $parent == "" } {
                     set parent "topic"
                     set parentNick [ getItemValue $w "topic" nick ]
@@ -628,9 +628,11 @@ proc setTopic {topic} {
             stopWait
         } $messageTree $expandNewMessages
 
+        set command [ list lor::parseTopic $topic $processText $processMessage ]
+
         global configDir libDir
 
-        invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] $finish [ list lor::parseTopic $topic $processText $processMessage ]
+        invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] $finish errorProc $command
     }
 }
 
@@ -1003,7 +1005,7 @@ proc updateTopicList {{section ""}} {
     } $section
 
     global configDir libDir
-    invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] stopWait [ list ::lor::getTopicList $section $processTopic ]
+    invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] stopWait errorProc [ list ::lor::getTopicList $section $processTopic ]
 
 
     set w $topicTree
@@ -1844,6 +1846,12 @@ proc setPerspective {mode {force ""}} {
 proc showWindow {} {
     wm withdraw .
     wm deiconify .
+}
+
+proc errorProc {err} {
+    global appName
+
+    tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$err" -parent . -type ok -icon error
 }
 
 ############################################################################
