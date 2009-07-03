@@ -8,15 +8,16 @@ SRC_URI="http://tklor.googlecode.com/files/${PN}_${PV}-1.tar.gz"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~x86 ~amd64"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh
+~sparc ~sparc-fbsd ~x86 ~x86-fbsd"
 IUSE=""
 
 DEPEND="|| ( ( dev-tcltk/tile
-               >=dev-lang/tcl-8.4
+			   >=dev-lang/tcl-8.4
 			   >=dev-lang/tk-8.4 )
 			 ( >=dev-lang/tcl-8.5_beta1
-               >=dev-lang/tk-8.5_beta1 ) )
-	    dev-tcltk/tcllib"
+			   >=dev-lang/tk-8.5_beta1 ) )
+		dev-tcltk/tcllib"
 RDEPEND=${DEPEND}
 
 src_compile() {
@@ -24,26 +25,15 @@ src_compile() {
 }
 
 src_install() {	
-	dodir /usr/share/tklor
-	cp tkLOR ${D}/usr/share/tklor
+	dobin tkLOR
+	insinto /usr/lib/tkLOR
+	doins lib/* 
 	insinto /usr/share/pixmaps
 	doins tklor.xpm
 	insinto /usr/share/applications
 	doins tklor.desktop
-	insinto usr/lib/tkLOR
-	lib/gaa_lambda.tcl
-	lib/gaa_mbox.tcl
-	lib/gaa_remoting.tcl
-	lib/gaa_tileDialogs.tcl
-	lib/gaa_tools.tcl
-	lib/lorParser.tcl
-	lib/lorBackend.tcl
-	lib/pkgIndex.tcl
 	
-	chmod +x tkLOR
-	dobin tkLOR
-	dosym ../share/tklor/tkLOR /usr/bin/tklor
-	dosym ../share/tklor/tkLOR /usr/bin/tkLOR
+	dosym tkLOR /usr/bin/tklor
 	dodoc readme
 	docinto examples
 	dodoc config userConfig

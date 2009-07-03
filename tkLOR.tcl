@@ -902,8 +902,8 @@ proc startWait {{text ""}} {
     }
 
     if { $waitDeep == "0" } {
-        . configure -cursor watch
-        grab $statusBarWidget
+        #. configure -cursor watch
+        #grab $statusBarWidget
         $statusBarWidget configure -text "$text..."
     }
     incr waitDeep
@@ -915,9 +915,9 @@ proc stopWait {} {
 
     incr waitDeep -1
     if { $waitDeep == "0" } {
-        grab release $statusBarWidget
+        #grab release $statusBarWidget
         $statusBarWidget configure -text ""
-        . configure -cursor ""
+        #. configure -cursor ""
     }
 }
 
