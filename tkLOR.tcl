@@ -1167,7 +1167,7 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    if { $section == "favorites" } {
+    if { [ lsearch -exact {favorites messages sent outcoming draft} $section ] != -1 } {
         return
     }
 
@@ -2502,22 +2502,6 @@ proc normalizeText {text} {
     return $text
 }
 
-#TODO: rewrite algo
-proc deliveryError {topic message header text preformattedText autoUrl errStr errExtInfo} {
-    global appName
-
-    if { [ messageBox \
-        -message [ mc "An error occured while posting '%s':\n%s" $header ] \
-        -detail $errStr \
-        -type retrycancel \
-    ] == "retry" } {
-        defCallbackLambda finish {type} {
-            taskCompleted $type
-        } postMessage
-        addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
-    }
-}
-
 proc messageBox {args} {
     global tcl_version appName
 
@@ -2580,6 +2564,7 @@ proc stopAllTasks {} {
 proc loadMessageQueuesFromCache {} {
     global cacheDir
 
+#TODO: do it asynchronously
     foreach q {sent draft outcoming} {
         set fname [ file join $cacheDir $q ]
         ::mbox::parseFile $fname [ closure {q} {letter} {
