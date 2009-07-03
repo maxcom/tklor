@@ -1711,25 +1711,6 @@ proc ignoreUser {w item} {
     }
 }
 
-proc showFavoritesTree {script} {
-    upvar #0 allTopicsWidget w
-
-    set f .favoritesTreeDialog
-    set okScript [ join [ list "destroy $f" $script ] ";" ]
-    set cancelScript "destroy $f"
-
-    toplevel $f
-    wm title $f $title
-    pack [ ttk::label $f.label -text "Item name: " ] -fill x
-    pack [ ttk::entry $f.itemName -textvariable $var ] -fill x
-    pack [ ttk::button $f.ok -text "OK" -command $okScript ] [ ttk::button $f.cancel -text "Cancel" -command $cancelScript ] -side left
-    update
-    centerToParent $f .
-    grab $f
-    focus $f.entry
-    bind $f <Escape> $cancelScript
-}
-
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
