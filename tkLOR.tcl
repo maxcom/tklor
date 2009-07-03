@@ -105,34 +105,6 @@ set forumGroups {
     19109   Web-development
 }
 
-set newsGroups {
-    2       "Linux.org.ru server"
-    3       Documentation
-    4       "Linux General"
-    6       OpenSource
-    7       Mozilla
-    13      RedHat
-    26      Java
-    37      GNOME
-    44      KDE
-    196     "GNU's Not Unix"
-    213     Security
-    2121    "Linux in Russia"
-    4228    "Proprietary software"
-    6204    "Linux kernel"
-    6205    "Hardware and Drivers"
-    9406    BSD
-    10794   Debian
-    10980   "OpenOffice (StarOffice)"
-    19103   PDA
-    19104   Games
-    19105   SCO
-    19106   Clusters
-    19107   "Ubuntu Linux"
-    19108   Slackware
-    19110   Apple
-}
-
 array set fontPart {
     none ""
     item "-family Sans"
@@ -305,7 +277,7 @@ proc initPopups {} {
 
 proc initAllTopicsTree {} {
     global allTopicsWidget
-    global forumGroups newsGroups
+    global forumGroups
 
     set f [ ttk::frame .allTopicsFrame ]
     set allTopicsWidget [ ttk::treeview $f.allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
@@ -317,11 +289,13 @@ proc initAllTopicsTree {} {
     $allTopicsWidget column unreadChild -width 30 -stretch 0
 
     $allTopicsWidget insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
-    foreach {id title} $newsGroups {
-        $allTopicsWidget insert news end -id "news$id" -text $title -values [ list "" 0 0 "news" $title ]
-        updateItemState $allTopicsWidget "news$id"
-    }
     updateItemState $allTopicsWidget "news"
+
+    $allTopicsWidget insert "" end -id gallery -text "Gallery" -values [ list "" 0 0 "" "Gallery" ]
+    updateItemState $allTopicsWidget "gallery"
+
+    $allTopicsWidget insert "" end -id votes -text "Votes" -values [ list "" 0 0 "" "Votes" ]
+    updateItemState $allTopicsWidget "votes"
 
     $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
     foreach {id title} $forumGroups {
@@ -529,7 +503,7 @@ proc renderHtml {w msg} {
 
     switch $htmlRenderer {
         "local" {
-            set msg [ replaceHtmlEntities $msg ]
+            set msg [ htmlToText $msg ]
             $w configure -state normal
             $w delete 0.0 end
             $w insert 0.0 $msg
@@ -651,8 +625,8 @@ proc parseTopicText {topic data} {
         set topicText $msg
         set topicNick $nick
         set topicTime $time
-        set topicHeader [ replaceHtmlEntities $header ]
-        saveTopicTextToCache $topic [ replaceHtmlEntities $header ] $topicText $nick $time $approver $approveTime
+        set topicHeader [ htmlToText $header ]
+        saveTopicTextToCache $topic [ htmlToText $header ] $topicText $nick $time $approver $approveTime
     } else {
         set topicText "Unable to parse topic text :("
         set topicNick ""
@@ -673,7 +647,7 @@ proc parsePage {topic data} {
                 foreach i {nick time msg parent parentNick} {
                     setItemValue $w $id $i [ set $i ]
                 }
-                setItemValue $w $id header [ replaceHtmlEntities $header ]
+                setItemValue $w $id header [ htmlToText $header ]
                 setItemValue $w $id unread 0
                 setItemValue $w $id unreadChild 0
                 mark $w $id item 1
@@ -1028,7 +1002,7 @@ proc loadConfig {} {
 }
 
 proc updateTopicList {{section ""} {recursive ""}} {
-    global forumGroups newsGroups
+    global forumGroups
     global autonomousMode
     global appName
 
@@ -1045,6 +1019,8 @@ proc updateTopicList {{section ""} {recursive ""}} {
     }
     if {$section == "" } {
         updateTopicList news 1
+        updateTopicList gallery 1
+        updateTopicList votes 1
         updateTopicList forum 1
 
         if {$recursive == ""} stopWait
@@ -1053,12 +1029,13 @@ proc updateTopicList {{section ""} {recursive ""}} {
 
     switch -glob -- $section {
         news {
-            foreach {id title} $newsGroups {
-                updateTopicList "news$id" 1
-            }
+            parseGroup $section 1
         }
-        news* {
-            parseGroup $section [ string trimleft $section "news" ]
+        gallery {
+            parseGroup $section 3
+        }
+        votes {
+            parseGroup $section 5
         }
         forum {
             foreach {id title} $forumGroups {
@@ -1066,7 +1043,7 @@ proc updateTopicList {{section ""} {recursive ""}} {
             }
         }
         forum* {
-            parseGroup $section [ string trimleft $section "forum" ]
+            parseGroup $section 2 [ string trimleft $section "forum" ]
         }
         default {
             # No action at this moment
@@ -1075,12 +1052,15 @@ proc updateTopicList {{section ""} {recursive ""}} {
     if {$recursive == ""} stopWait
 }
 
-proc parseGroup {parent group} {
+proc parseGroup {parent section {group ""}} {
     global lorUrl
     global appName
 
 #    set url "http://$lorUrl/group.jsp?group=$group"
-    set url "http://$lorUrl/section-rss.jsp?section=2&group=$group"
+    set url "http://$lorUrl/section-rss.jsp?section=$section"
+    if { $group != "" } {
+        append url "&group=$group"
+    }
     set err 1
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
@@ -1124,8 +1104,8 @@ proc parseTopicList {parent data} {
     foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
-                $w insert $parent end -id $id -text [ replaceHtmlEntities $header ]
-                setItemValue $w $id text [ replaceHtmlEntities $header ]
+                $w insert $parent end -id $id -text [ htmlToText $header ]
+                setItemValue $w $id text [ htmlToText $header ]
                 setItemValue $w $id parent $parent
                 setItemValue $w $id nick $nick
                 setItemValue $w $id unread 0
@@ -1162,13 +1142,13 @@ proc loadTopicListFromCache {} {
 
 proc saveTopicListToCache {} {
     upvar #0 allTopicsWidget w
-    global forumGroups newsGroups
+    global forumGroups
     global configDir
 
     catch {
         set f [ open [ file join $configDir "topics" ] "w+" ]
         fconfigure $f -encoding utf-8
-        foreach group {news forum favorites} {
+        foreach group {news gallery votes forum favorites} {
             saveTopicListToCacheRecursive $w $f $group
         }
         close $f
@@ -1281,8 +1261,25 @@ proc openUrl {url} {
 
 proc replaceHtmlEntities {text} {
     foreach {re s} {
-        "<img [^>]*>" "[image]"
+        "&lt;" "<"
+        "&gt;" ">"
+        "&quot;" "\""
+        "&amp;" "\\&" } {
+        regsub -all -nocase -- $re $text $s text
+    }
+    return $text
+}
+
+proc htmlToText {text} {
+    set text [ replaceHtmlEntities $text ]
+    foreach {re s} {
+        {<img src="/\w+/\w+/votes\.gif"[^>]*>} "\[\\&\]"
+        "<img [^>]*?>" "[image]"
         "<!--.*?-->" ""
+        "<tr>" "\n"
+        "</tr>" ""
+        "</{0,1}table>" ""
+        "</{0,1}td(?: colspan=\\d+){0,1}>" " "
         "</{0,1}pre>" ""
         "\n<br>" "\n"
         "<br>\n" "\n"
@@ -1294,10 +1291,6 @@ proc replaceHtmlEntities {text} {
         "</{0,1}(?:u|o)l>" ""
         "<li>" "\n * "
         "</li>" ""
-        "&lt;" "<"
-        "&gt;" ">"
-        "&quot;" "\""
-        "&amp;" "\\&"
         "\n{3,}" "\n\n" } {
         regsub -all -nocase -- $re $text $s text
     }
@@ -1866,7 +1859,9 @@ proc buttonBox {parent args} {
 proc isCategoryFixed {id} {
     return [ expr {
         $id == "" || \
-        [ regexp -lineanchor {^news\d*$} $id ] || \
+        $id == "news" || \
+        $id == "gallery" || \
+        $id == "votes" || \
         [ regexp -lineanchor {^forum\d*$} $id ] || \
         $id == "favorites" \
     } ]
@@ -1878,10 +1873,26 @@ proc parseRss {data script} {
     #decoding binary data
     set data [ encoding convertfrom "utf-8" $data ]
 
-    foreach {dummy header id date msg} [ regexp -all -inline -- {<item>[^<]*<title>([^<]*)</title>[^<]*<link>http://www.linux.org.ru/jump-message.jsp\?msgid=(\d+)</link>[^<]*<guid>http://www.linux.org.ru/jump-message.jsp\?msgid=\d+</guid>[^<]*<pubDate>([^<]*)</pubDate>[^<]*<description>([^<]*)</description>[^<]*</item>} $data ] {
+    foreach {dummy1 item} [ regexp -all -inline -- {<item>(.*?)</item>} $data ] {
+        array set v {
+            title ""
+            link ""
+            guid ""
+            pubDate ""
+            description ""
+        }
+        foreach {dummy2 tag content} [ regexp -all -inline -- {<(\w+)>([^<]*)</\w+>} $item ] {
+            array set v [ list $tag $content ]
+        }
+        if { ![ regexp -lineanchor {msgid=(\d+)$} $v(link) dummy3 id ] } {
+            puts $dummy3
+            continue
+        }
+        set header [ htmlToText [ replaceHtmlEntities $v(title) ] ]
+        set msg $v(description)
         # at this moment nick field are not present in RSS feed
         set nick ""
-        set msg [ string trim $msg ]
+        set msg [ string trim [ replaceHtmlEntities $msg ] ]
         eval [ concat $script [ list $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ] ] ]
     }
 }
