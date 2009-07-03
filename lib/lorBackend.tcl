@@ -24,6 +24,7 @@ exec tclsh "$0" "$@"
 
 package require Tcl 8.4
 package require cmdline 1.2.5
+package require struct::stack 1.3
 
 if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir "/usr/lib/tkLOR"
@@ -98,6 +99,10 @@ proc printMessage {id nick header date msg parent parentNick} {
     ]
 }
 
+proc pushArgs {stack args} {
+    st push $args
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -137,7 +142,11 @@ if [ catch {
         exit 0
     }
     if { $p(list) != "" } {
-        ::lor::getTopicList $p(list) printTopic
+        struct::stack st
+        ::lor::getTopicList $p(list) {pushArgs st}
+        while { [ st size ] > 0 } {
+            eval [ concat printTopic [ st pop ] ]
+        }
         exit 0
     }
     if $p(login) {

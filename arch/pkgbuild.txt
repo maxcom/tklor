@@ -27,4 +27,5 @@ build() {
 
         chmod -R 755 $startdir/pkg/
         chmod +x $startdir/pkg/usr/bin/tkLOR
+        chmod +x $startdir/pkg/usr/lib/tkLOR/lorBackend.tcl
 }

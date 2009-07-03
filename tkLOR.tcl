@@ -1098,7 +1098,8 @@ proc updateTopicList {{section ""}} {
         set header [ htmlToText $lt(Subject) ]
         set id $lt(X-LOR-Id)
         addTopicFromCache $section $id $lt(From) $header \
-            [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
+            [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ] \
+            tobegin
     }
     set onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
     set parser [ ::mbox::initParser $fun ]
@@ -1134,13 +1135,16 @@ proc updateTopicList {{section ""}} {
         -onerror $onerror
 }
 
-#TODO: must append new items into the start of list, not into the end
-proc addTopicFromCache {parent id nick text unread} {
+proc addTopicFromCache {parent id nick text unread {tobegin ""}} {
     upvar #0 topicTree w
 
     if { ! [ $w exists $id ] } {
-        $w insert $parent end -id $id
-        sortChildrens $w $parent
+        if { $tobegin != "" } {
+            set pos 0
+        } else {
+            set pos end
+        }
+        $w insert $parent $pos -id $id
 
         setItemValue $w $id nick $nick
         setItemValue $w $id text $text
