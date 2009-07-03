@@ -183,8 +183,9 @@ proc initMenu {} {
     $m add command -label "Search new topics" -accelerator "F2" -command updateTopicList
     $m add separator
     $m add checkbutton -label "Autonomous mode" -onvalue 1 -offvalue 0 -variable autonomousMode
-    $m add separator
     $m add command -label "Options..." -command showOptionsDialog
+    $m add separator
+    $m add command -label "Clear old topics..." -command clearOldTopics
     $m add separator
     $m add command -label "Exit" -command exitProc
 
@@ -1587,6 +1588,42 @@ proc updateWindowTitle {} {
         }
     }
     wm title . $s
+}
+
+proc clearOldTopics {} {
+    global configDir threadSubDir appName
+    upvar #0 allTopicsWidget w
+
+    set topics ""
+
+    startWait "Searching for obsolete topics..."
+    foreach fname [ glob -directory [ file join $configDir $threadSubDir ] -types f {{*,*.topic}} ] {
+        regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
+        if { [ lsearch -exact $topics $fname ] == -1 && ! [ $w exists $fname ] } {
+            lappend topics $fname
+        }
+    }
+    stopWait
+
+    set count [ llength $topics ]
+
+    if { $count == "0" } {
+        tk_messageBox -type ok -icon info -message "There are no obsolete topics." -title $appName
+        return
+    } elseif { [ tk_messageBox -type yesno -default no -icon question -message "$count obsolete topic(s) will be deleted.\nDo you want to continue?" -title $appName ] != yes } {
+        return
+    }
+
+    startWait "Deleting obsolete topics..."
+    foreach id $topics {
+        catch {
+            file delete [ file join $configDir $threadSubDir $id ]
+        }
+        catch {
+            file delete [ file join $configDir $threadSubDir "$id.topic" ]
+        }
+    }
+    stopWait
 }
 
 ############################################################################
