@@ -386,8 +386,8 @@ proc initTopicTree {} {
     $w heading #0 -text [ mc "Title" ] -anchor w
     $w heading nick -text [ mc "Nick" ] -anchor w
     $w heading unreadChild -text [ mc "Threads" ] -anchor w
-    $w column #0 -width 220
-    $w column nick -width 60
+    $w column #0 -minwidth 100
+    $w column nick -minwidth 0 -width 10
     $w column unreadChild -width 30 -stretch 0
 
     $w insert {} end -id messages -text [ mc "Local folders" ] -values [ list "" 0 0 [ mc "Local folders" ] ]
@@ -2511,7 +2511,10 @@ proc startDelivery {} {
     }
     array unset msg
     set deliverTaskId [ callPlugin send {} \
-        -title [ mc "Sending message '%s'" $subject ] \
+        -title [ mc \
+            "Sending messages. %s remaining..." \
+            [ llength $outcoming ] \
+        ] \
         -mode "r+" \
         -oncomplete [ lambda {} {
             global outcoming sent

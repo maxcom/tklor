@@ -164,7 +164,7 @@
         "Error while loading topic %s"  "Ошибка при загрузке темы %s"
         "Getting new messages"          "Получение новых сообщений"
         "Error while getting messages"  "Ошибка про получении сообщений"
-        "Sending message '%s'"          "Отправка сообщения '%s'"
+        "Sending messages. %s remaining..." "Отправка сообщений. %s в очереди..."
         "Send queued messages"          "Отправить сообщения"
 }
 

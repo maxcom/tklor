@@ -367,7 +367,7 @@ proc postMessage {topic message title text preformattedText autoUrl loginCookie}
     if $preformattedText {
         set mode "pre"
     } else {
-        set mode "quot"
+        set mode "ntobrq"
     }
 
     set url "$lorUrl/add_comment.jsp?topic=$topic"
