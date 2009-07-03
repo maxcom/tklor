@@ -35,7 +35,7 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 *   You can specify variables in a command-line. For example, command:
 
-    # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR -cacheDir=/home/jopa/prog/tkLOR/cache
+    # wish8.5 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR -cacheDir=/home/jopa/prog/tkLOR/cache
 
     Will run tkLOR with specified config directory to /home/jopa/prog/tkLOR.
 
@@ -44,11 +44,15 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
     # wish tkLOR.tcl -libDir=/home/jopa/prog/tkLOR/lib
 
+*   If on your system 'tclsh' executable located outside $PATH, use -tclshPath command-line key.
+
+    # /usr/local/tcltk/wish85 tkLOR.tcl -tclshPath=/usr/local/tcltk/tclsh85
+
 ## For Debian GNU/Linux:
 
-# aptitude install tcl8.4 tk8.4 tcllib tk-tile
-or
 # aptitude install tcl8.5 tk8.5 tcllib
+or
+# aptitude install tcl8.4 tk8.4 tcllib tk-tile
 
 ## For Micro$oft Window$:
 
@@ -59,4 +63,4 @@ Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile in
 *   install ActiveTcl from http://www.activestate.com/store/freedownload.aspx?prdGuid=f0cd6399-fefb-466e-ba17-220dcd6f4078
 *   install tcllib from http://sourceforge.net/project/showfiles.php?group_id=12883
 *   add a symlink to /usr/local/bin/wish8.5 in any directory in $PATH or add /usr/local/bin into PATH environment variable.
-*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib"
+*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib -tclshPath=//usr/local/bin/tclsh8.5"

@@ -403,7 +403,7 @@ proc initTopicTree {} {
     $w insert "" end -id forum -text [ mc "Forum" ] -values [ list "" 0 0 [ mc "Forum" ] ]
     foreach {id title} $::lor::forumGroups {
         if { [ lsearch $forumVisibleGroups $id ] != -1 } {
-            $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0  $title ]
+            $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0 $title ]
             updateItemState $w "forum$id"
         }
     }
@@ -833,6 +833,9 @@ proc insertMessage {replace letter} {
         }
         set unread [ getItemValue $w $id unread ]
     } else {
+        if { ![ $w exists $parent ] } {
+            set parent ""
+        }
         $w insert $parent end -id $id -text $nick
         setItemValue $w $id unreadChild 0
     }
@@ -1166,8 +1169,6 @@ proc loadConfig {} {
     loadConfigFile [ file join $configDir "userConfig" ]
 
     set colorCount [ llength $colorList ]
-
-    ::msgcat::mcload [ file join $libDir msgs ]
 }
 
 proc updateTopicList {{section ""}} {
@@ -2120,6 +2121,8 @@ proc loadAppLibs {} {
     namespace import ::lambda::*
     namespace import ::gaa::tileDialogs::*
     namespace import ::gaa::tools::*
+
+    ::msgcat::mcload [ file join $libDir msgs ]
 }
 
 proc setPerspective {mode {force ""}} {
@@ -2214,7 +2217,7 @@ proc updateForumGroups {} {
                 $w insert forum end \
                     -id "forum$id" \
                     -text $title \
-                    -values [ list "" 0 0 "forum" $title ]
+                    -values [ list "" 0 0 $title ]
                 updateItemState $w "forum$id"
             }
         } else {
@@ -2574,7 +2577,6 @@ processArgv
 
 initDirs
 loadAppLibs
-loadConfig
 
 if { [ tk appname $appName ] != $appName } {
     send -async $appName {showWindow}
@@ -2587,8 +2589,11 @@ initMenu
 
 update
 
+loadConfig
+
 applyOptions
 ::taskManager::setUpdateHandler updateTaskList
+setPerspective $currentPerspective
 
 update
 
@@ -2602,6 +2607,4 @@ if {! [ file exists [ file join $configDir "config" ] ] } {
 if { $updateOnStart == "1" && $autonomousMode == "0" } {
     updateTopicList
 }
-
-setPerspective $currentPerspective
 
