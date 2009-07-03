@@ -441,9 +441,10 @@ proc initMainWindow {} {
 proc helpAbout {} {
     global appName appVersion
 
-    tk_messageBox \
+    messageBox \
         -title [ mc "About %s" $appName ] \
-        -message [ mc "%s %s\nClient for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3" $appName $appVersion ] \
+        -message [ mc "%s %s" $appName $appVersion ] \
+        -detail [ mc "Client for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3" ] \
         -parent . \
         -type ok
 }
@@ -458,7 +459,12 @@ proc exitProc {} {
         incr total [ getTasksCount $category ]
     }
     if { $total != 0 } {
-        if { [ tk_messageBox -title $appName -message [ mc "There are %s running tasks. Are you want to exit and stop it?" $total ] -type yesno -icon question ] == "no" } {
+        if { [ messageBox \
+            -message [ mc "There are %s running tasks" $total ] \
+            -detail  [ mc "Are you want to exit and stop it?" ] \
+            -type yesno \
+            -icon question \
+        ] == "no" } {
             return
         }
     }
@@ -1563,9 +1569,18 @@ proc clearOldTopics {} {
     set count [ llength $topics ]
 
     if { $count == "0" } {
-        tk_messageBox -type ok -icon info -message [ mc "There are no obsolete topics." ] -title $appName
+        messageBox \
+            -type ok \
+            -icon info \
+            -message [ mc "There are no obsolete topics." ]
         return
-    } elseif { [ tk_messageBox -type yesno -default no -icon question -message [ mc "%s obsolete topic(s) will be deleted.\nDo you want to continue?" $count ] -title $appName ] != yes } {
+    } elseif { [ messageBox \
+        -type yesno \
+        -default no \
+        -icon question \
+        -message [ mc "%s obsolete topic(s) will be deleted" $count ] \
+        -detail [ mc "Do you want to continue?" ] \
+    ] != yes } {
         return
     }
 
@@ -1971,7 +1986,13 @@ proc errorProc {err {extInfo ""}} {
     if {$extInfo != ""} {
         logger::log "Extended info: $extInfo"
     }
-    tk_messageBox -title [ mc "%s error" $appName ] -message $err -parent . -type ok -icon error
+    messageBox \
+        -title [ mc "%s error" $appName ] \
+        -message $err \
+        -detail $extInfo \
+        -parent . \
+        -type ok \
+        -icon error
 }
 
 proc sortChildrens {w parent} {
@@ -2154,7 +2175,12 @@ proc loginCallback {loggedIn} {
 
     closeLoginWindow
     if { ! $loggedIn } {
-        if { [ tk_messageBox -title $appName -message [ mc "Login failed" ] -icon warning -parent . -type retrycancel ] == "cancel" } {
+        if { [ messageBox \
+            -message [ mc "Login failed" ] \
+            -icon warning \
+            -parent . \
+            -type retrycancel \
+        ] == "cancel" } {
             set autonomousMode 1
         } else {
             login
@@ -2182,7 +2208,12 @@ proc goOnline {} {
     global appName autonomousMode
 
     if $autonomousMode {
-        if { [ tk_messageBox -title $appName -message [ mc "Are you want to go to online mode?" ] -type yesno -icon question -default yes ] == yes } {
+        if { [ messageBox \
+            -message [ mc "Are you want to go to online mode?" ] \
+            -type yesno \
+            -icon question \
+            -default yes \
+        ] == yes } {
             set autonomousMode 0
         }
     }
@@ -2348,12 +2379,32 @@ proc deliveryError {topic message header text preformattedText autoUrl errStr er
     logger::log "message delivery error: $errStr"
     logger::log "extended info: $errExtInfo"
 
-    if { [ tk_messageBox -title $appName -message [ mc "An error occured while posting '%s':\n%s" $header $errStr ] -type retrycancel ] == "retry" } {
+    if { [ messageBox \
+        -message [ mc "An error occured while posting '%s':\n%s" $header ] \
+        -detail $errStr \
+        -type retrycancel \
+    ] == "retry" } {
         defCallbackLambda finish {type} {
             taskCompleted $type
         } postMessage
         addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
     }
+}
+
+proc messageBox {args} {
+    global tcl_version appName
+
+    array set opts [ list -title $appName ]
+    array set opts $args
+    if { $tcl_version <= 8.4 && [ llength [ array names opts -exact "-detail" ] ] != 0 } {
+        if [ catch {set msg $opts(-message)} ] {
+            set msg ""
+        }
+        append msg "\n$opts(-detail)"
+        set opts(-message) $msg
+        array unset opts -detail
+    }
+    return [ eval [ concat tk_messageBox [ array get opts ] ] ]
 }
 
 ############################################################################
