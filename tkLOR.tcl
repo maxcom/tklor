@@ -334,8 +334,10 @@ proc initAllTopicsTree {} {
     updateItemState $allTopicsWidget "favorites"
 
     bind $allTopicsWidget <<TreeviewSelect>> {invokeMenuCommand $allTopicsWidget click}
+#    bind $allTopicsWidget <Double-Button-1> {invokeMenuCommand $allTopicsWidget click}
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
 
+#    bind $allTopicsWidget <Return> {invokeMenuCommand $allTopicsWidget click}
     bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
     bind $allTopicsWidget N {invokeMenuCommand $allTopicsWidget nextUnread}
     bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
@@ -1341,12 +1343,16 @@ proc packOptionsItem {name item type var opt} {
         }
         list {
             set f [ ttk::frame $name ]
-            set v [ listbox "$f.list" -listvariable $var -selectmode extended -yscrollcommand "$f.scroll set" ]
-            pack [ ttk::scrollbar "$f.scroll" -command "$v yview" ] -side right -fill y
+            set ff [ ttk::frame $f.f ]
+            set v [ listbox "$ff.list" -listvariable $var -selectmode extended -yscrollcommand "$ff.scroll set" ]
+            pack [ ttk::scrollbar "$ff.scroll" -command "$v yview" ] -side right -fill y
             pack $v -anchor w -fill x
+            pack $ff -anchor w -fill both
             pack $f -anchor w -fill both
-
-            pack [ ttk::button [ join [ list $name Add ] "" ] -text "Add" -command "addListItem $v" ] [ ttk::button [ join [ list $name Remove ] "" ] -text "Remove" -command "removeListItem $v" ] -fill x -side left
+            pack [ buttonBox $name \
+                [ list -text "Add" -command "addListItem $v" ] \
+                [ list -text "Remove" -command "removeListItem $v" ]
+            ] -fill x -side bottom
         }
         editableCombo {
             pack [ ttk::combobox $name -values $opt -textvariable $var ] -anchor w -fill x
@@ -1416,7 +1422,10 @@ proc showOptionsDialog {} {
         incr n
     }
     set f [ ttk::frame $d.buttonFrame ]
-    pack [ ttk::button $f.discard -text "Cancel" -command discardOptions ] [ ttk::button $f.save -text "OK" -command acceptOptions ] -side right
+    pack [ buttonBox $f \
+        [ list -text "OK" -command acceptOptions ] \
+        [ list -text "Cancel" -command discardOptions ] \
+    ] -fill x
     pack $f -fill x -side bottom
     update
 
@@ -1571,8 +1580,12 @@ proc inputStringDialog {title label var script} {
     wm title $f $title
     pack [ ttk::label $f.label -text $label ] -fill x
     pack [ ttk::entry $f.entry -textvariable $var ] -fill x
-    pack [ ttk::button $f.ok -text "OK" -command $okScript ] [ ttk::button $f.cancel -text "Cancel" -command $cancelScript ] -side left
+    pack [ buttonBox $f \
+        [ list -text "OK" -command $okScript ] \
+        [ list -text "Cancel" -command $cancelScript ] \
+    ] -side bottom -fill x
     update
+    wm resizable $f 1 0
     centerToParent $f .
     grab $f
     focus $f.entry
@@ -1626,7 +1639,7 @@ proc processItems {w item script} {
             }
         }
         if { $next != "" && !$fromChild } {
-            if { ![ eval [ join [ list $script $next ] ] ] } {
+            if { ![ eval [ join [ list [ concat $script [ list $next ] ] ] ] ] } {
                 return $next
             }
         }
@@ -1721,20 +1734,24 @@ proc showFavoritesTree {title name script} {
     pack [ ttk::label $f.categoryLabel -text "Category: " ] -fill x
     set categoryWidget [ ttk::treeview $f.category ]
     $categoryWidget heading #0 -text "Title" -anchor w
-    pack $categoryWidget -fill both
+    pack $categoryWidget -fill both -expand yes
 
     fillCategoryWidget $categoryWidget
 
     set okScript [ join \
         [ list \
-            [ list "eval" [ join [ list $script "\[ $categoryWidget focus \]" "\[ $nameWidget get \]" ] ] ] \
+            [ list "eval" [ join [ concat $script [ list "\[ $categoryWidget focus \]" "\[ $nameWidget get \]" ] ] ] ] \
             [ list "destroy" "$f" ] \
         ] ";" \
     ]
     set cancelScript "destroy $f"
     set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" ] ]
 
-    pack [ ttk::button $f.newCategory -text "New category..." -command $newCategoryScript ] [ ttk::button $f.ok -text "OK" -command $okScript ] [ ttk::button $f.cancel -text "Cancel" -command $cancelScript ] -side left
+    pack [ buttonBox $f \
+        [ list -text "New category..." -command $newCategoryScript ] \
+        [ list -text "OK" -command $okScript ] \
+        [ list -text "Cancel" -command $cancelScript ] \
+    ] -side bottom -fill x
 
     update
     centerToParent $f .
@@ -1800,6 +1817,18 @@ proc clearTreeItemChildrens {w parent} {
     foreach item [ $w children $parent ] {
         $w delete $item
     }
+}
+
+proc buttonBox {parent args} {
+    set f [ ttk::frame $parent.buttonBox ]
+    set b ""
+    set i 0
+    foreach p $args {
+        set b [ concat [ eval [ concat [ list "ttk::button" "$f.button$i" ] $p ] ] $b ]
+        incr i
+    }
+    eval "pack $b -side right"
+    return $f
 }
 
 ############################################################################
