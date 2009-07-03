@@ -606,13 +606,13 @@ proc setTopic {topic} {
         loadCachedMessages $topic
     }
     if { ! $autonomousMode } {
-        defMasterLambda processText {topic nick header text time approver approveTime} {
+        deflambda processText {topic nick header text time approver approveTime} {
             saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
             set header [ htmlToText $header ]
             updateTopicText $topic $header $nick
             insertMessage "topic" $nick $header $time $text "" "" 1 force
         } $topic
-        defMasterLambda processMessage {w id nick header time msg parent parentNick} {
+        deflambda processMessage {w id nick header time msg parent parentNick} {
             global appName
 
             if [ catch {
@@ -627,7 +627,6 @@ proc setTopic {topic} {
                 tk_messageBox -message "Error inserting item $id not found!" -title "$appName warning" -icon warning
             }
         } $messageTree
-
         deflambda finish {messageTree expandNewMessages} {
             focus $messageTree
             update
@@ -636,17 +635,10 @@ proc setTopic {topic} {
                 nextUnread $messageTree ""
             }
             updateStatusText
+            taskCompleted getMessageList
         } $messageTree $expandNewMessages
 
-        set command [ list lor::parseTopic $topic $processText $processMessage ]
-
-        killSlave $messageSlave updateStatusText
-        set messageSlave [ invokeSlave $backend $command \
-            -oncomplete $finish \
-            -onerror    errorProc \
-            -statustext "Loading messages" \
-        ]
-        updateStatusText
+        addTask getMessageList [ list lor::parseTopic $topic $processText $processMessage errorProc $finish ]
     }
 }
 
@@ -1873,12 +1865,14 @@ proc loadAppLibs {} {
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require lorParser 1.0
-    package require gaa_remoting 1.1
+    package require gaa_remoting 1.1 ; #TODO: remove
+    package require tkLor_taskManager 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
     namespace import ::gaa::tools::*
-    namespace import ::gaa::remoting::*
+    namespace import ::gaa::remoting::* ; #TODO: remove
+    namespace import tkLor::taskManager::*
 }
 
 proc setPerspective {mode {force ""}} {

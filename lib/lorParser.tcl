@@ -53,26 +53,27 @@ variable forumGroups {
 
 variable lorUrl "http://www.linux.org.ru"
 
-proc parseTopic {topic topicTextCommand messageCommand} {
+proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
     variable lorUrl
 
     set err 1
     set errStr ""
     set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
-    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
-        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseTopicText [ ::http::data $token ] $topicTextCommand
-            parsePage $topic [ ::http::data $token ] $messageCommand
-            set err 0
-        } else {
-            set errStr [ ::http::code $token ]
+    ::http::geturl $url -command [ ::gaa::lambda::lambda {topicTextCommand messageCommand onError onComplete token} {
+        if [ catch {
+            if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+                ::lor::parseTopicText [ ::http::data $token ] $topicTextCommand
+                ::lor::parsePage [ ::http::data $token ] $messageCommand
+            } else {
+                error [ ::http::code $token ]
+            }
+        } err ] {
+            eval [ concat $onError [ list $err ] ]
         }
         ::http::cleanup $token
-    }
-    if $err {
-        error $errStr
-    }
+        eval $onComplete
+    } $topicTextCommand $messageCommand $onError $onComplete ]
 }
 
 proc parseTopicText {data command} {
@@ -86,7 +87,7 @@ proc parseTopicText {data command} {
     eval [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
 }
 
-proc parsePage {topic data command} {
+proc parsePage {data command} {
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
             eval [ concat $command [ list $id $nick $header $time $msg $parent $parentNick ] ]
