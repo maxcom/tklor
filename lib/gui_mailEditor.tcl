@@ -101,7 +101,7 @@ proc editMessage {title letter buttons default command} {
     grid $ww -sticky nwse
 
     grid columnconfigure $w 0 -weight 1
-    grid rowconfigure $w 1 -weight 1
+    grid rowconfigure $w 0 -weight 1
     grid $w -sticky nwse
 
     set w [ ttk::frame $f.optionsFrame ]
@@ -118,7 +118,6 @@ proc editMessage {title letter buttons default command} {
     $w.format current [ set ${storage}(X-LOR-Pre) ]
 
     grid columnconfigure $w 0 -weight 1
-    grid columnconfigure $w 1 -weight 1
     grid $w -sticky nwse
 
     set destroyScript [ list \

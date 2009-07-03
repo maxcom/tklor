@@ -96,7 +96,7 @@ proc sendDonos {f} {
         X-LOR-Time  [ clock format \
                         [ clock seconds ] -format {%d.%m.%Y %H:%M:%S} \
                     ] \
-        body        "Ссылка: $url\n\nПричина: $reason" \
+        body        "Ссылка: $url\nПричина: $reason" \
     ]
 }
 
