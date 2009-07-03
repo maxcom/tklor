@@ -759,6 +759,13 @@ proc parseTopicList {forum data} {
     upvar #0 allTopicsWidget w
     global configDir threadSubDir
 
+    foreach item [ $w children "forum$forum" ] {
+        set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
+        addUnreadChild $w "forum$forum" "-$count"
+        $w delete $item
+    }
+    setItemValue $w "forum$forum" unreadChild 0
+
     foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
@@ -770,6 +777,8 @@ proc parseTopicList {forum data} {
                 if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
                     setItemValue $w $id unread 1
                     addUnreadChild $w "forum$forum"
+                } else {
+                    setItemValue $w $id unread 0
                 }
                 updateItemState $w $id
             }
@@ -778,8 +787,46 @@ proc parseTopicList {forum data} {
     $w see "forum$forum"
 }
 
+proc addTopicFromCache {forum id nick text unread} {
+    upvar #0 allTopicsWidget w
+
+    if { ! [ $w exists $id ] } {
+        $w insert "forum$forum" end -id $id
+        setItemValue $w $id nick $nick
+        setItemValue $w $id text $text
+        setItemValue $w $id unread $unread
+        setItemValue $w $id unreadChild 0
+        setItemValue $w $id parent "forum$forum"
+        updateItemState $w $id
+        if $unread {
+            addUnreadChild $w "forum$forum"
+        }
+    }
+}
+
+proc loadTopicListFromCache {} {
+    global configDir
+
+    catch {source [ file join $configDir "topics" ]}
+}
+
 proc saveTopicListToCache {} {
-    #TODO
+    upvar #0 allTopicsWidget w
+    global forumGroups
+    global configDir
+
+    catch {
+        set f [ open [ file join $configDir "topics" ] "w+" ]
+        fconfigure $f -encoding utf-8
+        foreach {forum title} $forumGroups {
+            foreach id [ $w children "forum$forum" ] {
+                puts -nonewline $f "addTopicFromCache $forum $id [ getItemValue $w $id nick ] "
+                puts -nonewline $f [ list [ getItemValue $w $id text ] ]
+                puts $f " [ getItemValue $w $id unread ]"
+            }
+        }
+        close $f
+    }
 }
 
 proc topicClick {} {
@@ -793,7 +840,6 @@ proc topicClick {} {
         setTopic $item
     }
 }
-
 
 ############################################################################
 #                                   MAIN                                   #
@@ -809,3 +855,5 @@ initMenu
 initMainWindow
 
 update
+
+loadTopicListFromCache
