@@ -185,9 +185,9 @@ proc processClick {w storage button command} {
     foreach {header value} [ array get st ] {
         lappend res $header $value
     }
-    array unset st
 
     uplevel #0 [ concat $command [ list $button $res ] ]
+    array unset st
     destroy $w
 }
 

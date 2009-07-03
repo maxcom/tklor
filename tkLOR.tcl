@@ -2489,7 +2489,7 @@ proc edit {w item} {
         putMailToQueue
 }
 
-proc startDelivery {} {
+proc startDelivery {{noretry ""}} {
     global autonomousMode
     global deliverTaskId
     global loginCookie loggedIn
@@ -2502,7 +2502,7 @@ proc startDelivery {} {
     }
 
     if { !$loggedIn } {
-        login startDelivery
+        login {startDelivery noretry}
         return
     }
 
@@ -2537,9 +2537,14 @@ proc startDelivery {} {
             set ::deliverTaskId ""
             after idle startDelivery
         } ] \
-        -onerror [ closure {subject} {err} {
+        -onerror [ closure {noretry subject} {err} {
             set ::deliverTaskId ""
-            errorProc [ mc "Error while sending '%s'" $subject ] $err
+            if { $noretry == "" } {
+                set ::loggedIn 0
+                after idle startDelivery
+            } else {
+                errorProc [ mc "Error while sending '%s'" $subject ] $err
+            }
         } ] \
     ]
     puts $deliverTaskId $loginCookie
