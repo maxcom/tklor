@@ -453,11 +453,14 @@ proc renderHtml {w msg} {
     }
 }
 
-proc updateTopicText {header msg} {
-    global topicTextWidget topicHeader
+proc updateTopicText {header msg nick time} {
+    global topicTextWidget
+    global topicHeader topicNick topicTime
 
     renderHtml $topicTextWidget $msg
     set topicHeader $header
+    set topicNick $nick
+    set topicTime $time
 }
 
 proc updateMessage {item} {
@@ -541,7 +544,7 @@ proc setTopic {topic} {
 }
 
 proc parseTopicText {topic data} {
-    global topicNick topicHeader topicTime
+#    global topicNick topicHeader topicTime
 
     if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         set topicText $msg
@@ -556,7 +559,7 @@ proc parseTopicText {topic data} {
         set topicTime ""
         saveTopicTextToCache $topic "" $topicText "" "" "" ""
     }
-    updateTopicText $topicHeader $topicText
+    updateTopicText $topicHeader $topicText $topicNick $topicTime
 }
 
 proc parsePage {topic data} {
@@ -769,10 +772,10 @@ proc loadTopicTextFromCache {topic} {
     global appName
     global configDir threadSubDir
 
-    updateTopicText "" ""
+    updateTopicText "" "" "" ""
     catch {
         array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] ] 0 ]
-        updateTopicText $res(Subject) $res(body)
+        updateTopicText $res(Subject) $res(body) $res(From) $res(X-LOR-Time)
     }
 }
 
