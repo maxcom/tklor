@@ -35,14 +35,6 @@ set threadSubDir "threads"
 
 set lorUrl "www.linux.org.ru"
 
-array set fontPart {
-    none ""
-    item "-family Sans"
-    unread "-weight bold"
-    child "-slant italic"
-    ignored "-overstrike 1"
-}
-
 set htmlRenderer "local"
 if { [ string equal -length 3 $tk_patchLevel "8.4" ] && ! [catch {package require Iwidgets}] } {
     set htmlRenderer "iwidgets"
@@ -121,6 +113,14 @@ set newsGroups {
     19107   "Ubuntu Linux"
     19108   Slackware
     19110   Apple
+}
+
+array set fontPart {
+    none ""
+    item "-family Sans"
+    unread "-weight bold"
+    child "-slant italic"
+    ignored "-overstrike 1"
 }
 
 ############################################################################
