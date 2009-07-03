@@ -2234,7 +2234,7 @@ proc postMessage {topic {item ""}} {
 
     set ww [ ttk::frame $w.textContainer ]
     grid \
-        [ text $ww.text -yscrollcommand "$ww.scroll set" -height 10 ] \
+        [ text $ww.text -yscrollcommand "$ww.scroll set" -height 25 ] \
         [ ttk::scrollbar $ww.scroll -command "$ww.text yview" ] \
         -sticky nswe
     $ww.text insert 0.0 $text
@@ -2274,7 +2274,7 @@ proc postMessage {topic {item ""}} {
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f <Escape> $cancelScript
-    bind $f <Control-Return> $sendScript
+    bind $f <Control-Return> "$sendScript;break"
 
     focus $f.textFrame.textContainer.text
     login
