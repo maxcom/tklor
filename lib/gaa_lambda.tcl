@@ -61,7 +61,7 @@ proc deflambda {id params script args} {
     uplevel [ list set $id [ concat [ list [ namespace current ]::lambdaProc $params $script ] $args ] ]
 }
 
-proc closure {locals params script args} {
+proc closure {locals params script} {
     set localParams ""
     set localArgs ""
     foreach p $locals {
@@ -73,7 +73,7 @@ proc closure {locals params script args} {
             [ concat $localParams $params ] \
             $script \
         ] \
-        [ concat $localArgs $args ] \
+        $localArgs \
     ]
 }
 
@@ -90,7 +90,7 @@ proc defclosure {id locals params script args} {
             [ concat $localParams $params ] \
             $script \
         ] \
-        [ concat $localArgs $args ] \
+        $localArgs \
     ]
 }
 

@@ -33,8 +33,6 @@ namespace import ::msgcat::*
 
 set appName "tkLOR"
 
-set loggedIn 0
-
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 set appHome "http://code.google.com/p/tklor/"
@@ -124,11 +122,15 @@ set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
 set messageTextQuoteFont "-slant italic"
 
-set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 19109}
+set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 19109 19390}
 
 set tasksWidgetVisible 0
 
 set loadTaskId ""
+
+set loggedIn 0
+
+set debug 0
 
 array set fontPart {
     none ""
@@ -1065,6 +1067,7 @@ proc updateTopicList {{section ""}} {
         }
     }
 
+#TODO: remove all occurences of section from here, do all work in plugin
     if [ regexp -lineanchor -- {^\d+$} $section ] {
         return
     }
@@ -1131,6 +1134,7 @@ proc updateTopicList {{section ""}} {
         -onerror $onerror
 }
 
+#TODO: must append new items into the start of list, not into the end
 proc addTopicFromCache {parent id nick text unread} {
     upvar #0 topicTree w
 
@@ -2179,6 +2183,7 @@ proc goOnline {} {
     }
 }
 
+#TODO: beautifulize window
 proc postMessage {topic {item ""}} {
     global appName
 
@@ -2353,15 +2358,19 @@ proc messageBox {args} {
 
     array set opts [ list -title $appName ]
     array set opts $args
-    if { $tcl_version <= 8.4 && [ llength [ array names opts -exact "-detail" ] ] != 0 } {
-        if [ catch {set msg $opts(-message)} ] {
+    if { $tcl_version <= 8.4 && [ info exists opts(-detail) ] } {
+        if [ info exists opts(-message) ] {
+            set msg $opts(-message)
+        } else {
             set msg ""
         }
         append msg "\n$opts(-detail)"
         set opts(-message) $msg
         array unset opts -detail
     }
-    return [ eval [ concat tk_messageBox [ array get opts ] ] ]
+    set optsList [ array get opts ]
+    array unset opts
+    return [ eval [ concat tk_messageBox $optsList ] ]
 }
 
 proc callPlugin {action arg args} {
@@ -2370,6 +2379,7 @@ proc callPlugin {action arg args} {
     global appId
     global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization
     global proxyUser proxyPassword
+    global debug
 
     set command [ concat \
         [ list $tclshPath "$libDir/lorBackend.tcl" "-$action" ] \
@@ -2387,7 +2397,8 @@ proc callPlugin {action arg args} {
     foreach {var key} {
             useProxy            useproxy
             proxyAutoSelect     autoproxy
-            proxyAuthorization  proxyauth} {
+            proxyAuthorization  proxyauth
+            debug               debug} {
         if [ set $var ] {
             lappend command "-$key"
         }

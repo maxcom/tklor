@@ -50,6 +50,7 @@ variable forumGroups {
     9326    Job
     10161   Games
     19109   Web-development
+    19390   Club
 }
 
 variable lorUrl "http://www.linux.org.ru"
@@ -64,13 +65,16 @@ proc parseTopic {topic topicTextCommand messageCommand} {
     set datavar [ namespace current ]::[ incr id ]
     set statevar "${datavar}_state"
     set $datavar ""
-    set $statevar TOPIC
+    set $statevar FIRST
 
     ::lambda::defclosure handler {datavar statevar topicTextCommand messageCommand} {socket token} {
         upvar #0 $datavar data $statevar state
         upvar #0 $token httpState
 
-        fconfigure $socket -encoding "utf-8" -buffering line -blocking 0
+        if { $state == "FIRST" } {
+            fconfigure $socket -encoding "utf-8" -buffering line -blocking 0
+            set state TOPIC
+        }
         set nbytes [ gets $socket httpData ]
         if { $nbytes <= 0 } {
             return 0

@@ -59,7 +59,7 @@
 	"To: "		"К: "
 	"Time: "		"Время: "
 	"About %s"		"О программе %s"
-	"Client for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3"		"Клиент для чтения сайта linux.org.ru, написаный на Tcl/Tk/Tile.\nCopyright (c) 2008 Александр Галанин (gaa at linux.org.ru)\nЛицензия: GPLv3"
+	"Client for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3"		"Клиент для чтения сайта linux.org.ru, написанный на Tcl/Tk/Tile.\nCopyright (c) 2008 Александр Галанин (gaa at linux.org.ru)\nЛицензия: GPLv3"
 	"Add topic"		"Добавить тему"
 	"Enter topic ID or URL"		"Введите ID темы или адрес"
 	"Error loading file %s"		"Не могу прочитать файл %s"
