@@ -293,11 +293,11 @@ proc updateMessage {item} {
     global messageWidget
     global currentHeader currentNick currentPrevNick currentTime
 
-    set msg [ getItemValue $item msg ]
-    set currentHeader [ getItemValue $item header ]
-    set currentNick [ getItemValue $item nick ]
-    set currentPrevNick [ getItemValue $item parentNick ]
-    set currentTime [ getItemValue $item time ]
+    set msg [ getMessageValue $item msg ]
+    set currentHeader [ getMessageValue $item header ]
+    set currentNick [ getMessageValue $item nick ]
+    set currentPrevNick [ getMessageValue $item parentNick ]
+    set currentTime [ getMessageValue $item time ]
 
     renderHtml $messageWidget $msg
 }
@@ -376,10 +376,10 @@ proc parsePage {topic data} {
             if { ! [ $topicWidget exists $id ] } {
                 $topicWidget insert $parent end -id $id -text $nick
                 foreach i {nick header time msg parent parentNick} {
-                    setItemValue $id $i [ set $i ]
+                    setMessageValue $id $i [ set $i ]
                 }
-                setItemValue $id unread 1
-                setItemValue $id unreadChild 0
+                setMessageValue $id unread 1
+                setMessageValue $id unreadChild 0
                 addUnreadChild $parent
                 updateItemState $id
             }
@@ -387,22 +387,30 @@ proc parsePage {topic data} {
     }
 }
 
-proc getItemValue {item valueName} {
-    global topicWidget itemValuesMap
-    set val [ $topicWidget item $item -values ]
-    set pos [ lsearch -exact [ $topicWidget cget -columns ] $valueName ]
+proc getMessageValue {item valueName} {
+    global topicWidget
+    return [ getItemValue $topicWidget $item $valueName ]
+}
+
+proc setMessageValue {item valueName value} {
+    global topicWidget
+    setItemValue $topicWidget $item $valueName $value
+}
+
+proc getItemValue {w item valueName} {
+    set val [ $w item $item -values ]
+    set pos [ lsearch -exact [ $w cget -columns ] $valueName ]
     return [ lindex $val $pos ]
 }
 
-proc setItemValue {item valueName value} {
-    global topicWidget itemValuesMap
-    set val [ $topicWidget item $item -values ]
+proc setItemValue {w item valueName value} {
+    set val [ $w item $item -values ]
     if { $val == "" } {
-        set val [ $topicWidget cget -columns ]
+        set val [ $w cget -columns ]
     }
-    set pos [ lsearch -exact [ $topicWidget cget -columns ] $valueName ]
+    set pos [ lsearch -exact [ $w cget -columns ] $valueName ]
     lset val $pos $value
-    $topicWidget item $item -values $val
+    $w item $item -values $val
 }
 
 proc messageClick {tree} {
@@ -410,18 +418,18 @@ proc messageClick {tree} {
 
     set item [ $tree focus ]
     updateMessage $item
-    if [ getItemValue $item unread ] {
-        setItemValue $item unread 0
-        addUnreadChild [ getItemValue $item parent ] -1
+    if [ getMessageValue $item unread ] {
+        setMessageValue $item unread 0
+        addUnreadChild [ getMessageValue $item parent ] -1
     }
     updateItemState $item
 }
 
 proc addUnreadChild {item {count 1}} {
     if { $item != "" } {
-        setItemValue $item unreadChild [ expr [ getItemValue $item unreadChild ] + $count ]
-        if { [ getItemValue $item parent ] != "" } {
-            addUnreadChild [ getItemValue $item parent ] $count
+        setMessageValue $item unreadChild [ expr [ getMessageValue $item unreadChild ] + $count ]
+        if { [ getMessageValue $item parent ] != "" } {
+            addUnreadChild [ getMessageValue $item parent ] $count
         }
         updateItemState $item
     }
@@ -432,13 +440,13 @@ proc updateItemState {item} {
     global ignoreList
 
     set tag "item"
-    if [ getItemValue $item unread ] {
+    if [ getMessageValue $item unread ] {
         append tag "_unread"
     }
-    if [ getItemValue $item unreadChild ] {
+    if [ getMessageValue $item unreadChild ] {
         append tag "_child"
     }
-    if { [ lsearch -exact $ignoreList [ getItemValue $item nick ] ] != -1 } {
+    if { [ lsearch -exact $ignoreList [ getMessageValue $item nick ] ] != -1 } {
         append tag "_ignored"
     }
     $topicWidget item $item -tags [ list $tag ]
@@ -596,13 +604,12 @@ proc loadCachedMessages {topic} {
             set time $res(X-LOR-Time)
             set msg $res(body)
             set unread $res(X-LOR-Unread)
-            puts "$id $unread"
 
             $topicWidget insert $parent end -id $id -text $nick
             foreach i {nick header time msg parent parentNick unread} {
-                setItemValue $id $i [ set $i ]
+                setMessageValue $id $i [ set $i ]
             }
-            setItemValue $id unreadChild 0
+            setMessageValue $id unreadChild 0
             if $unread {
                 addUnreadChild $parent
             }
@@ -625,7 +632,7 @@ proc saveTopicRecursive {topic item} {
     global topicWidget
 
     foreach id [ $topicWidget children $item ] {
-        saveMessage $topic $id [ getItemValue $id header ] [ getItemValue $id msg ] [ getItemValue $id nick ] [ getItemValue $id time ] [ getItemValue $id parentNick ] [ getItemValue $id parent ] [ getItemValue $id unread ]
+        saveMessage $topic $id [ getMessageValue $id header ] [ getMessageValue $id msg ] [ getMessageValue $id nick ] [ getMessageValue $id time ] [ getMessageValue $id parentNick ] [ getMessageValue $id parent ] [ getMessageValue $id unread ]
         saveTopicRecursive $topic $id
     }
 }
@@ -716,7 +723,7 @@ proc parseTopicList {forum data} {
     foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\(стр\.(?: <a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+&amp;page=\d+">\d+</a>)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
-                $allTopicsWidget insert "forum$forum" end -id $id -text $header -values [ list 0 0 ]
+                $allTopicsWidget insert "forum$forum" end -id $id -text $header
             }
         }
         #addUnreadChild $prev
