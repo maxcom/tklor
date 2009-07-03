@@ -152,6 +152,7 @@ proc initMenu {} {
     $m add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
     $m add separator
     $m add command -label "Move to favorites" -command {invokeMenuCommand $allTopicsWidget addToFavorites}
+    $m add command -label "Clear cache" -command {invokeMenuCommand $allTopicsWidget clearTopicCache}
     $m add command -label "Delete" -command {invokeMenuCommand $allTopicsWidget deleteTopic}
 
     set m [ menu .menu.message -tearoff 0 ]
@@ -177,18 +178,6 @@ proc initMenu {} {
 proc initPopups {} {
     global messageMenu topicMenu
 
-    set messageMenu [ menu .messageMenu -tearoff 0 ]
-    $messageMenu add command -label "Reply" -command {invokeItemCommand $topicWidget reply}
-    $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
-    $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
-    $messageMenu add separator
-    $messageMenu add command -label "Mark as read" -command {invokeItemCommand $topicWidget mark message 0}
-    $messageMenu add command -label "Mark as unread" -command {invokeItemCommand $topicWidget mark message 1}
-    $messageMenu add command -label "Mark thread as read" -command {invokeItemCommand $topicWidget mark thread 0}
-    $messageMenu add command -label "Mark thread as unread" -command {invokeItemCommand $topicWidget mark thread 1}
-    $messageMenu add command -label "Mark all as read" -command "markAllMessages 0"
-    $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
-
     set topicMenu [ menu .topicMenu -tearoff 0 ]
     $topicMenu add command -label "Refresh sub-tree" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
     $topicMenu add command -label "Reply" -command {invokeItemCommand $allTopicsWidget topicReply}
@@ -201,7 +190,20 @@ proc initPopups {} {
     $topicMenu add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
     $topicMenu add separator
     $topicMenu add command -label "Move to favorites" -command {invokeItemCommand $allTopicsWidget addToFavorites}
+    $topicMenu add command -label "Clear cache" -command {invokeItemCommand $allTopicsWidget clearTopicCache}
     $topicMenu add command -label "Delete" -command {invokeItemCommand $allTopicsWidget deleteTopic}
+
+    set messageMenu [ menu .messageMenu -tearoff 0 ]
+    $messageMenu add command -label "Reply" -command {invokeItemCommand $topicWidget reply}
+    $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
+    $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
+    $messageMenu add separator
+    $messageMenu add command -label "Mark as read" -command {invokeItemCommand $topicWidget mark message 0}
+    $messageMenu add command -label "Mark as unread" -command {invokeItemCommand $topicWidget mark message 1}
+    $messageMenu add command -label "Mark thread as read" -command {invokeItemCommand $topicWidget mark thread 0}
+    $messageMenu add command -label "Mark thread as unread" -command {invokeItemCommand $topicWidget mark thread 1}
+    $messageMenu add command -label "Mark all as read" -command "markAllMessages 0"
+    $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 }
 
 proc initAllTopicsTree {} {
@@ -1072,32 +1074,32 @@ proc markAllMessages {unread} {
 }
 
 proc reply {w item} {
-    global topicWidget lorUrl currentTopic
+    global lorUrl currentTopic
     openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
 }
 
 proc userInfo {w item} {
-    global topicWidget lorUrl
+    global lorUrl
     openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
 }
 
 proc openMessage {w item} {
-    global topicWidget lorUrl currentTopic
+    global lorUrl currentTopic
     openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
 }
 
 proc topicReply {w item} {
-    global allTopicsWidget lorUrl
+    global lorUrl
     openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
 }
 
 proc topicUserInfo {w item} {
-    global allTopicsWidget lorUrl
+    global lorUrl
     openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
 }
 
 proc topicOpenMessage {w item} {
-    global allTopicsWidget lorUrl
+    global lorUrl
     openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
 }
 
@@ -1190,8 +1192,6 @@ proc replaceHtmlEntities {text} {
 }
 
 proc addToFavorites {w item} {
-    global allTopicsWidget
-
     $w detach $item
     set childs [ $w children "favorites" ]
     lappend childs $item
@@ -1204,8 +1204,6 @@ proc addToFavorites {w item} {
 }
 
 proc deleteTopic {w item} {
-    global allTopicsWidget
-
     if [ regexp -lineanchor {^\d+$} $item ] {
         $w delete $item
     }
@@ -1224,6 +1222,19 @@ proc invokeMenuCommand {w command args} {
     set item [ $w focus ]
     if { $item != "" } {
         eval "$command $w $item $args"
+    }
+}
+
+proc clearTopicCache {w item} {
+    global allTopicsWidget
+    global configDir threadSubDir
+
+    if [ regexp -lineanchor {^\d+$} $item ] {
+        mark $w $item item 1
+        catch {
+            file delete [ file join $configDir $threadSubDir $item ]
+            file delete [ file join $configDir $threadSubDir "$item.topic" ]
+        }
     }
 }
 
