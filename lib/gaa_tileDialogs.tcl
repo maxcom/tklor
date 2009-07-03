@@ -71,13 +71,13 @@ proc packOptionsItem {w name item type val opt} {
             pack [ buttonBox $name \
                 [ list -text "Add..." -command [ concat $addScript [ list $v ] ] ] \
                 [ list -text "Modify..." -command [ concat $modifyScript [ list $v ] ] ] \
-                [ list -text "Remove" -command [ ::gaa::lambda {w} {
+                [ list -text "Remove" -command [ ::gaa::lambda::lambda {w} {
                         foreach item [ $w selection ] {
                             $w delete $item
                         }
                     } $v ] \
                 ] \
-                [ list -text "Move up" -command [ ::gaa::lambda {w} {
+                [ list -text "Move up" -command [ ::gaa::lambda::lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -90,7 +90,7 @@ proc packOptionsItem {w name item type val opt} {
                         }
                     } $v ] \
                 ] \
-                [ list -text "Move down" -command [ ::gaa::lambda {w} {
+                [ list -text "Move down" -command [ ::gaa::lambda::lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -118,7 +118,7 @@ proc packOptionsItem {w name item type val opt} {
             $name insert end $val
         }
         color {
-            pack [ ttk::button $name -text $val -command [ ::gaa::lambda {parent w} {
+            pack [ ttk::button $name -text $val -command [ ::gaa::lambda::lambda {parent w} {
                 if [ catch {set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]} ] {
                     set color [ tk_chooseColor -parent $parent ]
                 }
@@ -184,7 +184,7 @@ proc tabbedOptionsDialog {} {
             lappend o $item $type [ set ::$var ] $opt
         }
 
-        lappend okList [ ::gaa::lambda {optList page ws} {
+        lappend okList [ ::gaa::lambda::lambda {optList page ws} {
                 set vals [ ::gaa::tileDialogs::fetchOptionsFrameValues $optList $page $ws ]
                 for {set i 0} {$i < [ llength $vals ]} {incr i} {
                     set var [ lindex $optList [ expr $i*4+2 ] ]
@@ -315,7 +315,7 @@ proc onePageOptionsDialog {title optList script} {
         lappend genList $item $type $value $opt
         lappend fetchList $item $type $var $opt
     }
-    lappend okList [ ::gaa::lambda {optList page ws script} {
+    lappend okList [ ::gaa::lambda::lambda {optList page ws script} {
             set vals [ ::gaa::tileDialogs::fetchOptionsFrameValues $optList $page $ws ]
             set var ""
             for {set i 0} {$i < [ llength $vals ]} {incr i} {
@@ -357,21 +357,31 @@ proc buttonBox {parent args} {
     return $f
 }
 
-proc inputStringDialog {title label script {val ""}} {
+proc inputStringDialog {args} {
+    array set param [ ::cmdline::getoptions args {
+        {title.arg      "Input string"  "Window title"}
+        {label.arg      "Enter string"  "Entry label"}
+        {script.arg     ""              "Script to execute on OK click"}
+        {default.arg    ""              "Default parameter value"}
+    } ]
+    if { $param(script) == "" } {
+        error "Parameter -script is mandatory!"
+    }
+
     set f [ generateUniqueWidgetId ".inputStringDialog" ]
 
     toplevel $f
-    wm title $f $title
-    pack [ ttk::label $f.label -text $label ] -fill x
+    wm title $f $param(title)
+    pack [ ttk::label $f.label -text "$param(label): " ] -fill x
     pack [ ttk::entry $f.entry ] -fill x
-    $f.entry insert end $val
+    $f.entry insert end $param(default)
     $f.entry selection range 0 end
 
     set okScript [ join \
         [ list \
-            [ ::gaa::lambda {f script} {
+            [ ::gaa::lambda::lambda {f script} {
                 eval [ concat $script [ list [ $f.entry get ] ] ]
-            } $f $script ] \
+            } $f $param(script) ] \
             [ list destroy $f ] \
         ] ";" \
     ]

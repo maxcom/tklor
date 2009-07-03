@@ -1529,14 +1529,23 @@ proc centerToParent {window parent} {
 }
 
 proc addIgnoreListItem {w} {
-    inputStringDialog "Ignore list" "Enter nick:" [ list $w "insert" "{}" "end" "-text" ]
+    inputStringDialog \
+        -title "Ignore list" \
+        -label "Enter nick:" \
+        -script [ list $w "insert" "" "end" "-text" ]
 }
 
 proc modifyIgnoreListItem {w} {
     if { [ $w focus ] == "" } {
         addIgnoreListItem $w
     } else {
-        inputStringDialog "Ignore list" "Enter nick:" [ list $w "item" "\[ $w focus \]" "-text" ] [ $w item [ $w focus ] -text ]
+        inputStringDialog \
+            -title "Ignore list" \
+            -label "Enter nick:" \
+            -script [ lambda {w text} {
+                $w item [ $w focus ] -text $text
+            } $w ] \
+            -default [ $w item [ $w focus ] -text ]
     }
 }
 
@@ -1574,11 +1583,15 @@ proc find {} {
 
     set findPos [ $topicWidget focus ]
 
-    inputStringDialog "Search" "Search regexp:" [ lambda {str} {
-        global findString
-        set findString $str
-        findNext
-    } ] $findString
+    inputStringDialog \
+        -title "Search" \
+        -label "Search regexp:" \
+        -script [ lambda {str} {
+                global findString
+                set findString $str
+                findNext
+            } ] \
+        -default $findString
 }
 
 proc findNext {} {
