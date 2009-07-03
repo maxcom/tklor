@@ -56,7 +56,7 @@
 	"To: "		"К: "
 	"Time: "		"Время: "
 	"About %s"		"О программе %s"
-	"%s %s\nClient for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3"		"%s %s\nКлиента для чтения сайта linux.org.ru, написанный на Tcl/Tk/Tile.\nCopyright (c) 2008 Александр Галанин (gaa at linux.org.ru)\nЛицензия: GPLv3"
+	"%s %s\nClient for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3"		"%s %s\nКлиент для чтения сайта linux.org.ru, написанный на Tcl/Tk/Tile.\nCopyright (c) 2008 Александр Галанин (gaa at linux.org.ru)\nЛицензия: GPLv3"
 	"Error while inserting item %s:\n%s"		"Ошибка при добавлении записи %s:\n%s"
 	"Add topic"		"Добавить тему"
 	"Enter topic ID or URL"		"Введите ID темы или адрес"

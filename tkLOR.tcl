@@ -122,6 +122,8 @@ set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 1
 
 set tasksWidgetVisible 0
 
+set debug 0
+
 array set fontPart {
     none ""
     item "-family Sans"
@@ -645,7 +647,6 @@ proc setTopic {topic} {
             if [ tkLor::taskManager::isTaskStopped getMessageList ] {
                 return
             }
-            saveTopicTextToCache topic header text nick time approver approveTime
             saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
             set header [ htmlToText $header ]
             updateTopicText $topic $header $nick
@@ -1900,6 +1901,7 @@ proc loadAppLibs {} {
     package require gaa_remoting 2.0
     package require lorParser 1.1
     package require tkLor_taskManager 1.0
+    package require gaa_logger 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
@@ -1942,8 +1944,9 @@ proc showWindow {} {
 proc errorProc {err {extInfo ""}} {
     global appName
 
+    logger::log $err
     if {$extInfo != ""} {
-        puts stderr "$appName: $extInfo"
+        logger::log "Extended info: $extInfo"
     }
     tk_messageBox -title [ mc "%s error" $appName ] -message $err -parent . -type ok -icon error
 }
@@ -2087,6 +2090,11 @@ proc updateTaskList {} {
     array unset categoriesMap
 }
 
+proc bgerror {msg} {
+    logger::log "bgerror: $msg"
+    logger::log "bgerror extended info: $::errorInfo"
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -2096,6 +2104,10 @@ processArgv
 initDirs
 loadAppLibs
 loadConfig
+
+if {$debug != "0"} {
+    logger::configure $appName
+}
 
 if { [ remoting::startServer $appName ] != $appName } {
     remoting::sendRemote -async $appName {showWindow}

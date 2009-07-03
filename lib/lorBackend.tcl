@@ -49,6 +49,7 @@ set proxyPort ""
 set proxyAuthorization 0
 set proxyUser ""
 set proxyPassword ""
+set debug 0
 
 ############################################################################
 #                                 FUNCTIONS                                #
@@ -85,12 +86,18 @@ proc loadAppLibs {} {
     package require lorParser 1.0
     package require gaa_httpTools 1.0
     package require gaa_remoting 2.0
+    package require gaa_logger 1.0
 
     namespace import ::gaa::lambda::*
 }
 
 proc errorProcCallback {err {extInfo ""}} {
     send tkLOR [ list errorProc $err $extInfo ]
+}
+
+proc bgerror {msg} {
+    logger::log "bgerror: $msg"
+    logger::log "bgerror extended info: $::errorInfo"
 }
 
 ############################################################################
@@ -103,6 +110,7 @@ array set param [ ::cmdline::getoptions argv [ list \
     [ list configDir.arg  $configDir    "Config directory" ] \
     [ list libDir.arg     $libDir       "Library path" ] \
     [ list appId.arg      $appName      "Application ID" ] \
+    [ list debug.arg      $debug        "Debug flag" ] \
 ] ]
 
 if { $param(configDir) != "" } {
@@ -111,9 +119,14 @@ if { $param(configDir) != "" } {
 if { $param(libDir) != "" } {
     set libDir $param(libDir)
 }
+set debug $param(debug)
 
 loadConfig
 loadAppLibs
+
+if {$debug != "0"} {
+    logger::configure $processId
+}
 
 if { [ remoting::startServer $processId ] != $processId } {
     puts stderr "$processId: Backend process is already running. Exitting."
