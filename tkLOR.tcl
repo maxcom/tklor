@@ -1,7 +1,7 @@
 #!/bin/sh
 ############################################################################
-#    Copyright (C) 2008 by Alexander Galanin   #
-#    gaa.nnov@mail.ru   #
+#    Copyright (C) 2008 by Alexander Galanin                               #
+#    gaa.nnov@mail.ru                                                      #
 #                                                                          #
 #    This program is free software; you can redistribute it and#or modify  #
 #    it under the terms of the GNU General Public License as published by  #
@@ -28,7 +28,9 @@ package require http 2.0
 
 set appName "tkLOR"
 set appVersion "0.1.0"
+set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 
+set configDir [ file join $::env(HOME) ".$appName" ]
 set threadSubDir "threads"
 
 #---------------- debug start --------------
@@ -204,9 +206,9 @@ proc initMainWindow {} {
     ttk::panedwindow .vertPaned -orient vertical
     .horPaned add .vertPaned
 
-    .vertPaned add [ initTopicText ] -weight 10
-    .vertPaned add [ initTopicTree ] -weight 0
-    .vertPaned add [ initMessageWidget ] -weight 10
+    .vertPaned add [ initTopicText ] -weight 3
+    .vertPaned add [ initTopicTree ] -weight 1
+    .vertPaned add [ initMessageWidget ] -weight 3
 }
 
 proc helpAbout {} {
@@ -397,23 +399,24 @@ proc addTopic {} {
 }
 
 proc initHttp {} {
-    global appName appVersion
+    global appId
 
-    ::http::config -useragent "$appName $appVersion"
+    ::http::config -useragent "$appId"
     set ::http::defaultCharset "utf-8"
 }
 
 proc initDirs {} {
-    global appName threadSubDir
+    global appName configDir threadSubDir
 
-    file mkdir [ file join $::env(HOME) ".$appName" ]
-    file mkdir [ file join $::env(HOME) ".$appName" $threadSubDir ]
+    file mkdir $configDir
+    file mkdir [ file join $configDir $threadSubDir ]
 }
 
 proc saveTopicTextToCache {topic header text nick time approver approveTime} {
-    global appName threadSubDir
+    global appName
+    global configDir threadSubDir
 
-    set f [ open [ file join $::env(HOME) ".$appName" $threadSubDir [ join [ list $topic "_text" ] "" ] ] "w+" ]
+    set f [ open [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] "w+" ]
     puts $f "From $nick"
     puts $f "Subject: $header"
     puts $f "X-LOR-Time: $time"
@@ -460,6 +463,9 @@ proc parseMbox {fileName} {
             if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
                 break
             } else {
+                if [ string equal -length 6 $line ">From " ] {
+                    set s [ string trimleft $s ">" ]
+                }
                 append body "$s\n"
             }
         }
@@ -473,26 +479,28 @@ proc parseMbox {fileName} {
 }
 
 proc loadTopicTextFromCache {topic} {
-    global appName threadSubDir
+    global appName
+    global configDir threadSubDir
 
     updateTopicText "" ""
     catch {
-        array set res [ lindex [ parseMbox [ file join $::env(HOME) ".$appName" $threadSubDir [ join [ list $topic "_text" ] "" ] ] ] 0 ]
+        array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic "_text" ] "" ] ] ] 0 ]
         updateTopicText $res(Subject) $res(body)
     }
 }
 
 proc saveMessage {topic id header text nick time replyTo replyToId unread} {
-    global appName threadSubDir
+    global appName
+    global configDir threadSubDir
 
-    set f [ open [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] "a" ]
+    set f [ open [ file join $configDir $threadSubDir $topic ] "a" ]
     puts $f "From $nick"
     puts $f "Subject: $header"
     puts $f "X-LOR-Time: $time"
     puts $f "X-LOR-Id: $id"
     puts $f "X-LOR-Unread: $unread"
     if { $replyTo != "" } {
-        puts $f "Reply-To: $replyTo"
+        puts $f "To: $replyTo"
         puts $f "X-LOR-ReplyTo-Id: $replyToId"
     }
     puts $f ""
@@ -509,15 +517,16 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
 }
 
 proc loadCachedMessages {topic} {
-    global appName threadSubDir
+    global appName
+    global configDir threadSubDir
     global topicWidget
 
     catch {
-    foreach letter [ parseMbox [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] ] {
+    foreach letter [ parseMbox [ file join $configDir $threadSubDir $topic ] ] {
         array set res $letter
         catch {
-            if { [ lsearch -exact [ array names res ] "Reply-To" ] != -1 } {
-                set prevNick $res(Reply-To)
+            if { [ lsearch -exact [ array names res ] "To" ] != -1 } {
+                set prevNick $res(To)
                 set prev $res(X-LOR-ReplyTo-Id)
             } else {
                 set prev ""
@@ -537,9 +546,10 @@ proc loadCachedMessages {topic} {
 }
 
 proc clearDiskCache {topic} {
-    global appName threadSubDir
+    global appName
+    global configDir threadSubDir
 
-    set f [ open [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] "w+" ]
+    set f [ open [ file join $configDir $threadSubDir $topic ] "w+" ]
     close $f
 }
 
@@ -559,9 +569,21 @@ proc saveTopicToCache {topic} {
     }
 }
 
+proc processArgv {} {
+    global argv
+
+    foreach arg $argv {
+        if [ regexp -lineanchor -- {^-(.+)=(.*)$} $arg dummy param value ] {
+            uplevel #0 "set {$param} {$value}"
+        }
+    }
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
+
+processArgv
 
 initDirs
 
