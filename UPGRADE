@@ -11,14 +11,8 @@ You can use this simple set of shell commands to move your config files and mess
 	mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR"
 	mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/tkLOR"
 
-	mv $HOME/.tkLOR/topics/* "${XDG_CACHE_HOME:-$HOME/.cache}/tkLOR"
+	mv $HOME/.tkLOR/threads/* "${XDG_CACHE_HOME:-$HOME/.cache}/tkLOR"
+	mv $HOME/.tkLOR/topics "${XDG_CACHE_HOME:-$HOME/.cache}/tkLOR"
 	mv $HOME/.tkLOR/* "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR"
-	rmdir "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR/topics"
+	rmdir "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR/threads"
 	rmdir "$HOME/.tkLOR"
-
-If you want to keep files on it's old place, use thw following command-line keys:
-
-	-configDir=$HOME/.tkLOR
-	-cacheDir=$HOME/.tkLOR/topics
-
-or any paths that you want.

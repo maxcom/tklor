@@ -1084,17 +1084,17 @@ proc addTopicFromCache {parent id nick text unread} {
 }
 
 proc loadTopicListFromCache {} {
-    global configDir
+    global cacheDir
 
-    loadConfigFile [ file join $configDir "topics" ]
+    loadConfigFile [ file join $cacheDir "topics" ]
 }
 
 proc saveTopicListToCache {} {
     upvar #0 topicTree w
-    global configDir
+    global cacheDir
 
     catch {
-        set f [ open [ file join $configDir "topics" ] "w+" ]
+        set f [ open [ file join $cacheDir "topics" ] "w+" ]
         fconfigure $f -encoding utf-8
         foreach group {news gallery votes forum favorites} {
             saveTopicListToCacheRecursive $w $f $group
@@ -1527,7 +1527,7 @@ proc clearOldTopics {} {
     set topics ""
 
     if [ catch {
-        foreach fname [ glob -directory [ file join $cacheDir ] -types f {{*,*.topic}} ] {
+        foreach fname [ glob -directory $cacheDir -types f {[0-9]*} {[0-9]*.topic} ] {
             regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
             if { [ lsearch -exact $topics $fname ] == -1 && ! [ $w exists $fname ] } {
                 lappend topics $fname
@@ -1559,7 +1559,7 @@ proc clearOldTopics {} {
     wm deiconify $f
 
     set count 0
-    set dir [ file join $cacheDir ]
+    set dir $cacheDir
     foreach id $topics {
         catch {
             file delete [ file join $dir $id ]
