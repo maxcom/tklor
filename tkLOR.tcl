@@ -286,6 +286,7 @@ proc initAllTopicsTree {} {
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
 
     bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
+    bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
 
     ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
     pack $f.scroll -side right -fill y
@@ -344,6 +345,7 @@ proc initTopicTree {} {
     bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
 
     bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
+    bind $topicWidget <Menu> {openContextMenu $topicWidget $messageMenu}
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
@@ -1556,6 +1558,20 @@ proc nextUnread {w item} {
             click $w $cur
             return
         }
+    }
+}
+
+proc openContextMenu {w menu} {
+    set item [ $w focus ]
+    if { $item != "" } {
+        set bbox [ $w bbox $item ]
+        set x [ lindex $bbox 0 ]
+        set y [ lindex $bbox 1 ]
+        set xx [ expr [ winfo rootx $w ] + $x ]
+        set yy [ expr [ winfo rooty $w ] + $y ]
+        incr x [ expr [ lindex $bbox 2 ] / 2 ]
+        incr y [ expr [ lindex $bbox 3 ] / 2 ]
+        popupMenu $menu $xx $yy $x $y
     }
 }
 
