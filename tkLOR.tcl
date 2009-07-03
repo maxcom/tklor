@@ -1024,6 +1024,7 @@ proc updateTopicList {{section ""}} {
         -onerror    errorProc \
         -statustext "Loading topics list"
     updateStatusText
+    update
 }
 
 proc addTopicFromCache {parent id nick text unread} {
