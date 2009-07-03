@@ -32,13 +32,20 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 ## Hints:
 
 *   Install Tk 8.5 to get better look of fonts on X11
+
 *   Commands "wish" and "tclsh" must be present in at least one directory 
     listed in PATH envoronment variable
+
 *   You can specify variables in a command-line. For example, command:
 
     # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
 
     Will run tkLOR with specified config directory to /home/jopa/prog/tkLOR.
+
+*   If you have problems like "Error in startup script: can't find package
+    gaa_lambda 1.0", try to run in the following way:
+
+    # wish tkLOR.tcl -configDir=/home/jopa/prog/tkLOR -configDir=/home/jopa/prog/tkLOR/lib
 
 ## For Debian GNU/Linux:
 
@@ -49,3 +56,9 @@ or
 ## For Micro$oft Window$:
 
 Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile installed separately.
+
+## For Mac OS X:
+
+*   install ActiveTcl from http://www.activestate.com/store/freedownload.aspx?prdGuid=f0cd6399-fefb-466e-ba17-220dcd6f4078
+*   install tcllib from http://sourceforge.net/project/showfiles.php?group_id=12883
+*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLORlib"
