@@ -49,6 +49,9 @@ proc parseLine {id line} {
     if { $state == "EOF" ||
             ( [ regexp {^From:{0,1} (.+)$} $line dummy nick ] &&
                 ( $state == "BODYSPACE" || $state == "BEGIN" ) ) } {
+        regsub {(\n)+$} $lt(body) "" lt(body)
+        set letter [ array get lt ]
+
         if [ info exists lt(From) ] {
             uplevel #0 [ concat [ set command$id ] [ list $letter ] ]
         }
@@ -67,11 +70,12 @@ proc parseLine {id line} {
             BODY {
                 set state$id BODYSPACE
             }
+            BODYSPACE {
+                set lt(body) "$lt(body)\n"
+            }
         }
         set letter$id [ array get lt ]
         return
-    } elseif { $state == "BODYSPACE" } {
-        set lt(body) "$lt(body)\n"
     }
     if { $state == "HEAD" || $state == "BEGIN" } {
         if [ regexp {^([\w-]+):\s*(.*)$} $line dummy tag val ] {
