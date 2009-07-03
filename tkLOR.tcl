@@ -51,6 +51,7 @@ if {[ string first Windows $tcl_platform(os) ] == -1} {
 set messageTextWidget ""
 set topicTree ""
 set messageTree ""
+set horPane ""
 
 set currentHeader ""
 set currentNick ""
@@ -83,6 +84,8 @@ set doubleClickAllTopics 0
 set markIgnoredMessagesAsRead 0
 set exitConfirmation 1
 set threadListSize 20
+set perspectiveAutoSwitch 0
+set currentPerspective navigation
 
 set colorList {{tklor blue foreground}}
 set colorCount [ llength $colorList ]
@@ -92,7 +95,6 @@ set tileTheme "default"
 set findString ""
 set findPos ""
 
-set lastId -1
 set waitDeep 0
 
 set messageTextFont [ font actual system ]
@@ -129,12 +131,16 @@ array set color {
 set options {
     "Global" {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
-        "Autonomous mode"   check   autonomousMode ""
+        "Autonomous mode"   hidden  autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
         "Use double-click to open topic"    check   doubleClickAllTopics ""
         "Confirm exit"  check   exitConfirmation ""
         "Browser"   editableCombo   browser { list "sensible-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
         "Thread history size"   string  threadListSize ""
+        "Expand new messages"   check   expandNewMessages   ""
+        "Mark messages from ignored users as read"  check   markIgnoredMessagesAsRead ""
+        "Auto-switch perspective"   check   perspectiveAutoSwitch ""
+        "Current perspective"   hidden  currentPerspective ""
     }
     "Connection" {
         "Use proxy" check   useProxy ""
@@ -145,9 +151,7 @@ set options {
         "Proxy user"    string  proxyUser ""
         "Proxy password"    password    proxyPassword ""
     }
-    "Reading" {
-        "Expand new messages"   check   expandNewMessages   ""
-        "Mark messages from ignored users as read"  check   markIgnoredMessagesAsRead ""
+    "Ignored users" {
         "Ignore list"   list    ignoreList { list [ list "Nick" ] "addIgnoreListItem" "modifyIgnoreListItem" }
     }
     "User tags" {
@@ -180,6 +184,7 @@ proc initMenu {} {
 
     menu .menu -type menubar
     .menu add cascade -label "LOR" -menu .menu.lor
+    .menu add cascade -label "View" -menu .menu.view
     .menu add cascade -label "Topic" -menu .menu.topic
     .menu add cascade -label "Message" -menu .menu.message
     .menu add cascade -label "Search" -menu .menu.search
@@ -194,6 +199,12 @@ proc initMenu {} {
     $m add command -label "Clear old topics..." -command clearOldTopics
     $m add separator
     $m add command -label "Exit" -accelerator "Alt-F4" -command exitProc
+
+    set m [ menu .menu.view -tearoff 0 ]
+    $m add radiobutton -label "Navigation perspective" -accelerator "Ctrl-Z" -command {setPerspective navigation -force} -value navigation -variable currentPerspective
+    $m add radiobutton -label "Reading perspective" -accelerator "Ctrl-X" -command {setPerspective reading -force} -value reading -variable currentPerspective
+    $m add separator
+    $m add checkbutton -label "Auto switch" -onvalue 1 -offvalue 0 -variable perspectiveAutoSwitch
 
     set menuTopic [ menu .menu.topic -tearoff 0 ]
     set topicMenu [ menu .topicMenu -tearoff 0 ]
@@ -365,6 +376,7 @@ proc initMainWindow {} {
     global appName
     global tileTheme
     global statusBarWidget
+    global horPane
 
     wm protocol . WM_DELETE_WINDOW exitProc
     wm title . $appName
@@ -372,7 +384,7 @@ proc initMainWindow {} {
     set statusBarWidget [ ttk::label .statusBar -text "" -relief sunken ]
     pack $statusBarWidget -side bottom -anchor w -fill x
 
-    ttk::panedwindow .horPaned -orient horizontal
+    set horPane [ ttk::panedwindow .horPaned -orient horizontal ]
     pack .horPaned -fill both -expand 1
 
     .horPaned add [ initTopicTree ] -weight 0
@@ -1251,7 +1263,9 @@ proc showOptionsDialog {} {
     foreach {category optList} $options {
         set sub ""
         foreach {item type var opt} $optList {
-            lappend sub $item $type $var [ set ::$var ] $opt
+            if {$type != "hidden"} {
+                lappend sub $item $type $var [ set ::$var ] $opt
+            }
         }
         lappend opts $category
         lappend opts $sub
@@ -1623,15 +1637,22 @@ proc initBindings {} {
     }
 
     if { $doubleClickAllTopics == "0" } {
-        bind $topicTree <<TreeviewSelect>> {invokeMenuCommand $topicTree click}
+        bind $topicTree <<TreeviewSelect>> {
+            invokeMenuCommand $topicTree click
+            setPerspective reading
+        }
     } else {
         bind $topicTree <Double-Button-1> {invokeMenuCommand $topicTree click}
         bind $topicTree <Return> {invokeMenuCommand $topicTree click}
+        bind $topicTree <Button-1> {setPerspective navigation}
     }
     bind $topicTree <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
     bind $topicTree <Menu> {openContextMenu $topicTree $topicMenu}
 
-    bind $messageTree <<TreeviewSelect>> {invokeMenuCommand $messageTree click}
+    bind $messageTree <<TreeviewSelect>> {
+        invokeMenuCommand $messageTree click
+        setPerspective reading
+    }
     bind $messageTree <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
     bind $messageTree <Menu> {openContextMenu $messageTree $messageMenu}
 
@@ -1659,6 +1680,11 @@ proc initBindings {} {
 
     bind . <Control-f> find
     bind . <Control-F> find
+
+    bind . <Control-z> {setPerspective navigation -force}
+    bind . <Control-Z> {setPerspective navigation -force}
+    bind . <Control-x> {setPerspective reading -force}
+    bind . <Control-X> {setPerspective reading -force}
 }
 
 proc tagUser {w item} {
@@ -1788,6 +1814,25 @@ proc loadAppLibs {} {
     namespace import ::gaa::tools::*
 }
 
+proc setPerspective {mode {force ""}} {
+    global horPane
+    global perspectiveAutoSwitch
+    global currentPerspective
+
+    if { $force == "" && $perspectiveAutoSwitch == "0" } {
+        return
+    }
+    set currentPerspective $mode
+    switch -exact -- $mode {
+        navigation {
+            $horPane sashpos 0 [ expr [ winfo width . ] / 2 ]
+        }
+        reading {
+            $horPane sashpos 0 [ expr [ winfo width . ] / 5 ]
+        }
+    }
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -1814,3 +1859,5 @@ if {! [ file exists [ file join $configDir "config" ] ] } {
 if { $updateOnStart == "1" } {
     updateTopicList
 }
+
+setPerspective $currentPerspective
