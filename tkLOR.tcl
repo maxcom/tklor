@@ -51,6 +51,7 @@ set messageTextWidget ""
 set topicTree ""
 set messageTree ""
 set horPane ""
+set tasksWidget ""
 
 set currentHeader ""
 set currentNick ""
@@ -101,6 +102,8 @@ set messageTextMonospaceFont "-family Courier"
 set messageTextQuoteFont "-slant italic"
 
 set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 19109}
+
+set tasksWidgetVisible 0
 
 array set fontPart {
     none ""
@@ -382,11 +385,8 @@ proc initMainWindow {} {
     wm protocol . WM_DELETE_WINDOW exitProc
     wm title . $appName
 
-    set statusBarWidget [ ttk::label .statusBar -text "" -relief sunken ]
-    pack $statusBarWidget -side bottom -anchor w -fill x
-
     set horPane [ ttk::panedwindow .horPaned -orient horizontal ]
-    pack .horPaned -fill both -expand 1
+    grid .horPaned -sticky nwse
 
     .horPaned add [ initTopicTree ] -weight 0
 
@@ -395,6 +395,20 @@ proc initMainWindow {} {
 
     .vertPaned add [ initMessageTree ] -weight 0
     .vertPaned add [ initMessageWidget ] -weight 1
+
+    set statusBarWidget [ ttk::frame .statusBar -relief sunken -padding 1 ]
+    grid \
+        [ ttk::label $statusBarWidget.text -text "" ] \
+        [ ttk::progressbar $statusBarWidget.progress -mode indeterminate -orient horizontal ] \
+        [ ttk::button $statusBarWidget.button -text "^" -command toggleTaskList -width 1 ] \
+        -sticky nswe
+    $statusBarWidget.progress state disabled
+    grid columnconfigure $statusBarWidget 0 -weight 1
+
+    grid $statusBarWidget -sticky nswe
+
+    grid columnconfigure . 0 -weight 1
+    grid rowconfigure . 0 -weight 1
 }
 
 proc helpAbout {} {
@@ -925,22 +939,6 @@ proc processArgv {} {
             uplevel #0 "set {$param} {$value}"
         }
     }
-}
-
-proc updateStatusText {} {
-#TODO: rewrite
-#    global statusBarWidget
-
-#    set count [ getSlavesCount ]
-#    if { $count == 0 } {
-#        set text ""
-#    } elseif { $count == 1 } {
-#        set a [ getSlaves ]
-#        set text [ lindex $a 1 ]
-#    } else {
-#        set text "$count background operation(s) running"
-#    }
-#    $statusBarWidget configure -text $text
 }
 
 proc loadConfigFile {fileName} {
@@ -1966,6 +1964,97 @@ proc defCallbackLambda {name params script args} {
     ]
 }
 
+proc initTasksWindow {} {
+    global tasksWidget
+    global appName
+
+    set tasksWidget [ toplevel .tasksWidget -class Dialog ]
+    wm withdraw $tasksWidget
+    wm title $tasksWidget "$appName: running tasks"
+    wm protocol $tasksWidget WM_DELETE_WINDOW toggleTaskList
+    wm transient $tasksWidget .
+
+    bind $tasksWidget <Escape> toggleTaskList
+
+    set w [ ttk::treeview $tasksWidget.list -columns {count} ]
+    $w heading #0 -text "Category" -anchor w
+    $w heading count -text "Count" -anchor w
+    $w column count -width 30
+    pack $w -fill both -expand 1
+
+    deflambda stopScript {w} {
+        foreach item [ $w selection ] {
+            stopTask $item
+        }
+    } $w
+    deflambda stopAllScript {w} {
+        foreach item [ $w selection ] {
+            stopAllTasks $item
+        }
+    } $w
+    pack [ buttonBox $tasksWidget \
+        [ list -text "Stop" -command $stopScript ] \
+        [ list -text "Stop all" -command $stopAllScript ] \
+    ] -fill x -side bottom -expand 1
+}
+
+proc toggleTaskList {} {
+    global tasksWidget
+    global tasksWidgetVisible
+
+    if { $tasksWidgetVisible == 1 } {
+        wm withdraw $tasksWidget
+    } else {
+        wm transient $tasksWidget .
+        wm deiconify $tasksWidget
+    }
+    set tasksWidgetVisible [ expr 1 - $tasksWidgetVisible ]
+}
+
+proc updateTaskList {} {
+    global tasksWidget
+    global statusBarWidget
+    set w $tasksWidget.list
+
+    array set categoriesMap {
+        getMessageList  "Getting messages"
+        getTopicList    "Getting topics list"
+        postMessage     "Message posting"
+    }
+    set total 0
+    set nonEmptyCategory ""
+    foreach category {getMessageList getTopicList postMessage} {
+        set count [ getTasksCount $category ]
+        incr total $count
+
+        if { $count == 0 } {
+            if [ $w exists $category ] {
+                $w delete $category
+            }
+        } else {
+            set nonEmptyCategory $category
+            if [ $w exists $category ] {
+                $w delete $category
+            }
+            $w insert {} end -id $category -text $categoriesMap($category) -values [ list $count ]
+        }
+    }
+    if { $total != 0 } {
+        if { $total == 1 } {
+            $statusBarWidget.text configure -text $categoriesMap($nonEmptyCategory)
+        } else {
+        $statusBarWidget.text configure -text "$total operations running"
+        }
+        $statusBarWidget.progress state !disabled
+        $statusBarWidget.progress start
+    } else {
+        $statusBarWidget.text configure -text ""
+        $statusBarWidget.progress stop
+        $statusBarWidget.progress state disabled
+    }
+    array unset categoriesMap
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -1984,9 +2073,11 @@ if { [ tk appname $appName ] != $appName } {
 runBackend
 
 initMainWindow
+initTasksWindow
 initMenu
 
 applyOptions -nosave
+setUpdateHandler updateTaskList
 
 update
 

@@ -29,20 +29,27 @@ namespace eval taskManager {
 namespace export \
     addTask \
     stopTask \
+    stopAllTasks \
     taskCompleted \
-    isTaskStopped
+    isTaskStopped \
+    setUpdateHandler \
+    getTasksCount
 
 struct::queue getMessageList
 struct::queue getTopicList
 struct::queue postMessage
 
+set updateScript ""
+
 proc addTask {queue args} {
     variable stopped
+    variable updateScript
 
     $queue put $args
     if { [ $queue size ] == 1 } {
         runFromQueue $queue
     }
+    uplevel #0 $updateScript
 }
 
 proc stopTask {queue} {
@@ -51,17 +58,30 @@ proc stopTask {queue} {
     array set stopped [ list $queue 1 ]
 }
 
+proc stopAllTasks {queue} {
+    variable stopped
+    variable updateScript
+
+    array set stopped [ list $queue 1 ]
+    $queue clear
+    $queue unget ""
+    uplevel #0 $updateScript
+}
+
 proc runFromQueue {queue} {
     variable stopped
+    variable updateScript
 
     array set stopped [ list $queue 0 ]
-    if { [ $queue size ] != 0} {
-        set script [ $queue get ]
+    if { [ $queue size ] != 0 } {
+        set script [ $queue peek ]
         eval $script
     }
+    uplevel #0 $updateScript
 }
 
 proc taskCompleted {queue} {
+    $queue get
     runFromQueue $queue
 }
 
@@ -69,6 +89,16 @@ proc isTaskStopped {queue} {
     variable stopped
 
     return $stopped($queue)
+}
+
+proc setUpdateHandler {script} {
+    variable updateScript
+
+    set updateScript $script
+}
+
+proc getTasksCount {queue} {
+    return [ $queue size ]
 }
 
 }
