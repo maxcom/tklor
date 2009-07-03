@@ -2165,8 +2165,7 @@ proc modifyUserTagListItem {w} {
         onePageOptionsDialog "Modify user tag" [ list \
             "Nick"  string nick [ $w item $id -text ] "" \
             "Tag"   string tag  [ lindex [ $w item $id -values ] 0 ] "" \
-        ] [ list \
-            lambda {w id vals} {
+        ] [ lambda {w id vals} {
                 array set arr $vals
                 $w item $id -text $arr(nick) -values [ list $arr(tag) ]
                 array unset arr
@@ -2273,8 +2272,7 @@ proc onePageOptionsDialog {title optList script} {
         lappend genList $item $type $value $opt
         lappend fetchList $item $type $var $opt
     }
-    lappend okList [ list \
-        lambda {optList page ws script} {
+    lappend okList [ lambda {optList page ws script} {
             set vals [ fetchOptionsFrameValues $optList $page $ws ]
             set var ""
             for {set i 0} {$i < [ llength $vals ]} {incr i} {
@@ -2341,8 +2339,7 @@ proc addColorListItem {w} {
         "Regexp" string regexp  "" ""
         "Color"  color color    "red" ""
         "Element" readOnlyCombo element "foreground" { list foreground background }
-    } [ list \
-        lambda {w vals} {
+    } [ lambda {w vals} {
             array set arr $vals
             $w insert {} end -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
             array unset arr
@@ -2359,8 +2356,7 @@ proc modifyColorListItem {w} {
             "Regexp" string regexp  [ $w item $id -text ] "" \
             "Color"  color color    [ lindex [ $w item $id -values ] 0 ] "" \
             "Element" readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
-        ] [ list \
-            lambda {w id vals} {
+        ] [ lambda {w id vals} {
                 array set arr $vals
                 $w item $id -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
                 array unset arr
