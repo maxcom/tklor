@@ -1,3 +1,41 @@
+#
+# Расширение, добавляющее возможность сообщить модератору о некорректном собщении
+#
+# Использование:
+#  Добавьте в файл ~/.config/tkLOR/userConfig (или создайте его, если он отсутствует)
+#  строку
+#    loadPlugin "/путь/к/этому/файлу"
+#  Путь можно указывать как абсолютный, так и относительно текущего каталога.
+#  Обращаться к переменным окружения можно через $env(VARIABLE), например:
+#    loadPlugin "$env(HOME)/tklor-addons/reportToModerator"
+#
+#  Так как тема для некорректных сообщений не является постоянной, то в какой-то
+#  момент сообщения перестанут отправляться по причине "нельзя писать в
+#  устаревшие темы". Для исправления данной ситуации надо удалить уже отправленные
+#  жалюбы из очереди, поменять в этом файле значение переменной donosThread на 
+#  актуальное и перезапустить программу.
+#  Идентификатор темы можно взять из её URL: например, у темы с адресом 
+#    http://www.linux.org.ru/view-message.jsp?msgid=2942017
+#  идентификатор равен, соответственно, 2942017.
+#
+
+############################################################################
+#   Copyright (C) 2008 Alexander Galanin <gaa.nnov@mail.ru>                #
+#                                                                          #
+#   This program is free software: you can redistribute it and/or modify   #
+#   it under the terms of the GNU General Public License as published by   #
+#   the Free Software Foundation, either version 3 of the License, or      #
+#   (at your option) any later version.                                    #
+#                                                                          #
+#   This program is distributed in the hope that it will be useful,        #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of         #
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          #
+#   GNU General Public License for more details.                           #
+#                                                                          #
+#   You should have received a copy of the GNU General Public License      #
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.  #
+############################################################################
+
 foreach w [ list $messageTree $topicTree ] {
     bind $w <Control-d> \
         [ list invokeMenuCommand $w ::user::donos::openDonosWindow ]
