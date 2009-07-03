@@ -239,10 +239,11 @@ proc renderHtml {w msg} {
     }
 }
 
-proc updateTopicText {msg} {
-    global topicTextWidget
+proc updateTopicText {header msg} {
+    global topicTextWidget topicHeader
 
     renderHtml $topicTextWidget $msg
+    set topicHeader $header
 }
 
 proc updateMessage {item} {
@@ -281,6 +282,11 @@ proc setTopic {topic} {
     set errStr ""
     set url "http://pingu/lor.html"
     #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
+
+    loadTopicTextFromCache $topic
+    loadCachedMessages $topic
+
+    return;#debugging
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
@@ -426,6 +432,58 @@ proc saveTopicTextToCache {topic header text nick time approver approveTime} {
     close $f
 }
 
+proc parseMbox {fileName} {
+    set res ""
+
+    set f [ open $fileName "r" ]
+    while { [ gets $f s ] >=0 } {
+        if [ regexp -lineanchor -- {^From (\w+)$} $s dummy nick ] {
+            break
+        }
+    }
+    if [ eof $f ] {
+        return ""
+    }
+    while { ! [eof $f ] } {
+        set cur ""
+        lappend cur "From" $nick
+
+        while { [ gets $f s ] >=0 } {
+            if { $s == "" } {
+                break
+            }
+            if [ regexp -lineanchor -- {^([\w-]+): (.+)$} $s dummy tag val ] {
+                lappend cur $tag $val
+            }
+        }
+
+        set body ""
+        while { [ gets $f s ] >=0 } {
+            if [ regexp -lineanchor -- {^From (\w+)$} $s dummy nick ] {
+                break
+            } else {
+                append body "$s\n"
+            }
+        }
+        lappend cur "body" $body
+
+        lappend res $cur
+    }
+    close $f
+
+    return $res
+}
+
+proc loadTopicTextFromCache {topic} {
+    global appName threadSubDir
+
+    updateTopicText "" ""
+    catch {
+        array set res [ lindex [ parseMbox [ file join $::env(HOME) ".$appName" $threadSubDir [ join [ list $topic "_text" ] "" ] ] ] 0 ]
+        updateTopicText $res(Subject) $res(body)
+    }
+}
+
 proc saveMessage {topic id header text nick time replyTo replyToId unread} {
     global appName threadSubDir
 
@@ -450,6 +508,32 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
     }
     puts $f ""
     close $f
+}
+
+proc loadCachedMessages {topic} {
+    global appName threadSubDir
+    global topicWidget
+
+    foreach letter [ parseMbox [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] ] {
+        catch {
+            array set res $letter
+
+            if { [ lsearch -exact [ array names res ] "Reply-To" ] != -1 } {
+                set prevNick $res(Reply-To)
+                set prev $res(X-LOR-ReplyTo-Id)
+            } else {
+                set prev ""
+                set prevNick ""
+            }
+            set id $res(X-LOR-Id)
+
+            $topicWidget insert $prev end -id $id -text $res(From) -values [ list $res(Subject) $res(X-LOR-Time) $res(body) 1 0 $prev $prevNick ]
+            addUnreadChild $prev
+            updateItemState $id
+
+            array unset res
+        }
+    }
 }
 
 ############################################################################
