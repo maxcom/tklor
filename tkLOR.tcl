@@ -542,14 +542,20 @@ proc renderHtml {w msg} {
     }
 }
 
-proc updateTopicText {header msg nick time} {
+proc updateTopicText {id header msg nick time} {
     global topicTextWidget
+    global allTopicsWidget
     global topicHeader topicNick topicTime
 
     renderHtml $topicTextWidget $msg
     set topicHeader $header
     set topicNick $nick
     set topicTime $time
+
+    if { [ $allTopicsWidget exists $id ] } {
+        setItemValue $allTopicsWidget $id nick $nick
+        updateItemState $allTopicsWidget $id
+    }
 }
 
 proc updateMessage {item} {
@@ -654,7 +660,7 @@ proc parseTopicText {topic data} {
         set topicTime ""
         saveTopicTextToCache $topic "" $topicText "" "" "" ""
     }
-    updateTopicText $topicHeader $topicText $topicNick $topicTime
+    updateTopicText $topic $topicHeader $topicText $topicNick $topicTime
 }
 
 proc parsePage {topic data} {
@@ -868,10 +874,10 @@ proc loadTopicTextFromCache {topic} {
     global appName
     global configDir threadSubDir
 
-    updateTopicText "" "" "" ""
+    updateTopicText "" "" "" "" ""
     catch {
         array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] ] 0 ]
-        updateTopicText $res(Subject) $res(body) $res(From) $res(X-LOR-Time)
+        updateTopicText $topic $res(Subject) $res(body) $res(From) $res(X-LOR-Time)
     }
 }
 
@@ -1071,13 +1077,27 @@ proc updateTopicList {{section ""} {recursive ""}} {
 
 proc parseGroup {parent group} {
     global lorUrl
+    global appName
 
-    set url "http://$lorUrl/group.jsp?group=$group"
-    set err 0
+#    set url "http://$lorUrl/group.jsp?group=$group"
+    set url "http://$lorUrl/section-rss.jsp?section=2&group=$group"
+    set err 1
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseTopicList $parent [ ::http::data $token ]
+#            parseTopicList $parent [ ::http::data $token ]
+
+            set w $::allTopicsWidget
+            foreach item [ $w children $parent ] {
+                set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
+                if { $count != "0" } {
+                    addUnreadChild $w $parent "-$count"
+                }
+                $w delete $item
+            }
+            setItemValue $w $parent unreadChild 0
+
+            parseRss [ ::http::data $token ] [ list "addTopicFromCache" $parent ]
             set err 0
         } else {
             set errStr [ ::http::code $token ]
@@ -1089,6 +1109,7 @@ proc parseGroup {parent group} {
     }
 }
 
+# TODO: delete this function after full testing
 proc parseTopicList {parent data} {
     upvar #0 allTopicsWidget w
     global configDir threadSubDir
@@ -1121,6 +1142,8 @@ proc addTopicFromCache {parent id nick text unread} {
 
     if { ! [ $w exists $id ] } {
         $w insert $parent end -id $id
+        $w children $parent [ lsort -decreasing [ $w children $parent ] ]
+
         setItemValue $w $id nick $nick
         setItemValue $w $id text $text
         setItemValue $w $id unread 0
@@ -1780,7 +1803,7 @@ proc generateId {} {
 }
 
 proc copyFavoritesCategory {from to item} {
-    if { [ getItemValue $from $item nick ] == "" } {
+    if { ![ regexp -lineanchor {^\d+$} $item ] } {
         $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
     }
     return 1
@@ -1847,6 +1870,20 @@ proc isCategoryFixed {id} {
         [ regexp -lineanchor {^forum\d*$} $id ] || \
         $id == "favorites" \
     } ]
+}
+
+proc parseRss {data script} {
+    global configDir threadSubDir
+
+    #decoding binary data
+    set data [ encoding convertfrom "utf-8" $data ]
+
+    foreach {dummy header id date msg} [ regexp -all -inline -- {<item>[^<]*<title>([^<]*)</title>[^<]*<link>http://www.linux.org.ru/jump-message.jsp\?msgid=(\d+)</link>[^<]*<guid>http://www.linux.org.ru/jump-message.jsp\?msgid=\d+</guid>[^<]*<pubDate>([^<]*)</pubDate>[^<]*<description>([^<]*)</description>[^<]*</item>} $data ] {
+        # at this moment nick field are not present in RSS feed
+        set nick ""
+        set msg [ string trim $msg ]
+        eval [ concat $script [ list $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ] ] ]
+    }
 }
 
 ############################################################################
