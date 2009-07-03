@@ -271,10 +271,22 @@ proc initMenu {} {
         -command exitProc
 
     set m [ menu .menu.view -tearoff 0 ]
-    $m add radiobutton -label [ mc "Navigation perspective" ] -accelerator "Ctrl-Z" -command {setPerspective navigation -force} -value navigation -variable currentPerspective
-    $m add radiobutton -label [ mc "Reading perspective" ] -accelerator "Ctrl-X" -command {setPerspective reading -force} -value reading -variable currentPerspective
+    $m add radiobutton \
+        -label [ mc "Navigation perspective" ] \
+        -accelerator "Ctrl-Z" \
+        -command {setPerspective navigation -force} \
+        -value navigation \
+        -variable currentPerspective
+    $m add radiobutton \
+        -label [ mc "Reading perspective" ] \
+        -accelerator "Ctrl-X" \
+        -command {setPerspective reading -force} \
+        -value reading \
+        -variable currentPerspective
     $m add separator
-    $m add checkbutton -label [ mc "Auto switch" ] -onvalue 1 -offvalue 0 -variable perspectiveAutoSwitch
+    $m add checkbutton \
+        -label [ mc "Auto switch" ] \
+        -variable perspectiveAutoSwitch
 
     set menuTopic [ menu .menu.topic -tearoff 0 ]
     set topicMenu [ menu .topicMenu -tearoff 0 ]
@@ -355,6 +367,7 @@ proc initMenu {} {
         $m add separator
         $m add command \
             -label [ mc "Edit" ] \
+            -accelerator "Ctrl-E" \
             -command [ list $invoke $messageTree edit ]
         $m add command \
             -label [ mc "Delete" ] \
@@ -1340,14 +1353,35 @@ proc markAllMessages {w unread} {
 }
 
 proc reply {w item} {
-    global topicTree
-    global currentTopic
-
-    if { $w == $topicTree } {
+    if { $w == $::topicTree } {
         openUrl [ ::lor::topicReply $item ]
-    } else {
-        postMessage $currentTopic $item
+        return
     }
+    if { $::rightViewState != "MESSAGE" } {
+        return
+    }
+    global currentTopic
+    if { $item == "topic" } {
+        set msgId $currentTopic
+    } else {
+        set msgId "$currentTopic.$item"
+    }
+    ::mailEditor::editMessage \
+        [ mc "Compose message" ] \
+        [ ::mailUtils::makeReplyToMessage \
+            [ getItemValue $w $item msg ] \
+            $::lorLogin \
+            [ list \
+                "User-Agent" $::appId \
+                "Message-ID" $msgId \
+            ] \
+        ] \
+        [ list \
+            outcoming   [ mc "Send" ] \
+            draft       [ mc "Save" ] \
+        ] \
+        outcoming \
+        putMailToQueue
 }
 
 proc userInfo {w item} {
@@ -1910,11 +1944,9 @@ proc initBindings {} {
         bind $w N [ list invokeMenuCommand $w nextUnread ]
 
         bind $w <Control-r> [ list invokeMenuCommand $w reply ]
-        bind $w <Control-R> [ list invokeMenuCommand $w reply ]
+        bind $w <Control-e> [ list invokeMenuCommand $w edit ]
         bind $w <Control-i> [ list invokeMenuCommand $w userInfo ]
-        bind $w <Control-I> [ list invokeMenuCommand $w userInfo ]
         bind $w <Control-o> [ list invokeMenuCommand $w openMessage ]
-        bind $w <Control-O> [ list invokeMenuCommand $w openMessage ]
 
         bind $w <m> [ list invokeMenuCommand $w mark message 0 ]
         bind $w <u> [ list invokeMenuCommand $w mark message 1 ]
@@ -2094,17 +2126,22 @@ proc setPerspective {mode {force ""}} {
         .menu entryconfigure 3 -state normal
         .menu entryconfigure 4 -state normal
 
-        if { $::rightViewState == "MESSAGE" } {
-            set st disabled
-        } else {
+        if { $::rightViewState == "LOCAL" } {
             set st normal
+        } else {
+            set st disabled
         }
-        foreach {m a b} [ list \
-            .menu.message   8 9 \
-            $::messageMenu  6 7 \
+        foreach {m a b c} [ list \
+            .menu.message   8 9 2 \
+            $::messageMenu  6 7 0 \
         ] {
             foreach i [ list $a $b ] {
                 $m entryconfigure $i -state $st
+            }
+            if { $st == "normal" } {
+                $m entryconfigure $c -state disabled
+            } else {
+                $m entryconfigure $c -state normal
             }
         }
     }
@@ -2301,23 +2338,6 @@ proc goOnline {} {
     }
 }
 
-proc postMessage {topic item} {
-    upvar #0 messageTree w
-
-    ::mailEditor::editMessage \
-        [ mc "Compose message" ] \
-        [ ::mailUtils::makeReplyToMessage \
-            [ getItemValue $w $item msg ] \
-            [ list "X-Mailer" $::appId ] \
-        ] \
-        [ list \
-            outcoming   [ mc "Send" ] \
-            draft       [ mc "Save" ] \
-        ] \
-        outcoming \
-        putMailToQueue
-}
-
 proc putMailToQueue {queueName newLetter} {
     upvar #0 $queueName queue
     global autonomousMode
@@ -2443,6 +2463,9 @@ proc deleteMessage {w item} {
 }
 
 proc edit {w item} {
+    if { $::rightViewState != "LOCAL" } {
+        return
+    }
     ::mailEditor::editMessage \
         [ mc "Compose message" ] \
         [ getItemValue $w $item msg ] \

@@ -161,14 +161,14 @@ if [ catch {
 
         ::mbox::parseStream stdin [ ::lambda::closure {cookies} {letter} {
             array set params {
-                Reply-To        ""
+                In-Reply-To     ""
                 Subject         ""
                 body            ""
                 X-LOR-Pre       "0"
                 X-LOR-AutoUrl   "1"
             }
             array set params $letter
-            regexp {^(\d+)(?:\.(\d+)){0,1}$} $params(Reply-To) dummy topic msg
+            regexp {^(\d+)(?:\.(\d+)){0,1}$} $params(In-Reply-To) dummy topic msg
 
             ::lor::postMessage $topic $msg \
                 $params(Subject) $params(body) \
