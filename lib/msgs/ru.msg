@@ -117,7 +117,7 @@
         "Expand new messages"           "Раскрывать новые сообщения"
         "Mark messages from ignored users as read"      "Пропускать сообщения игнорируемых"
         "Auto-switch perspective"       "Автоматически переключать режим отображения"
-        "Sash position(navigation), %"  "Позиция разделятеля при навигации"
+        "Sash position(navigation), %"  "Позиция разделителя при навигации"
         "Sash position(reading), %"     "Позиция разделителя при чтении"
         "Connection"            "Соединение"
         "Use proxy"             "Использовать прокси-сервер"

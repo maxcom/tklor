@@ -20,6 +20,18 @@ DEPEND="|| ( ( dev-tcltk/tile
 		dev-tcltk/tcllib"
 RDEPEND=${DEPEND}
 
+MY_UPDATED=0
+
+pkg_setup() {
+	if has_version '<www-client/tklor-1.0.0' ; then
+	echo
+		ewarn "Upgrading from pre-1.0 tkLOR version"
+		ewarn "Please read the upgrade notes after installation"
+		MY_UPDATED=1
+	fi
+}
+
+
 src_compile() {
 	return 0
 }
@@ -28,6 +40,9 @@ src_install() {
 	dobin tkLOR
 	insinto /usr/lib/tkLOR
 	doins lib/* 
+	insinto /usr/lib/tkLOR/msgs
+	doins lib/msgs/*
+
 	insinto /usr/share/pixmaps
 	doins tklor.xpm
 	insinto /usr/share/applications
@@ -43,4 +58,10 @@ pkg_postinst() {
 	einfo "========== tkLOR successfully installed ==========="
 	einfo "     take a look at /usr/share/doc/${P}            "
 	einfo "                happy trolling;)                   "
+	if [[ "${MY_UPDATED}" -eq "1" ]] ; then
+		echo
+		ewarn "=============== tkLOR upgrade notes ==============="
+		ewarn "Since version 1.0.0 tkLOR uses the new config files location"
+		ewarn "Read /usr/share/doc/${P}/UPGRADE.bz2 for update instructions"
+	fi
 }
