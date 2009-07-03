@@ -84,8 +84,9 @@ proc editMessage {title letter buttons default command} {
 
     set w [ ttk::frame $f.textFrame ]
     set ww [ ttk::frame $w.textContainer ]
+    set textWidget $ww.text
     grid \
-        [ text $ww.text \
+        [ text $textWidget \
             -yscrollcommand "$ww.scroll set" \
             -height 15 \
             -wrap word \
@@ -146,13 +147,29 @@ proc editMessage {title letter buttons default command} {
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $destroyScript
     bind $f <Escape> $destroyScript
-    bind $f.textFrame.textContainer.text <Control-a> "$f.textFrame.textContainer.text tag add sel 0.0 end;break"
-    bind $f.textFrame.textContainer.text <Control-Return> "[ list \
+    bind $textWidget <Control-a> "$f.textFrame.textContainer.text tag add sel 0.0 end;break"
+    bind $textWidget <Control-Return> "[ list \
         [ namespace current ]::processClick \
         $f $storage $default $command \
     ];break"
 
-    focus $f.textFrame.textContainer.text
+    focus $textWidget
+
+    set menu [ menu $f.popupMenu -tearoff 0 ]
+    $menu add command \
+        -label [ mc "Cut" ] \
+        -accelerator "Ctrl-X" \
+        -command [ list tk_textCut $textWidget ]
+    $menu add command \
+        -label [ mc "Copy" ] \
+        -accelerator "Ctrl-C" \
+        -command [ list tk_textCopy $textWidget ]
+    $menu add command \
+        -label [ mc "Paste" ] \
+        -accelerator "Ctrl-V" \
+        -command [ list tk_textPaste $textWidget ]
+
+    bind $textWidget <ButtonPress-3> [ list tk_popup $menu %X %Y ]
 }
 
 proc destroyWindow {w storage} {

@@ -166,5 +166,8 @@
         "Error while getting messages"  "Ошибка про получении сообщений"
         "Sending messages. %s remaining..." "Отправка сообщений. %s в очереди..."
         "Send queued messages"          "Отправить сообщения"
+        "Cut"                   "Вырезать"
+        "Copy"                  "Копировать"
+        "Paste"                 "Вставить"
 }
 
