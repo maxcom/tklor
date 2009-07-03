@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_httpTools 1.0
+package provide gaa_httpTools 1.1
 
 package require Tcl 8.4
 package require http 2.0

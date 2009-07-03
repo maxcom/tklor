@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_tileDialogs 1.0
+package provide gaa_tileDialogs 1.1
 
 package require Tcl 8.4
 package require Tk 8.4
@@ -253,7 +253,7 @@ proc generateOptionsFrame {d optList page} {
     set i 0
 
     foreach {item type val opt} $optList {
-        set f [ ttk::frame "$page.item$i" -padding 1 ]
+        set f [ ttk::frame "$page.item$i" ]
         lappend ws $f
         packOptionsItem $d $f.value $item $type $val [ eval $opt ]
         pack $f -anchor w -fill both
@@ -307,12 +307,12 @@ proc onePageOptionsDialog {args} {
 }
 
 proc buttonBox {parent args} {
-    set f [ ttk::frame $parent.buttonBox -padding 4 ]
+    set f [ ttk::frame $parent.buttonBox -padding 2 ]
     set b ""
     set i 0
     foreach p $args {
         set id [ join [ list $f ".button" $i "Frame" ] "" ]
-        ttk::frame $id -padding 4
+        ttk::frame $id -padding 2
         eval [ concat [ list ttk::button $id.button ] $p ]
         pack $id.button
         set b [ concat [ list $id ] $b ]
@@ -342,13 +342,14 @@ proc inputStringDialog {args} {
     pack [ ttk::entry $ff.entry ] -fill x
     $ff.entry insert end $param(default)
     $ff.entry selection range 0 end
-    focus $ff.entry
 
     set script [ ::gaa::lambda::lambda {f script} {
             eval [ concat $script [ list [ $f.entry get ] ] ]
         } $ff $param(script) ]
 
     modalDialogConfigure $f $script
+
+    focus $ff.entry
 }
 
 proc modalDialogCreate {args} {
@@ -360,6 +361,7 @@ proc modalDialogCreate {args} {
 
     set f [ gaa::tools::generateUniqueWidgetId ".modalDialog" ]
     toplevel $f
+    wm withdraw $f
     grid [ ttk::frame $f.client ] -sticky nswe
 
     wm resizable $f $param(sizeX) $param(sizeY)
@@ -391,9 +393,10 @@ proc modalDialogConfigure {f script} {
     grid rowconfigure $f 0 -weight 1
     grid columnconfigure $f 0 -weight 1
 
+    wm deiconify $f
     update
-    grab $f
     ::gaa::tools::centerToParent $f .
+    grab $f
 
     wm protocol $f WM_DELETE_WINDOW $cancelScript
 
