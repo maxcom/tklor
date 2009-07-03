@@ -601,9 +601,7 @@ proc parsePage {topic data} {
                     setItemValue $w $id $i [ set $i ]
                 }
                 setItemValue $w $id header [ replaceHtmlEntities $header ]
-                setItemValue $w $id unread 1
-                setItemValue $w $id unreadChild 0
-                addUnreadChild $w $parent
+                mark $w $id item 1
                 updateItemState $w $id
             }
         }
@@ -628,10 +626,7 @@ proc setItemValue {w item valueName value} {
 
 proc click {w item} {
     global allTopicsWidget
-    if [ getItemValue $w $item unread ] {
-        setItemValue $w $item unread 0
-        addUnreadChild $w [ getItemValue $w $item parent ] -1
-    }
+    mark $w $item item 0
     if { $w == $allTopicsWidget } {
         if { [ regexp -lineanchor -- {^\d} $item ] } {
             setTopic $item
@@ -863,9 +858,8 @@ proc loadCachedMessages {topic} {
                 setItemValue $w $id $i [ set $i ]
             }
             setItemValue $w $id unreadChild 0
-            if $unread {
-                addUnreadChild $w $parent
-            }
+            setItemValue $w $id unread 0
+            mark $w $id item $unread
             updateItemState $w $id
         }
         array unset res
@@ -1044,10 +1038,9 @@ proc parseTopicList {forum data} {
                 setItemValue $w $id nick $nick
                 setItemValue $w $id unreadChild 0
                 if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
-                    setItemValue $w $id unread 1
-                    addUnreadChild $w "forum$forum"
+                    mark $w $id item 1
                 } else {
-                    setItemValue $w $id unread 0
+                    mark $w $id item 0
                 }
                 updateItemState $w $id
             }
@@ -1062,13 +1055,11 @@ proc addTopicFromCache {parent id nick text unread} {
         $w insert $parent end -id $id
         setItemValue $w $id nick $nick
         setItemValue $w $id text $text
-        setItemValue $w $id unread $unread
+        setItemValue $w $id unread 0
         setItemValue $w $id unreadChild 0
         setItemValue $w $id parent $parent
+        mark $w $id item $unread
         updateItemState $w $id
-        if $unread {
-            addUnreadChild $w $parent
-        }
     }
 }
 
@@ -1245,9 +1236,9 @@ proc parseNewsPage {group data} {
                 setItemValue $w $id unreadChild 0
                 if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
                     setItemValue $w $id unread 1
-                    addUnreadChild $w "news$group"
+                    mark $w $id item 1
                 } else {
-                    setItemValue $w $id unread 0
+                    mark $w $id item 0
                 }
                 updateItemState $w $id
             }
