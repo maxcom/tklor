@@ -4,9 +4,9 @@
 
 inherit eutils
 
-DESCRIPTION="LOR aggregator"
+DESCRIPTION="LOR reader"
 HOMEPAGE="http://tklor.googlecode.com/"
-MYPV="0.6.0"
+MYPV="APP_VERSION"
 SRC_URI="http://tklor.googlecode.com/files/${PN}_${MYPV}-1.tar.gz"
 	
 IUSE=""
@@ -14,7 +14,7 @@ IUSE=""
 DEPEND=">=dev-lang/tcl-8.5_beta1
 	>=dev-lang/tk-8.5_beta1"
 
-LICENSE="GPL-2"
+LICENSE="GPL-3"
 KEYWORDS="~alpha ~amd64 sparc x86 ~x86"
 SLOT="0"
 
@@ -49,6 +49,6 @@ src_install() {
 pkg_postinst() {
 	einfo "========== tkLOR successfully installed ==========="
 	einfo "     take a look at /usr/share/tklor/examples      "
-	einfo "          and  /usr/share/doc/tkor-0.6             "
+	einfo "          and  /usr/share/doc/tkor-APP_VERSION           "
 	einfo "                happy trolling;)                   "
 }
