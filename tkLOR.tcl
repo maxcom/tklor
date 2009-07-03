@@ -578,7 +578,7 @@ proc configureTags {w} {
 proc setTopic {topic} {
     global currentTopic appName
     global messageTree messageTextWidget
-    global currentHeader currentNick
+    global currentHeader currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
     global backend
@@ -594,8 +594,9 @@ proc setTopic {topic} {
         setItemValue $messageTree "" unreadChild 0
 
         clearTreeItemChildrens $messageTree ""
-        set currentHeader ""
-        set currentNick ""
+        foreach item {currentHeader currentNick currentPrevNick currentTime} {
+            set $item ""
+        }
         renderHtml $messageTextWidget ""
 
         set currentTopic $topic
