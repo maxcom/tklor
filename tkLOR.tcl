@@ -133,13 +133,12 @@ proc initPopups {} {
     $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
+    $topicMenu add command -label "Refresh" -command "refreshTopicList"
+    $topicMenu add separator
     $topicMenu add command -label "Mark as read" -command "markTopic topic 0"
     $topicMenu add command -label "Mark as unread" -command "markTopic topic 1"
     $topicMenu add command -label "Mark thread as read" -command "markTopic thread 0"
     $topicMenu add command -label "Mark thread as unread" -command "markTopic thread 1"
-    $topicMenu add separator
-    $topicMenu add command -label "Mark messages as read" -command "markTopicRead"
-    $topicMenu add command -label "Mark messages as unread" -command "markTopicUnread"
     $topicMenu add separator
     $topicMenu add command -label "Move to favorites" -command "addToFavorites"
 }
@@ -932,6 +931,16 @@ proc markTopic {thread unread} {
     set item [ $w identify row $mouseX $mouseY ]
     if { $item != "" } {
         mark $w $item $thread $unread
+    }
+}
+
+proc refreshTopicList {} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        updateTopicList $item
     }
 }
 
