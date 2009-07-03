@@ -94,8 +94,6 @@ set ignoreList ""
 set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
 set messageMenu ""
-set discussionPopupMenu ""
-set mailBoxPopupMenu ""
 set topicMenu ""
 set messageTextMenu ""
 
@@ -212,47 +210,60 @@ set options {
 proc initMenu {} {
     global topicTree messageTree
     global messageMenu topicMenu messageTextMenu
-    global discussionPopupMenu mailBoxPopupMenu
 
     menu .menu -tearoff 0
-    .menu add cascade -label [ mc "LOR" ] -menu .menu.lor -underline 0
-    .menu add cascade -label [ mc "View" ] -menu .menu.view -underline 0
+    .menu add cascade \
+        -label [ mc "LOR" ] \
+        -menu .menu.lor \
+        -underline 0
+    .menu add cascade \
+        -label [ mc "View" ] \
+        -menu .menu.view \
+        -underline 0
     .menu add cascade \
         -label [ mc "Topic" ] \
         -menu .menu.topic \
-        -underline 0 \
-        -state disabled
-    .menu add cascade \
-        -label [ mc "Mail" ] \
-        -menu .menu.mailBox \
-        -underline 1 \
-        -state disabled
+        -underline 0
     .menu add cascade \
         -label [ mc "Message" ] \
         -menu .menu.message \
         -underline 0
-    .menu add cascade -label [ mc "Search" ] -menu .menu.search -underline 0
-    .menu add cascade -label [ mc "Help" ] -menu .menu.help -underline 0
+    .menu add cascade \
+        -label [ mc "Search" ] \
+        -menu .menu.search \
+        -underline 0
+    .menu add cascade \
+        -label [ mc "Help" ] \
+        -menu .menu.help \
+        -underline 0
 
     set m [ menu .menu.lor -tearoff 0 ]
+    $m add command \
+        -label [ mc "Add topic..." ] \
+        -command addTopic
     $m add command \
         -label [ mc "Search new topics" ] \
         -accelerator "F2" \
         -command updateTopicList
     $m add command \
-        -label [ mc "Add topic..." ] \
-        -command addTopic
+        -label [ mc "Clear old topics..." ] \
+        -command clearOldTopics
     $m add separator
+    $m add checkbutton \
+        -label [ mc "Autonomous mode" ] \
+        -variable autonomousMode
     $m add command \
         -label [ mc "Send queued messages" ] \
         -command startDelivery
     $m add separator
-    $m add checkbutton -label [ mc "Autonomous mode" ] -onvalue 1 -offvalue 0 -variable autonomousMode
-    $m add command -label [ mc "Options..." ] -command showOptionsDialog
+    $m add command \
+        -label [ mc "Options..." ] \
+        -command showOptionsDialog
     $m add separator
-    $m add command -label [ mc "Clear old topics..." ] -command clearOldTopics
-    $m add separator
-    $m add command -label [ mc "Exit" ] -accelerator "Alt-F4" -command exitProc
+    $m add command \
+        -label [ mc "Exit" ] \
+        -accelerator "Alt-F4" \
+        -command exitProc
 
     set m [ menu .menu.view -tearoff 0 ]
     $m add radiobutton -label [ mc "Navigation perspective" ] -accelerator "Ctrl-Z" -command {setPerspective navigation -force} -value navigation -variable currentPerspective
@@ -263,10 +274,7 @@ proc initMenu {} {
     set menuTopic [ menu .menu.topic -tearoff 0 ]
     set topicMenu [ menu .topicMenu -tearoff 0 ]
     set menuMessage [ menu .menu.message -tearoff 0 ]
-    set discussionPopupMenu [ menu .discussionPopupMenu -tearoff 0 ]
-    set menuMailBox [ menu .menu.mailBox -tearoff 0 ]
-    set mailBoxPopupMenu [ menu .mailBoxPopupMenu -tearoff 0 ]
-    set messageMenu $discussionPopupMenu
+    set messageMenu [ menu .messageMenu -tearoff 0 ]
 
     set m $menuMessage
     $m add command -label [ mc "Refresh messages" ] -accelerator "F5" -command refreshTopic
@@ -284,7 +292,7 @@ proc initMenu {} {
         $menuTopic $topicTree invokeMenuCommand \
         $topicMenu $topicTree invokeItemCommand \
         $menuMessage $messageTree invokeMenuCommand \
-        $discussionPopupMenu $messageTree invokeItemCommand ] {
+        $messageMenu $messageTree invokeItemCommand ] {
 
         $m add command -label [ mc "Reply" ] -accelerator "Ctrl-R" -command [ list $invoke $w reply ]
         $m add command -label [ mc "Open in browser" ] -accelerator "Ctrl-O" -command [ list $invoke $w openMessage ]
@@ -336,20 +344,13 @@ proc initMenu {} {
     $m add command -label [ mc "Open selection in browser" ] -command {tk_textCopy $messageTextWidget;openUrl [ clipboard get ]}
 
     foreach {m invoke} [ list \
-        $menuMailBox invokeMenuCommand \
-        $mailBoxPopupMenu invokeItemCommand ] {
+        $menuMessage invokeMenuCommand \
+        $messageMenu invokeItemCommand ] {
         
-#        $m add command \
-#            -label [ mc "Send" ] \
-#            -command [ list $invoke $messageTree sendMessage ] \
-#            -accelerator "Ctrl-S"
+        $m add separator
         $m add command \
             -label [ mc "Edit" ] \
             -command [ list $invoke $messageTree edit ]
-        $m add command \
-            -label [ mc "Reply" ] \
-            -command [ list $invoke $messageTree reply ] \
-            -accelerator "Ctrl-R"
         $m add command \
             -label [ mc "Delete" ] \
             -command [ list $invoke $messageTree deleteMessage ]
@@ -371,7 +372,7 @@ proc initTopicTree {} {
     $w column nick -width 60
     $w column unreadChild -width 30 -stretch 0
 
-    $w insert {} end -id messages -text [ mc "Messages" ] -values [ list "" 0 0 [ mc "Messages" ] ]
+    $w insert {} end -id messages -text [ mc "Local folders" ] -values [ list "" 0 0 [ mc "Local folders" ] ]
     $w insert messages end -id draft -text [ mc "Draft" ] -values [ list "" 0 0 [ mc "Draft" ] ]
     updateItemState $w draft
     $w insert messages end -id outcoming -text [ mc "Outcoming" ] -values [ list "" 0 0 [ mc "Outcoming" ] ]
@@ -851,26 +852,31 @@ proc setItemValue {w item valueName value} {
 
 proc click {w item} {
     global topicTree
+    global messageMenu
     mark $w $item item 0
     if { [ getItemValue $w $item msg ] != "" } {
         showMessageInMainWindow [ getItemValue $w $item msg ]
     }
     if { $w == $topicTree } {
-#TODO: Подумать как сделать покрасивее
-        if { [ regexp -lineanchor -- {^\d} $item ] } {
-            .menu entryconfigure 2 -state normal
-            .menu entryconfigure 3 -state disabled
-            set ::messageMenu $::discussionPopupMenu
-            setTopic $item
+        if [ regexp -lineanchor -- {^\d} $item ] {
+            set st disabled
+        } elseif {  $item == "sent" || 
+                    $item == "draft" || 
+                    $item == "outcoming" } {
+            set st normal
+        } else {
+            updateItemState $w $item
+            return
         }
-        if { $item == "sent" || 
-             $item == "draft" || 
-             $item == "outcoming" } {
-            .menu entryconfigure 2 -state disabled
-            .menu entryconfigure 3 -state normal
-            set ::messageMenu $::mailBoxPopupMenu
-            setTopic $item
+        foreach {m a b} [ list \
+            .menu.message   8 9 \
+            $messageMenu    6 7 \
+        ] {
+            foreach i [ list $a $b ] {
+                $m entryconfigure $i -state $st
+            }
         }
+        setTopic $item
     } else {
         global currentMessage
 
@@ -2278,12 +2284,12 @@ proc goOnline {} {
 proc postMessage {topic item} {
     upvar #0 messageTree w
 
-    if { $item == "" } {
-        set item topic
-    }
     ::mailEditor::editMessage \
         [ mc "Compose message" ] \
-        [ ::mailUtils::makeReplyToMessage [ getItemValue $w $item msg ] ] \
+        [ ::mailUtils::makeReplyToMessage \
+            [ getItemValue $w $item msg ] \
+            [ list "X-Mailer" $::appId ] \
+        ] \
         [ list \
             outcoming   [ mc "Send" ] \
             draft       [ mc "Save" ] \
