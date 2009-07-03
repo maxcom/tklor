@@ -18,9 +18,10 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_remoting 2.0
+package provide gaa_remoting 2.1
 
 package require Tcl 8.4
+package require gaa_logger 1.0
 
 namespace eval remoting {
 
@@ -39,10 +40,27 @@ proc startServer {serverName} {
 }
 
 proc sendRemote {args} {
+    set s [ list [ lindex $args 0 ] ]
+    set args [ lreplace $args 0 0 ]
+    if { $s == "-async" } {
+        lappend s [ lindex $args 0 ]
+        set args [ lreplace $args 0 0 ]
+    }
     if { [ tk windowingsystem ] == "win32" } {
-        return [ eval "dde eval $args" ]
+        return [ eval "dde eval $s [ list remoting::safeEval $args ]" ]
     } else {
-        return [ eval "send $args" ]
+        return [ eval "send $s [ list remoting::safeEval $args ]" ]
+    }
+}
+
+proc safeEval {args} {
+    if [ catch {set res [ eval "uplevel #0 $args" ]} err ] {
+        puts stderr "err: $err"
+        puts stderr "errinfo: $::errorInfo"
+        logger::log "error while executing remote command: $err"
+        logger::log "extended info: $::errorInfo"
+    } else {
+        return $res
     }
 }
 

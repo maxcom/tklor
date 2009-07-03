@@ -92,7 +92,7 @@ proc loadAppLibs {} {
 }
 
 proc errorProcCallback {err {extInfo ""}} {
-    remoting::sendRemote tkLOR [ list errorProc $err $extInfo ]
+    remoting::sendRemote -async tkLOR [ list errorProc $err $extInfo ]
 }
 
 proc bgerror {msg} {
@@ -109,7 +109,7 @@ proc login {login password} {
 }
 
 proc deliveryErrorCallback {topic message header text preformattedText autoUrl errStr {errExtInfo ""}} {
-    remoting::sendRemote tkLOR [ list deliveryError $topic $message $header $text $preformattedText $autoUrl $errStr $errExtInfo ]
+    remoting::sendRemote -async tkLOR [ list deliveryError $topic $message $header $text $preformattedText $autoUrl $errStr $errExtInfo ]
 }
 
 ############################################################################
