@@ -35,7 +35,7 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 *   You can specify variables in a command-line. For example, command:
 
-    # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
+    # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR -cacheDir=/home/jopa/prog/tkLOR/cache
 
     Will run tkLOR with specified config directory to /home/jopa/prog/tkLOR.
 

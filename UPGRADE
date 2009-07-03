@@ -1,0 +1,24 @@
+If you are upgrading from 0.x.y branch, this information is for you.
+
+Since 1.0.0, tkLOR uses file location agreement described in "XDG Base Directory Specification" version 0.6 as published on http://freedesktop.org.
+
+Now all configuration files located in $XDG_CONFIG_HOME/tkLOR (or in $HOME/.config/tkLOR if corresponding environment variable is not defined or empty) instead of $HOME/.tkLOR in older versions.
+
+Similary, message cache are now located in $XDG_CACHE_HOME/tkLOR (or in $HOME/.cache/tkLOR if corresponding environment variable is not defined or empty) instead of $HOME/.tkLOR/topics in older versions.
+
+You can use this simple set of shell commands to move your config files and message cache to new location:
+
+	mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR"
+	mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/tkLOR"
+
+	mv $HOME/.tkLOR/topics/* "${XDG_CACHE_HOME:-$HOME/.cache}/tkLOR"
+	mv $HOME/.tkLOR/* "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR"
+	rmdir "${XDG_CONFIG_HOME:-$HOME/.config}/tkLOR/topics"
+	rmdir "$HOME/.tkLOR"
+
+If you want to keep files on it's old place, use thw following command-line keys:
+
+	-configDir=$HOME/.tkLOR
+	-cacheDir=$HOME/.tkLOR/topics
+
+or any paths that you want.

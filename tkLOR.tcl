@@ -38,8 +38,19 @@ set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 set appHome "http://code.google.com/p/tklor/"
 
-set configDir [ file join $::env(HOME) ".$appName" ]
-set threadSubDir "threads"
+set xdg_config_home ""
+catch {set xdg_config_home $::env(XDG_CONFIG_HOME)}
+if { $xdg_config_home == "" } {
+    set xdg_config_home [ file join $::env(HOME) ".config" ]
+}
+set configDir [ file join $xdg_config_home $appName ]
+
+set xdg_cache_home ""
+catch {set xdg_cache_home $::env(XDG_CACHE_HOME)}
+if { $xdg_cache_home == "" } {
+    set xdg_cache_home [ file join $::env(HOME) ".cache" ]
+}
+set cacheDir [ file join $xdg_cache_home $appName ]
 
 set wishPath [ auto_execok wish ]
 
@@ -837,16 +848,16 @@ proc refreshTopic {} {
 }
 
 proc initDirs {} {
-    global appName configDir threadSubDir
+    global configDir cacheDir
 
     file mkdir $configDir
-    file mkdir [ file join $configDir $threadSubDir ]
+    file mkdir $cacheDir
 }
 
 proc saveTopicTextToCache {topic header text nick time approver approveTime} {
-    global configDir threadSubDir
+    global configDir cacheDir
 
-    set fname [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ]
+    set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
     set letter ""
     lappend letter "From" $nick
     lappend letter "Subject" $header
@@ -859,12 +870,11 @@ proc saveTopicTextToCache {topic header text nick time approver approveTime} {
 }
 
 proc loadTopicTextFromCache {topic} {
-    global appName
-    global configDir threadSubDir
+    global cacheDir
 
     updateTopicText "" "" ""
     catch {
-        set fname [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ]
+        set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
         deflambda script {topic letter} {
             array set res $letter
             updateTopicText $topic $res(Subject) $res(From)
@@ -875,9 +885,9 @@ proc loadTopicTextFromCache {topic} {
 }
 
 proc saveMessage {topic id header text nick time replyTo replyToId unread} {
-    global configDir threadSubDir
+    global cacheDir
 
-    set fname [ file join $configDir $threadSubDir $topic ]
+    set fname [ file join $cacheDir $topic ]
     set letter ""
     lappend letter "From" $nick
     lappend letter "Subject" $header
@@ -893,11 +903,10 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
 }
 
 proc loadCachedMessages {topic} {
-    global appName
-    global configDir threadSubDir
+    global cacheDir
     upvar #0 messageTree w
 
-    set fname [ file join $configDir $threadSubDir $topic ]
+    set fname [ file join $cacheDir $topic ]
     deflambda processLetter {letter} {
         array set res $letter
         catch {
@@ -922,10 +931,9 @@ proc loadCachedMessages {topic} {
 }
 
 proc clearDiskCache {topic} {
-    global appName
-    global configDir threadSubDir
+    global cacheDir
 
-    set f [ open [ file join $configDir $threadSubDir $topic ] "w+" ]
+    set f [ open [ file join $cacheDir $topic ] "w+" ]
     close $f
 }
 
@@ -1028,14 +1036,14 @@ proc updateTopicList {{section ""}} {
     }
 
     defCallbackLambda processTopic {parent id nick header} {
-        global configDir threadSubDir
+        global cacheDir
 
         set header [ htmlToText $header ]
         update
         if [ tkLor::taskManager::isTaskStopped getTopicList ] {
             return
         }
-        addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
+        addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
     } $section
 
     defCallbackLambda onComplete {section} {
@@ -1100,20 +1108,20 @@ proc saveTopicListToCacheRecursive {w f parent} {
 }
 
 proc mark {w item type unread} {
+    global cacheDir
+
     set old [ getItemValue $w $item unread ]
     if {$unread != $old} {
         setItemValue $w $item unread $unread
         addUnreadChild $w [ getItemValue $w $item parent ] [ expr $unread - $old ]
         updateItemState $w $item
         if { $w == $::topicTree } {
-            global configDir threadSubDir
-
             if { [ regexp -lineanchor {^\d+$} $item ] } {
                 if { $unread == "0" } {
-                    set f [ open [ file join $configDir $threadSubDir "$item.topic" ] "w" ]
+                    set f [ open [ file join $cacheDir "$item.topic" ] "w" ]
                     close $f
                 } else {
-                    file delete [ file join $configDir $threadSubDir "$item.topic" ]
+                    file delete [ file join $cacheDir "$item.topic" ]
                 }
             }
         }
@@ -1283,15 +1291,15 @@ proc invokeMenuCommand {w command args} {
 }
 
 proc clearTopicCache {w item} {
-    global configDir threadSubDir
+    global cacheDir
 
     if [ regexp -lineanchor {^\d+$} $item ] {
         mark $w $item item 1
         catch {
-            file delete [ file join $configDir $threadSubDir $item ]
+            file delete [ file join $cacheDir $item ]
         }
         catch {
-            file delete [ file join $configDir $threadSubDir "$item.topic" ]
+            file delete [ file join $cacheDir "$item.topic" ]
         }
     }
 }
@@ -1510,13 +1518,13 @@ proc updateWindowTitle {} {
 }
 
 proc clearOldTopics {} {
-    global configDir threadSubDir appName
+    global cacheDir appName
     upvar #0 topicTree w
 
     set topics ""
 
     if [ catch {
-        foreach fname [ glob -directory [ file join $configDir $threadSubDir ] -types f {{*,*.topic}} ] {
+        foreach fname [ glob -directory [ file join $cacheDir ] -types f {{*,*.topic}} ] {
             regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
             if { [ lsearch -exact $topics $fname ] == -1 && ! [ $w exists $fname ] } {
                 lappend topics $fname
@@ -1548,7 +1556,7 @@ proc clearOldTopics {} {
     wm deiconify $f
 
     set count 0
-    set dir [ file join $configDir $threadSubDir ]
+    set dir [ file join $cacheDir ]
     foreach id $topics {
         catch {
             file delete [ file join $dir $id ]

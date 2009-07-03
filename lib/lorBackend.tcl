@@ -25,7 +25,12 @@ package require base64 2.3.2
 set appName tkLOR
 set processId tkLOR-backend
 
-set configDir [ file join $::env(HOME) ".$appName" ]
+set xdg_config_home ""
+catch {set xdg_config_home $::env(XDG_CONFIG_HOME)}
+if { $xdg_config_home == "" } {
+    set xdg_config_home [ file join $::env(HOME) ".config" ]
+}
+set configDir [ file join $xdg_config_home $appName ]
 
 if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir "/usr/lib/tkLOR"
