@@ -1535,7 +1535,7 @@ proc addListItem {w} {
 }
 
 proc removeListItem {w} {
-    foreach item [ $w curselection ] {
+    foreach item [ lsort -integer -decreasing [ $w curselection ] ] {
         $w delete $item
     }
 }
