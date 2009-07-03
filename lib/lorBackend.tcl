@@ -24,6 +24,7 @@ exec tclsh "$0" "$@"
 
 package require Tcl 8.4
 package require cmdline 1.2.5
+package require base64 2.3.2
 
 set appName tkLOR
 
@@ -120,5 +121,4 @@ gaa::httpTools::init \
     -proxypassword  $proxyPassword \
     -charset        "utf-8"
 
-fconfigure stdin -encoding utf-8
-eval [ read stdin ]
+eval [ ::gaa::remoting::decode [ read stdin ] ]

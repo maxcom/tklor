@@ -23,6 +23,7 @@ package provide gaa_remoting 1.0
 package require Tcl 8.4
 package require cmdline 1.2.5
 package require gaa_lambda 1.0
+package require base64 2.3.2
 
 namespace eval gaa {
 namespace eval remoting {
@@ -31,7 +32,9 @@ namespace export \
     invokeSlave \
     invokeMaster \
     killSlave \
-    defMasterLambda
+    defMasterLambda \
+    encode \
+    decode
 
 proc invokeSlave {backend command args} {
     array set params [ ::cmdline::getoptions args {
@@ -40,13 +43,12 @@ proc invokeSlave {backend command args} {
         {timeout.arg    "0" "Execution timeout in milliseconds (0 - no timeout)"}
         {ontimeout.arg  ""  "Script to execute on background operation timeout"}
     } ]
-    set f [ open [ concat "|$backend" [ list "<<" $command ] ] "r" ]
-    fconfigure $f -encoding utf-8
+    set f [ open [ concat "|$backend" [ list "<<" [ encode $command ] ] ] "r" ]
     fileevent $f readable [ ::gaa::lambda::lambda {f onComplete onError} {
         if { ![ eof $f ] } {
             set count [ gets $f ]
             if [ string is integer -strict $count ] {
-                set cmd [ read $f $count ]
+                set cmd [ decode [ read $f $count ] ]
                 eval $cmd
             }
         } else {
@@ -63,7 +65,7 @@ proc invokeSlave {backend command args} {
 }
 
 proc invokeMaster {arg} {
-    set s $arg
+    set s [ encode $arg ]
     append s "\n"
     puts [ string length $s ]
     puts -nonewline $s
@@ -87,6 +89,14 @@ proc defMasterLambda {id params script args} {
     uplevel [ concat [ list ::gaa::lambda::deflambda $id $params \
         "::gaa::remoting::invokeMaster \[ ::gaa::lambda::lambda [ list $params $script ] [ ::gaa::remoting::addDollars $params ] \]" \
     ] $args ]
+}
+
+proc encode {str} {
+    return [ ::base64::encode [ encoding convertto utf-8 $str ] ]
+}
+
+proc decode {str} {
+    return [ encoding convertfrom utf-8 [ ::base64::decode $str ] ]
 }
 
 }
