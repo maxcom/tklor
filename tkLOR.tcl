@@ -1248,22 +1248,22 @@ proc topicReply {w item} {
     global lorUrl
 
     switch -regexp $item {
-        news {
+        {^news$} {
             openUrl "http://$lorUrl/add-section.jsp?section=1"
         }
-        forum {
+        {^forum$} {
             openUrl "http://$lorUrl/add-section.jsp?section=2"
         }
-        {forum\d+} {
+        {^forum\d+$} {
             openUrl "http://$lorUrl/add.jsp?group=[ string trim $item forum ]"
         }
-        gallery {
+        {^gallery$} {
             openUrl "http://$lorUrl/add.jsp?group=4962"
         }
-        votes {
+        {^votes$} {
             openUrl "http://$lorUrl/add-poll.jsp"
         }
-        {\d+} {
+        {^\d+$} {
             openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
         }
     }
@@ -1278,22 +1278,22 @@ proc topicOpenMessage {w item} {
     global lorUrl
 
     switch -regexp $item {
-        news {
+        {^news$} {
             openUrl "http://$lorUrl/view-news.jsp?section=1"
         }
-        forum {
+        {^forum$} {
             openUrl "http://$lorUrl/view-section.jsp?section=2"
         }
-        {forum\d+} {
+        {^forum\d+$} {
             openUrl "http://$lorUrl/group.jsp?group=[ string trim $item forum ]"
         }
-        gallery {
+        {^gallery$} {
             openUrl "http://$lorUrl/view-news.jsp?section=3"
         }
-        votes {
+        {^votes$} {
             openUrl "http://$lorUrl/group.jsp?group=19387"
         }
-        {\d+} {
+        {^\d+$} {
             openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
         }
     }
@@ -1406,13 +1406,15 @@ proc clearTopicCache {w item} {
     }
 }
 
-proc packOptionsItem {w name item type var opt} {
+proc packOptionsItem {w name item type val opt} {
     if { $type != "check" } {
         pack [ ttk::label [ join [ list $name Label ] "" ] -text "$item:" ] -anchor w -fill x
     }
     switch -exact -- $type {
         check {
-            pack [ ttk::checkbutton $name -variable $var -text $item ] -anchor w -fill x
+            pack [ ttk::checkbutton $name -text $item ] -anchor w -fill x
+            global [ $name cget -variable ]
+            set [ $name cget -variable ] $val
         }
         list {
             set f [ ttk::frame $name ]
@@ -1426,10 +1428,9 @@ proc packOptionsItem {w name item type var opt} {
             foreach col [ lrange $opt 1 end ] {
                 $v heading $col -text $col -anchor w
             }
-            foreach item [ set ::$var ] {
+            foreach item $val {
                 $v insert "" end -text [ lindex $item 0 ] -values [ lrange $item 1 end ]
             }
-            set ::$var $v
 
             pack [ ttk::scrollbar "$ff.scroll" -command "$v yview" ] -side right -fill y
             pack $v -anchor w -fill x
@@ -1442,30 +1443,59 @@ proc packOptionsItem {w name item type var opt} {
             ] -fill x -side bottom
         }
         editableCombo {
-            pack [ ttk::combobox $name -values $opt -textvariable $var ] -anchor w -fill x
+            pack [ ttk::combobox $name -values $opt ] -anchor w -fill x
+            $name set $val
         }
         readOnlyCombo {
-            pack [ ttk::combobox $name -values $opt -textvariable $var -state readonly ] -anchor w -fill x
+            pack [ ttk::combobox $name -values $opt -state readonly ] -anchor w -fill x
+            $name set $val
         }
         password {
-            pack [ ttk::entry $name -textvariable $var -show * ] -anchor w -fill x
+            pack [ ttk::entry $name -show * ] -anchor w -fill x
+            $name insert end $val
         }
         color {
-            pack [ ttk::button $name -text "Choose..." -command [ list "chooseColor" $w $var ] ] -anchor w -fill x
+            pack [ ttk::button $name -text $val -command [ list chooseColor $w $name ] ] -anchor w -fill x
         }
         string -
         default {
-            pack [ ttk::entry $name -textvariable $var ] -anchor w -fill x
+            pack [ ttk::entry $name ] -anchor w -fill x
+            $name insert end $val
+        }
+    }
+}
+
+proc getOptionsItemValue {name type} {
+    switch -exact -- $type {
+        check {
+            global [ $name cget -variable ]
+            return [ set [ $name cget -variable ] ]
+        }
+        list {
+            set v $name.f.list
+            set res ""
+            foreach item [ $v children "" ] {
+                set l [ concat [ list [ $v item $item -text ] ] [ $v item $item -values ] ]
+                lappend res $l
+            }
+            return $res
+        }
+        color {
+            return [ $name cget -text ]
+        }
+        editableCombo -
+        readOnlyCombo -
+        password -
+        string -
+        default {
+            return [ $name get ]
         }
     }
 }
 
 proc showOptionsDialog {} {
-    global options optionsTmp
+    global options
     global appName
-
-    catch {array unset optionsTmp}
-    array set optionsTmp ""
 
     set d .optionsDialog
     catch {destroy $d}
@@ -1475,111 +1505,47 @@ proc showOptionsDialog {} {
     pack $notebook -fill both
 
     set n 0
+    set okList ""
     foreach {category optList} $options {
         set page [ ttk::frame "$notebook.page$n" ]
 
-        set i 0
+        set o ""
         foreach {item type var opt} $optList {
-            set f [ ttk::frame "$page.item$i" -padding 1 ]
-
-            switch -exact -- $type {
-                font -
-                fontPart {
-                    array set ff [ set ::$var ]
-                    set names [ array names ff ]
-                    foreach param {family size weight slant underline overstrike} {
-                        if { [ lsearch -exact $names "-$param" ] == -1 } {
-                            array set optionsTmp [ list "$n.$i.$param" "" ]
-                        } else {
-                            array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
-                        }
-                    }
-                    array unset ff
-
-                    packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
-                    packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
-                    packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
-                    packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
-                    packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
-                    packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
-                }
-                ignoreList {
-                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
-                }
-                userTagList {
-                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
-                }
-                default {
-                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                    packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
-                }
-            }
-
-            pack $f -anchor w -fill x
-            incr i
+            lappend o $item $type [ set ::$var ] $opt
         }
+
+        lappend okList [ list \
+            lambda {optList page ws} {
+                set vals [ fetchOptionsFrameValues $optList $page $ws ]
+                for {set i 0} {$i < [ llength $vals ]} {incr i} {
+                    set var [ lindex $optList [ expr $i*4+2 ] ]
+                    set ::$var [ lindex $vals $i ]
+                }
+                applyOptions
+            } $optList $page [ generateOptionsFrame $d $o $page ] \
+        ]
+
         $notebook add $page -sticky nswe -text $category
         incr n
     }
+    lappend okList [ list "destroy" $d ]
+    set okScript [ join $okList ";" ]
+    set cancelScript [ list "destroy" $d ]
+
     set f [ ttk::frame $d.buttonFrame ]
     pack [ buttonBox $f \
-        [ list -text "OK" -command acceptOptions ] \
-        [ list -text "Cancel" -command discardOptions ] \
+        [ list -text "OK" -command $okScript ] \
+        [ list -text "Cancel" -command $cancelScript ] \
     ] -fill x
     pack $f -fill x -side bottom
     update
 
     wm resizable $d 0 0
-    wm protocol $d WM_DELETE_WINDOW discardOptions
+    wm protocol $d WM_DELETE_WINDOW $cancelScript
     centerToParent $d .
     grab $d
-}
-
-proc acceptOptions {} {
-    global options optionsTmp
-
-    set n 0
-    foreach {category optList} $options {
-        set i 0
-        foreach {item type var opt} $optList {
-            switch -exact -- $type {
-                font -
-                fontPart {
-                    set s ""
-                    foreach param {family size weight slant underline overstrike} {
-                        set v [ set "optionsTmp($n.$i.$param)" ]
-                        if {$v != ""} {
-                            lappend s [ list "-$param" $v ]
-                        }
-                    }
-                    set res [ join $s ]
-                    if { $type == "font" && $res == "" } {
-                        set res [ font actual system ]
-                    }
-                    set ::$var $res
-                }
-                ignoreList -
-                userTagList {
-                    set v [ set "optionsTmp($n.$i)" ]
-                    set ::$var ""
-                    foreach item [ $v children "" ] {
-                        set l [ concat [ list [ $v item $item -text ] ] [ $v item $item -values ] ]
-                        lappend ::$var $l
-                    }
-                }
-                default {
-                    set ::$var [ set "optionsTmp($n.$i)" ]
-                }
-            }
-            incr i
-        }
-        incr n
-    }
-    array unset optionsTmp
-    catch {destroy .optionsDialog}
-    applyOptions
+    bind $d <Return> $okScript
+    bind $d <Escape> $cancelScript
 }
 
 proc applyOptions {} {
@@ -1601,7 +1567,6 @@ proc applyOptions {} {
 
     catch {$messageWidget configure -font $messageTextFont}
     catch {$messageWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
-
 
     initBindings
 }
@@ -2059,10 +2024,10 @@ proc initBindings {} {
     bind . <Control-F> find
 }
 
-proc chooseColor {parent var} {
-    set color [ tk_chooseColor -initialcolor [ set ::$var ] -parent $parent ]
+proc chooseColor {parent w} {
+    set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]
     if { $color != "" } {
-        set ::$var $color
+        $w configure -text $color
     }
 }
 
@@ -2079,43 +2044,42 @@ proc modifyUserTagListItem {w} {
 #    }
 }
 
-proc generateOptionsFrame {optList page} {
+proc generateOptionsFrame {d optList page} {
     set ws ""
-    foreach {item type var opt} $optList {
+    set i 0
+
+    foreach {item type val opt} $optList {
         set f [ ttk::frame "$page.item$i" -padding 1 ]
+        lappend ws $f
 
         switch -exact -- $type {
             font -
             fontPart {
-                array set ff [ set ::$var ]
+                array set ff $val
                 set names [ array names ff ]
                 foreach param {family size weight slant underline overstrike} {
                     if { [ lsearch -exact $names "-$param" ] == -1 } {
-                        array set optionsTmp [ list "$n.$i.$param" "" ]
-                    } else {
-                        array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
+                        array set ff [ list "-$param" "" ]
                     }
                 }
+                generateOptionsFrame $d [ list \
+                    "Family" editableCombo $ff(-family) { font families } \
+                    "Size" string $ff(-size) "" \
+                    "Weight" readOnlyCombo $ff(-weight) { list "" normal bold } \
+                    "Slant" readOnlyCombo $ff(-slant) { list "" roman italic } \
+                    "Underline" check $ff(-underline) "" \
+                    "Overstrike" check $ff(-overstrike) "" \
+                ] $f
                 array unset ff
-
-                packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
-                packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
-                packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
-                packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
-                packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
-                packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
             }
             ignoreList {
-                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
+                packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
             }
             userTagList {
-                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
+                packOptionsItem $d $f.value $item "list" $val [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
             }
             default {
-                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
+                packOptionsItem $d $f.value $item $type $val [ eval $opt ]
             }
         }
 
@@ -2125,9 +2089,51 @@ proc generateOptionsFrame {optList page} {
     return $ws
 }
 
-proc onePageOptionsDialog {title options script} {
-    set optionsTmp ""
+proc fetchOptionsFrameValues {optList page ws} {
+    set result ""
+    set i 0
+    foreach {item type var opt} $optList {
+        switch -exact -- $type {
+            font -
+            fontPart {
+                set s ""
+                set j 0
+                set v [ lindex $ws $i ]
 
+                foreach {param t} {
+                    family editableCombo
+                    size string
+                    weight readOnlyCombo
+                    slant readOnlyCombo
+                    underline check
+                    overstrike check} {
+                    set p [ getOptionsItemValue "$v.item$j.value" $t ]
+                    if { $p != "" } {
+                        #TODO
+                        lappend s [ list "-$param" $p ]
+                    }
+                    incr j
+                }
+                set res [ join $s ]
+                if { $type == "font" && $res == "" } {
+                    set res [ font actual system ]
+                }
+                lappend result $res
+            }
+            ignoreList -
+            userTagList {
+                lappend result [ getOptionsItemValue [ lindex $ws $i ].value "list" ]
+            }
+            default {
+                lappend result [ getOptionsItemValue [ lindex $ws $i ].value $type ]
+            }
+        }
+        incr i
+    }
+    return $result
+}
+
+proc onePageOptionsDialog {title options script} {
     set d [ join [ list ".onePageOptionsDialog" [ generateId ] ] "" ]
     toplevel $d
     wm title $d $title
@@ -2135,66 +2141,57 @@ proc onePageOptionsDialog {title options script} {
     pack $notebook -fill both
 
     set n 0
+    set okList ""
     foreach {category optList} $options {
         set page [ ttk::frame "$notebook.page$n" ]
 
-        set i 0
+        set o ""
         foreach {item type var opt} $optList {
-            set f [ ttk::frame "$page.item$i" -padding 1 ]
-
-            switch -exact -- $type {
-                font -
-                fontPart {
-                    array set ff [ set ::$var ]
-                    set names [ array names ff ]
-                    foreach param {family size weight slant underline overstrike} {
-                        if { [ lsearch -exact $names "-$param" ] == -1 } {
-                            array set optionsTmp [ list "$n.$i.$param" "" ]
-                        } else {
-                            array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
-                        }
-                    }
-                    array unset ff
-
-                    packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
-                    packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
-                    packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
-                    packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
-                    packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
-                    packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
-                }
-                ignoreList {
-                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
-                }
-                userTagList {
-                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
-                }
-                default {
-                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                    packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
-                }
-            }
-
-            pack $f -anchor w -fill x
-            incr i
+            lappend o $item $type [ set ::$var ] $opt
         }
+
+        lappend okList [ list \
+            lambda {optList page ws} {
+                set vals [ fetchOptionsFrameValues $optList $page $ws ]
+                for {set i 0} {$i < [ llength $vals ]} {incr i} {
+                    set var [ lindex $optList [ expr $i*4+2 ] ]
+                    set ::$var [ lindex $vals $i ]
+                }
+                applyOptions
+            } $optList $page [ generateOptionsFrame $d $o $page ] \
+        ]
+
         $notebook add $page -sticky nswe -text $category
         incr n
     }
+    lappend okList [ list "destroy" $d ]
+    set okScript [ join $okList ";" ]
+    set cancelScript [ list "destroy" $d ]
+
     set f [ ttk::frame $d.buttonFrame ]
     pack [ buttonBox $f \
-        [ list -text "OK" -command acceptOptions ] \
-        [ list -text "Cancel" -command discardOptions ] \
+        [ list -text "OK" -command $okScript ] \
+        [ list -text "Cancel" -command $cancelScript ] \
     ] -fill x
     pack $f -fill x -side bottom
     update
 
     wm resizable $d 0 0
-    wm protocol $d WM_DELETE_WINDOW discardOptions
+    wm protocol $d WM_DELETE_WINDOW $cancelScript
     centerToParent $d .
     grab $d
+    bind $d <Return> $okScript
+    bind $d <Escape> $cancelScript
+}
+
+proc lambda {params script args} {
+    if { [ llength $params ] != [ llength $args ] } {
+        error "Arguments count mismatch!"
+    }
+    for {set i 0} {$i < [ llength $params ]} {incr i} {
+        set [ lindex $params $i ] [ lindex $args $i ]
+    }
+    return [ eval $script ]
 }
 
 ############################################################################
