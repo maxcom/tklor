@@ -2053,20 +2053,23 @@ proc initBindings {} {
         bind $allTopicsWidget <Return> {invokeMenuCommand $allTopicsWidget click}
     }
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
-    bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
-    bind $allTopicsWidget N {invokeMenuCommand $allTopicsWidget nextUnread}
     bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
 
     bind $topicTextWidget <ButtonPress-3> {popupMenu $topicTextMenu %X %Y %x %y}
 
     bind $topicWidget <<TreeviewSelect>> {invokeMenuCommand $topicWidget click}
     bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
-
-    bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
-    bind $topicWidget N {invokeMenuCommand $topicWidget nextUnread}
     bind $topicWidget <Menu> {openContextMenu $topicWidget $messageMenu}
 
     bind $messageWidget <ButtonPress-3> {popupMenu $messageTextMenu %X %Y %x %y}
+
+    foreach w [ list $allTopicsWidget $topicWidget ] {
+        bind $w <Home> [ list $w yview moveto 0 ]
+        bind $w <End> [ list $w yview moveto 1 ]
+
+        bind $w n [ list invokeMenuCommand $w nextUnread ]
+        bind $w N [ list invokeMenuCommand $w nextUnread ]
+    }
 
     bind . <F1> helpAbout
     bind . <F2> updateTopicList
