@@ -459,6 +459,9 @@ proc renderHtml {w msg} {
 
     $w tag configure br -background white
     $w tag configure i -font {-slant italic}
+    $w tag configure hyperlink
+    $w tag bind hyperlink <Enter> "$w configure -cursor hand1"
+    $w tag bind hyperlink <Leave> "$w configure -cursor {}"
 
     set stackId [ join [ list "stack" [ generateId ] ] "" ]
     ::struct::stack $stackId
@@ -479,15 +482,6 @@ proc renderHtmlTag {w stack tag slash param text} {
     set pos [ $w index end-1chars ]
     if { $slash != "/" } {
         switch -exact -- $tag {
-            hmstart -
-            ul -
-            ol -
-            table -
-            tbody -
-            tr -
-            td {
-                # no action
-            }
             i {
                 $stack push [ list $tag $pos ]
             }
@@ -514,14 +508,7 @@ proc renderHtmlTag {w stack tag slash param text} {
                 }
             }
             img {
-                set text {[image]}
-            }
-            default {
-                $w insert end "<$slash$tag"
-                if { $param != "" } {
-                    $w insert " $param"
-                }
-                $w insert ">"
+                set text {[]}
             }
         }
     } else {
@@ -532,13 +519,16 @@ proc renderHtmlTag {w stack tag slash param text} {
                 catch {
                     set list [ $stack pop ]
                     $w tag add [ lindex $list 0 ] [ lindex $list 1 ] [ $w index end-1chars ]
+                    if { $tag == "a" } {
+                        $w tag add hyperlink [ lindex $list 1 ] [ $w index end-1chars ]
+                    }
                 }
             }
             tr {
                 $w insert end "\n"
             }
             td {
-                $w insert end " "
+                $w insert end "\t"
             }
         }
     }
@@ -994,7 +984,7 @@ proc startWait {{text ""}} {
         set text "Please, wait"
     }
 
-    . configure -cursor clock
+    . configure -cursor watch
     grab $statusBarWidget
     $statusBarWidget configure -text $text
 }
