@@ -79,6 +79,7 @@ set messageTextMenu ""
 
 set autonomousMode 0
 set expandNewMessages 1
+set updateOnStart 0
 
 set tileTheme "default"
 
@@ -141,7 +142,8 @@ array set fontPart {
 set options {
     "Global" {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
-        "Start in autonomous mode"    check   autonomousMode ""
+        "Start in autonomous mode"  check   autonomousMode ""
+        "Update topics list on start"    check   updateOnStart ""
         "Browser"   editableCombo   browser { list "x-www-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
     }
     "Connection" {
@@ -1708,4 +1710,8 @@ loadTopicListFromCache
 
 if {! [ file exists [ file join $configDir "config" ] ] } {
     showOptionsDialog
+}
+
+if { $updateOnStart == "1" } {
+    updateTopicList
 }
