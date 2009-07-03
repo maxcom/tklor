@@ -100,6 +100,7 @@ set messageSlave ""
 
 set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
+set messageTextQuoteFont "-slant italic"
 
 array set fontPart {
     none ""
@@ -157,6 +158,7 @@ set options {
     "Message text" {
         "Normal font"       font    messageTextFont ""
         "Monospace font"    font    messageTextMonospaceFont ""
+        "Quote font"        font    messageTextQuoteFont ""
         "Font color"        color   color(htmlFg) ""
         "Background"        color   color(htmlBg) ""
     }
@@ -408,7 +410,7 @@ proc exitProc {} {
 }
 
 proc renderHtml {w msg} {
-    global messageTextMonospaceFont
+    global messageTextMonospaceFont messageTextQuoteFont
 
     set msg [ string trim $msg ]
     $w configure -state normal
@@ -419,7 +421,7 @@ proc renderHtml {w msg} {
     }
 
     $w tag configure br -background white
-    $w tag configure i -font {-slant italic}
+    $w tag configure i -font $messageTextQuoteFont
     $w tag configure hyperlink
     $w tag configure pre -font $messageTextMonospaceFont
 
