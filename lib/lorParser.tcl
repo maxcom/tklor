@@ -330,4 +330,60 @@ proc isLoggedIn {} {
     return $loggedIn
 }
 
+proc postMessage {topic message title text preformattedText autoUrl onError onComplete} {
+    #TODO: process replies to topics
+    variable lorUrl
+    variable cookies
+    variable loggedIn
+
+    if { !$loggedIn } {
+        eval [ concat $onError [ list "You must be logged in before sending messages" ] ]
+        eval $onComplete
+    }
+
+    array set param $cookies
+    if $preformattedText {
+        set mode "pre"
+    } else {
+        set mode "quot"
+    }
+
+    set url "$lorUrl/add_comment.jsp?topic=$topic&replyto=$message"
+    set s ""
+    foreach {name value} $cookies {
+        lappend s "$name=$value"
+    }
+    set headers [ list "Cookie" [ join $s "; " ] ]
+
+    if [ catch {::http::geturl $url \
+        -headers $headers \
+        -query [ ::http::formatQuery \
+                "session"   $param(JSESSIONID) \
+                "topic"     $topic \
+                "replyto"   $message \
+                "title"     $title \
+                "msg"       $text \
+                "mode"      $mode \
+                "autourl"   $autoUrl \
+                "texttype"  0 \
+            ] \
+        -command [ ::gaa::lambda::lambda {onError onComplete token} {
+            if [ catch {
+                # here 302 too :)
+                if { [ ::http::status $token ] != "ok" || [ ::http::ncode $token ] != 302 } {
+                    error [ ::http::code $token ]
+                }
+            } err ] {
+                eval [ concat $onError [ list $err $::errorInfo ] ]
+            }
+            catch {::http::cleanup $token}
+            eval $onComplete
+        } $onError $onComplete ]
+    } err ] {
+        eval [ concat $onError [ list $err $::errorInfo ] ]
+        eval $onComplete
+    }
+
+}
+
 }

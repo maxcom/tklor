@@ -1015,10 +1015,8 @@ proc updateTopicList {{section ""}} {
     global backendId
 
     if { $autonomousMode } {
-        if { [ tk_messageBox -title $appName -message [ mc "Are you want to go to online mode?" ] -type yesno -icon question -default yes ] == yes } {
-            set autonomousMode 0
-            login
-        } else {
+        goOnline
+        if { $autonomousMode } {
             return
         }
     }
@@ -1173,12 +1171,12 @@ proc reply {w item} {
     global currentTopic
 
     if { $w == $topicTree } {
-        openUrl [ ::lor::topicReply $item ]
+        postMessage topic $item
     } else {
         if { $item == "topic" } {
-             openUrl [ ::lor::topicReply $currentTopic ]
+            postMessage topic $currentTopic
         } else {
-            openUrl [ ::lor::messageReply $item $currentTopic ]
+            postMessage message $currentTopic $item
         }
     }
 }
@@ -2164,6 +2162,149 @@ proc logout {} {
     remoting::sendRemote -async $backendId lor::logout
 }
 
+proc goOnline {} {
+    global appName autonomousMode
+
+    if $autonomousMode {
+        if { [ tk_messageBox -title $appName -message [ mc "Are you want to go to online mode?" ] -type yesno -icon question -default yes ] == yes } {
+            set autonomousMode 0
+        }
+    }
+}
+
+proc postMessage {itemType topic {item ""}} {
+    goOnline
+    if { $::autonomousMode } {
+        return
+    }
+    login
+
+#    if { $itemType == "topic" } {
+#        openUrl [ ::lor::topicReply $topic ]
+#    } else {
+#        openUrl [ ::lor::messageReply $item $topic ]
+#    }
+
+    #TODO: now works for message only
+    global currentMessage
+    set currentMessage $item
+    updateMessage $item
+    set text [ $::messageTextWidget get 0.0 end ]
+
+    set f [ toplevel .messagePostWindow -class Dialog ]
+    wm withdraw $f
+    wm title $f [ mc "Compose message" ]
+
+    set sendScript "sendReply $f $topic $item;destroy $f"
+    set cancelScript "destroy $f"
+
+    set w [ ttk::frame $f.headerFrame ]
+    grid \
+        [ ttk::label $w.labelTo -text [ mc "To: " ] -anchor w ] \
+        [ ttk::label $w.entryTo -textvariable currentNick ] \
+        -sticky we
+    grid \
+        [ ttk::label $w.labelTime -text [ mc "Time: " ] -anchor w ] \
+        [ ttk::label $w.entryTime -textvariable currentTime ] \
+        -sticky we
+    grid columnconfigure $w 1 -weight 1
+    grid $w -sticky nwse
+
+    set w [ ttk::frame $f.textFrame ]
+    grid [ ttk::entry $w.header ] -sticky we
+    $w.header insert 0 [ makeReplyHeader $::currentHeader ]
+
+    set ww [ ttk::frame $w.textContainer ]
+    grid \
+        [ text $ww.text -yscrollcommand "$ww.scroll set" ] \
+        [ ttk::scrollbar $ww.scroll -command "$ww.text yview" ] \
+        -sticky nswe
+    $ww.text insert 0.0 [ quoteText $text ]
+    grid columnconfigure $ww 0 -weight 1
+    grid rowconfigure $ww 0 -weight 1
+    grid $ww -sticky nwse
+
+    grid columnconfigure $w 0 -weight 1
+    grid rowconfigure $w 1 -weight 1
+    grid $w -sticky nwse
+
+    set w [ ttk::frame $f.optionsFrame ]
+    grid \
+        [ ttk::combobox $w.format -state readonly -values {"User line breaks w/quoting" "Preformatted text"} ] \
+        [ ttk::checkbutton $w.autoUrl -text [ mc "Auto URL" ] ] \
+        -sticky we
+    global [ $w.autoUrl cget -variable ]
+    $w.format current 0
+    set [ $w.autoUrl cget -variable ] 1
+
+    grid columnconfigure $w 0 -weight 1
+    grid columnconfigure $w 1 -weight 1
+    grid $w -sticky nwse
+
+    grid [ buttonBox $f \
+        [ list -text [ mc "Send" ] -command $sendScript ] \
+        [ list -text [ mc "Cancel" ] -command $cancelScript ] \
+    ] -sticky nswe
+
+    grid columnconfigure $f 0 -weight 1
+    grid rowconfigure $f 1 -weight 1
+
+    wm transient $f .
+    wm deiconify $f
+    wm protocol $f WM_DELETE_WINDOW $cancelScript
+    bind $f <Escape> $cancelScript
+    bind $f <Control-Return> $sendScript
+}
+
+proc makeReplyHeader {header} {
+    if [ regexp -lineanchor -nocase -- {^(re(?:\^\d+){0,1}):\s*(.*)} $header dummy re text ] {
+        if { ![ regexp -nocase -- {re\^(\d+)} $re dummy2 count ] } {
+            set count 1
+        }
+        return "Re^[ expr $count + 1 ]: $text"
+    } else {
+        return "Re: $header"
+    }
+}
+
+proc quoteText {text} {
+    set res ""
+    foreach line [ split $text "\n" ] {
+        if { [ string trim $line ] != "" } {
+            if { [ string compare -length 1 $line ">" ] == 0 } {
+                lappend res ">$line"
+            } else {
+                lappend res "> $line"
+            }
+        }
+    }
+    return [ join $res "\n\n" ]
+}
+
+proc sendReply {f topic message} {
+    global backendId
+
+    set header [ $f.textFrame.header get ]
+    set text [ $f.textFrame.textContainer.text get 0.0 end ]
+    set preformattedText [ $f.optionsFrame.format current ]
+    set autoUrl [ set ::$f.optionsFrame.autoUrl ]
+
+    if { !$preformattedText } {
+        set text [ normalizeText $text ]
+    }
+
+    defCallbackLambda finish {type} {
+        taskCompleted $type
+    } postMessage
+    addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl errorProcCallback $finish ]
+}
+
+proc normalizeText {text} {
+    regsub -all {\n+} $text "\n" text
+    set text [ join [ split $text "\n" ] "\n\n" ]
+    return $text
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -2200,10 +2341,6 @@ loadTopicListFromCache
 
 if {! [ file exists [ file join $configDir "config" ] ] } {
     showOptionsDialog
-}
-
-if { ! $autonomousMode } {
-    login
 }
 
 if { $updateOnStart == "1" } {

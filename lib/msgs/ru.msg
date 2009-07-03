@@ -149,4 +149,7 @@
         "LOR password"          "Пароль на ЛОРе"
         "Logging in. Please wait..."    "Логинюсь, ждите..."
         "Login failed"          "Залогиниться не получилось"
+        "Send"                  "Отправить"
+        "Compose message"       "Новое сообщение"
+        "Auto URL"              "Автораспознавание гиперссылок"
 }
