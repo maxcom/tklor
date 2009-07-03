@@ -211,6 +211,7 @@ proc initMenu {} {
     $mm add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
 
     $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
+    $m add command -label "Ignore user" -command {invokeMenuCommand $allTopicsWidget ignoreUser}
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $allTopicsWidget nextUnread}
     $m add separator
@@ -233,6 +234,7 @@ proc initMenu {} {
     $mm add command -label "Mark all as unread" -command "markAllMessages 1"
 
     $m add command -label "User info" -accelerator "Ctrl-I" -command {invokeMenuCommand $topicWidget userInfo}
+    $m add command -label "Ignore user" -command {invokeMenuCommand $topicWidget ignoreUser}
     $m add command -label "Open in browser" -accelerator "Ctrl-O" -command {invokeMenuCommand $topicWidget openMessage}
     $m add separator
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $topicWidget nextUnread}
@@ -265,6 +267,7 @@ proc initPopups {} {
     $mm add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
 
     $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
+    $topicMenu add command -label "Ignore user" -command {invokeItemCommand $allTopicsWidget ignoreUser}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
     $topicMenu add separator
     $topicMenu add command -label "Move to favorites" -command {invokeItemCommand $allTopicsWidget addToFavorites}
@@ -284,6 +287,7 @@ proc initPopups {} {
     $mm add command -label "Mark all as unread" -command "markAllMessages 1"
 
     $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
+    $messageMenu add command -label "Ignore user" -command {invokeItemCommand $topicWidget ignoreUser}
     $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
 
     set m [ menu .topicTextMenu -tearoff 0 ]
@@ -1688,6 +1692,15 @@ proc clearOldTopics {} {
         }
     }
     stopWait
+}
+
+proc ignoreUser {w item} {
+    global ignoreList
+
+    set nick [ getItemValue $w $item nick ]
+    if { [ lsearch -exact $ignoreList [ getItemValue $w $item nick ] ] == -1 } {
+        lappend ignoreList $nick
+    }
 }
 
 ############################################################################
