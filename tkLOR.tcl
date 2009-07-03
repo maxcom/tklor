@@ -144,7 +144,7 @@ set options {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
         "Start in autonomous mode"  check   autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
-        "Browser"   editableCombo   browser { list "x-www-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
+        "Browser"   editableCombo   browser { list "sensible-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
     }
     "Connection" {
         "Use proxy" check   useProxy ""
@@ -317,14 +317,19 @@ proc initAllTopicsTree {} {
     $allTopicsWidget insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
     foreach {id title} $newsGroups {
         $allTopicsWidget insert news end -id "news$id" -text $title -values [ list "" 0 0 "news" $title ]
+        updateItemState $allTopicsWidget "news$id"
     }
+    updateItemState $allTopicsWidget "news"
 
     $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
     foreach {id title} $forumGroups {
         $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
+        updateItemState $allTopicsWidget "forum$id"
     }
+    updateItemState $allTopicsWidget "forum"
 
     $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
+    updateItemState $allTopicsWidget "favorites"
 
     bind $allTopicsWidget <<TreeviewSelect>> {invokeMenuCommand $allTopicsWidget click}
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
@@ -1148,7 +1153,6 @@ proc saveTopicListToCache {} {
 proc saveTopicListToCacheRecursive {w f parent} {
     foreach id [ $w children $parent ] {
         puts $f [ list "addTopicFromCache" $parent $id [ getItemValue $w $id nick ] [ getItemValue $w $id text ] [ getItemValue $w $id unread ] ]
-
         saveTopicListToCacheRecursive $w $f $id
     }
 }
@@ -1238,11 +1242,12 @@ proc topicOpenMessage {w item} {
 proc openUrl {url} {
     global tcl_platform browser
 
-    if { [ string first Windows $tcl_platform(os) ] != -1 } {
-        set prog "start"
-    } else {
-        set prog "x-www-browser"
+    if { [ string first Windows $tcl_platform(os) ] != -1 && $browser == "" } {
+        catch {exec $::env(COMSPEC) /c "start $url" &}
+        return
     }
+
+    set prog "sensible-browser"
     if { $browser != "" } {
         set prog $browser
     }
@@ -1269,7 +1274,7 @@ proc replaceHtmlEntities {text} {
         "&quot;" "\""
         "&amp;" "\\&"
         "\n{3,}" "\n\n" } {
-        regsub -all $re $text $s text
+        regsub -all -nocase -- $re $text $s text
     }
     return $text
 }
@@ -1354,6 +1359,7 @@ proc packOptionsItem {name item type var opt} {
 
 proc showOptionsDialog {} {
     global options optionsTmp
+    global appName
 
     catch {array unset optionsTmp}
     array set optionsTmp ""
@@ -1361,6 +1367,7 @@ proc showOptionsDialog {} {
     set d .optionsDialog
     catch {destroy $d}
     toplevel $d
+    wm title $d "$appName options"
     set notebook [ ttk::notebook $d.notebook ]
     pack $notebook -fill both
 
@@ -1658,11 +1665,15 @@ proc clearOldTopics {} {
     set topics ""
 
     startWait "Searching for obsolete topics..."
-    foreach fname [ glob -directory [ file join $configDir $threadSubDir ] -types f {{*,*.topic}} ] {
-        regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
-        if { [ lsearch -exact $topics $fname ] == -1 && ! [ $w exists $fname ] } {
-            lappend topics $fname
+    if [ catch {
+        foreach fname [ glob -directory [ file join $configDir $threadSubDir ] -types f {{*,*.topic}} ] {
+            regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
+            if { [ lsearch -exact $topics $fname ] == -1 && ! [ $w exists $fname ] } {
+                lappend topics $fname
+            }
         }
+    } ] {
+        set topics ""
     }
     stopWait
 
