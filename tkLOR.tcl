@@ -91,8 +91,6 @@ set proxyPassword ""
 
 set browser ""
 
-set signature {// Posted using $appId}
-
 set ignoreList ""
 set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
@@ -161,7 +159,6 @@ set options {
         "Current perspective"   hidden  currentPerspective ""
         "Sash position(navigation), %" string navigationSashPos ""
         "Sash position(reading), %" string readingSashPos ""
-        "Message signature" string  signature ""
     }
     "Connection" {
         "LOR login" string  lorLogin ""
@@ -2189,7 +2186,7 @@ proc goOnline {} {
 }
 
 proc postMessage {topic {item ""}} {
-    global signature appName
+    global appName
 
     goOnline
     if { $::autonomousMode } {
@@ -2207,11 +2204,6 @@ proc postMessage {topic {item ""}} {
         set text [ $::messageTextWidget get 0.0 end ]
     }
     set text [ quoteText $text ]
-    if { $signature != "" } {
-        if [ catch {append text [ join [ list "\n\n" [ uplevel #0 [ list subst $signature ] ] ] "" ]} err ] {
-            tk_messageBox -title $appName -message [ mc "Error while substituting signature:\n%s" $err ] -parent . -icon error
-        }
-    }
 
     set f [ toplevel .messagePostWindow -class Dialog ]
     wm withdraw $f
