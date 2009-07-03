@@ -80,6 +80,7 @@ set expandNewMessages 1
 set updateOnStart 0
 set doubleClickAllTopics 0
 set markIgnoredMessagesAsRead 0
+set exitConfirmation 1
 
 set colorList {{tklor blue foreground}}
 set colorCount [ llength $colorList ]
@@ -128,6 +129,7 @@ set options {
         "Start in autonomous mode"  check   autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
         "Use double-click to open topic"    check   doubleClickAllTopics ""
+        "Confirm exit"  check   exitConfirmation ""
         "Browser"   editableCombo   browser { list "sensible-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
     }
     "Connection" {
@@ -455,8 +457,9 @@ proc helpAbout {} {
 proc exitProc {} {
     global appName
     global currentTopic
+    global exitConfirmation
 
-    if { [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
+    if { $exitConfirmation == "0" || [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
         saveTopicToCache $currentTopic
         saveTopicListToCache
         saveOptions
