@@ -27,7 +27,7 @@ package require tile 0.8
 package require http 2.0
 
 set appName "tkLOR"
-set appVersion "0.1.1"
+set appVersion "0.2.0"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 
 set configDir [ file join $::env(HOME) ".$appName" ]
@@ -135,12 +135,13 @@ proc initMenu {} {
     .menu add cascade -label "Help" -menu .menu.help
 
     menu .menu.lor -tearoff 0
-    .menu.lor add command -label "Search new topics" -command updateTopicList
+    .menu.lor add command -label "Search new topics" -accelerator "F2" -command updateTopicList
     .menu.lor add separator
     .menu.lor add command -label "Exit" -command exitProc
 
     set m [ menu .menu.topic -tearoff 0 ]
-    $m add command -label "Refresh sub-list" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
+    $m add command -label "Refresh sub-tree" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
+    $m add separator
     $m add command -label "Reply" -command {invokeMenuCommand $allTopicsWidget topicReply}
     $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
@@ -154,11 +155,11 @@ proc initMenu {} {
     $m add command -label "Delete" -command {invokeMenuCommand $allTopicsWidget deleteTopic}
 
     set m [ menu .menu.message -tearoff 0 ]
-    $m add command -label "Refresh tree" -command refreshTopic
+    $m add command -label "Refresh tree" -accelerator "F5" -command refreshTopic
     $m add separator
-    $m add command -label "Reply" -command {invokeMenuCommand $topicWidget reply}
-    $m add command -label "User info" -command {invokeMenuCommand $topicWidget userInfo}
-    $m add command -label "Open in browser" -command {invokeMenuCommand $topicWidget openMessage}
+    $m add command -label "Reply" -accelerator "Ctrl-R" -command {invokeMenuCommand $topicWidget reply}
+    $m add command -label "User info" -accelerator "Ctrl-I" -command {invokeMenuCommand $topicWidget userInfo}
+    $m add command -label "Open in browser" -accelerator "Ctrl-O" -command {invokeMenuCommand $topicWidget openMessage}
     $m add separator
     $m add command -label "Mark as read" -command {invokeMenuCommand $topicWidget mark message 0}
     $m add command -label "Mark as unread" -command {invokeMenuCommand $topicWidget mark message 1}
@@ -189,7 +190,7 @@ proc initPopups {} {
     $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
-    $topicMenu add command -label "Refresh sub-list" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
+    $topicMenu add command -label "Refresh sub-tree" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
     $topicMenu add command -label "Reply" -command {invokeItemCommand $allTopicsWidget topicReply}
     $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
@@ -354,6 +355,13 @@ proc initMainWindow {} {
     .vertPaned add [ initTopicText ] -weight 3
     .vertPaned add [ initTopicTree ] -weight 1
     .vertPaned add [ initMessageWidget ] -weight 3
+
+    bind . <F2> updateTopicList
+    bind . <F5> refreshTopic
+
+    bind . <Control-r> {invokeMenuCommand $topicWidget reply}
+    bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
+    bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
 }
 
 proc helpAbout {} {
