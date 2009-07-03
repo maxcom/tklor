@@ -203,21 +203,35 @@ proc writeToFile {fileName letter args} {
     if {$param(encoding) != ""} {
         fconfigure $f -encoding $param(encoding)
     }
-    foreach letter $letter {
-        writeToStream $f $letter
+    if [ catch {
+        foreach letter $letter {
+            writeToStream $f $letter
+        }
+    } err ] {
+        close $f
+        error $err $::errorInfo
     }
     close $f
 }
 
 proc writeToStream {stream letter} {
     set body ""
+    set fromExists 0
+    foreach {header value} $letter {
+        if { $header == "From"} {
+            puts $stream "From $value"
+            set fromExists 1
+            break
+        }
+    }
+    if { $fromExists == 0 } {
+        error "No From header"
+    }
     foreach {header value} $letter {
         if {$header != "body"} {
-            puts -nonewline $stream "$header"
             if {$header != "From"} {
-                puts -nonewline $stream ":"
+                puts $stream "$header: $value"
             }
-            puts $stream " $value"
         } else {
             set body $value
         }

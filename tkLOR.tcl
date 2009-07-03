@@ -467,7 +467,7 @@ proc exitProc {} {
         }
     }
 
-#    saveTopicToCache $currentTopic
+    saveTopicToCache $currentTopic
     saveTopicListToCache
     saveOptions
 
@@ -628,7 +628,9 @@ proc setTopic {topic} {
     global loadTaskId
 
     if { $loadTaskId != "" } {
-        ::taskManager::stopTask $loadTaskId
+        catch {
+            ::taskManager::stopTask $loadTaskId
+        }
         set loadTaskId ""
     }
     update
@@ -652,6 +654,8 @@ proc setTopic {topic} {
 
         set loadTaskId [ loadTopicFromCache $topic {set loadTaskId ""} ]
     }
+#TODO: !!!
+return
     if { ! $autonomousMode } {
         set parser [ ::mbox::initParser [ list insertMessage 0 ] ]
         set onerror [ list errorProc [ mc "Error while getting messages" ] ]
@@ -874,18 +878,10 @@ proc initDirs {} {
     file mkdir $cacheDir
 }
 
-proc saveTopicTextToCache {topic header text nick time approver approveTime} {
+proc saveTopicTextToCache {topic letter} {
     global configDir cacheDir
 
     set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
-    set letter ""
-    lappend letter "From" $nick
-    lappend letter "Subject" $header
-    lappend letter "X-LOR-Time" $time
-    lappend letter "X-LOR-Unread" 0
-    lappend letter "X-LOR-Approver" $approver
-    lappend letter "X-LOR-Approve-Time" $approveTime
-    lappend letter "body" $text
     ::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
 }
 
@@ -896,20 +892,21 @@ proc loadTopicFromCache {topic oncomplete} {
 
     set topicHeader ""
     set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
-    deflambda script {letter} {
+    deflambda script {topic letter} {
         global topicHeader
 
         array set res $letter
         set topicHeader "$res(Subject)\($res(From)\)"
         array unset res
         insertMessage 1 $letter
-    }
+        saveTopicTextToCache $topic $letter
+    } $topic
 
-    set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
     if { ![ file exists $fname ] } {
         uplevel #0 $oncomplete
         return
     }
+    set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
     if [ catch {
         ::mbox::parseFile $fname $script -sync 1
     } err ] {
@@ -933,10 +930,7 @@ proc loadTopicFromCache {topic oncomplete} {
     }
 }
 
-proc saveMessage {topic id header text nick time replyTo replyToId unread} {
-    global cacheDir
-
-    set fname [ file join $cacheDir $topic ]
+proc saveMessage {stream id header text nick time replyTo replyToId unread} {
     set letter ""
     lappend letter "From" $nick
     lappend letter "Subject" $header
@@ -948,7 +942,7 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
         lappend letter "X-LOR-ReplyTo-Id" $replyToId
     }
     lappend letter "body" $text
-    ::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
+    ::mbox::writeToStream $stream $letter
 }
 
 proc loadMessagesFromFile {fileName topic oncomplete args} {
@@ -970,28 +964,31 @@ proc loadMessagesFromFile {fileName topic oncomplete args} {
     ]
 }
 
-proc clearDiskCache {topic} {
-    global cacheDir
-
-    set f [ open [ file join $cacheDir $topic ] "w+" ]
-    close $f
-}
-
-proc saveTopicRecursive {topic item} {
+proc saveTopicRecursive {stream item} {
     upvar #0 messageTree w
 
     foreach id [ $w children $item ] {
-        saveMessage $topic $id [ getItemValue $w $id header ] [ getItemValue $w $id msg ] [ getItemValue $w $id nick ] [ getItemValue $w $id time ] [ getItemValue $w $id parentNick ] [ getItemValue $w $id parent ] [ getItemValue $w $id unread ]
-        saveTopicRecursive $topic $id
+        saveMessage $stream $id [ getItemValue $w $id header ] [ getItemValue $w $id msg ] [ getItemValue $w $id nick ] [ getItemValue $w $id time ] [ getItemValue $w $id parentNick ] [ getItemValue $w $id parent ] [ getItemValue $w $id unread ]
+        saveTopicRecursive $stream $id
     }
 }
 
 proc saveTopicToCache {topic} {
     global messageTree
+    global cacheDir
 
     if { $topic != "" && [ $messageTree exists "topic" ] } {
-        clearDiskCache $topic
-        saveTopicRecursive $topic "topic"
+        set fname [ file join $cacheDir $topic ]
+        set stream [ open $fname "w" ]
+        fconfigure $stream -encoding "utf-8"
+        if [ catch {
+            saveTopicRecursive $stream "topic"
+        } err ] {
+            set errInfo $::errorInfo
+            catch {close $stream}
+            error $err $errInfo
+        }
+        close $stream
     }
 }
 
