@@ -1,0 +1,51 @@
+############################################################################
+#    Copyright (C) 2008 by Alexander Galanin                               #
+#    gaa.nnov@mail.ru                                                      #
+#                                                                          #
+#    This program is free software; you can redistribute it and#or modify  #
+#    it under the terms of the GNU General Public License as published by  #
+#    the Free Software Foundation; either version 3 of the License, or     #
+#    (at your option) any later version.                                   #
+#                                                                          #
+#    This program is distributed in the hope that it will be useful,       #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#    GNU General Public License for more details.                          #
+#                                                                          #
+#    You should have received a copy of the GNU General Public License     #
+#    along with this program; if not, write to the                         #
+#    Free Software Foundation, Inc.,                                       #
+#    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
+############################################################################
+
+
+## tkLOR
+
+This is a stupid read-only client to LOR, written on versatile Tcl/Tk/Tile.
+
+## To use it you must install:
+
+*   Tcl 8.4 or 8.5
+*   Tk
+*   Tile
+*   (optional) Iwidgets v4 (will be used to display HTML if present)
+
+## Hints:
+
+*   Install Iwidgets to get better look of HTML messages.
+*   Install Tk 8.5 to get better look of fonts on X11. So, there are no port of Iwidgets to 8.5 at this moment :(
+*   You can specify variables in a command-line. For example, command:
+
+    # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
+    
+    Will run tkLOR with specified config directory to /home/jopa/prog/tkLOR.
+
+## For Debian GNU/Linux:
+
+# aptitude install tcl8.4 tk8.4 tk-tile iwidgets4
+or
+# aptitude install tcl8.5 tk8.5
+
+## For Micro$oft Window$:
+
+Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile installed separately.

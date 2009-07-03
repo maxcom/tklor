@@ -33,10 +33,6 @@ set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_
 set configDir [ file join $::env(HOME) ".$appName" ]
 set threadSubDir "threads"
 
-#---------------- debug start --------------
-set ignoreList {HEBECTb_KTO adminchik anonymous}
-#---------------- debug end ----------------
-
 set lorUrl "www.linux.org.ru"
 
 array set fontPart {
@@ -68,6 +64,15 @@ set currentTopic ""
 set topicNick ""
 set topicHeader ""
 
+set useProxy 0
+set proxyAutoSelect 0
+set proxyHost ""
+set proxyPort ""
+set proxyUser ""
+set proxyPassword ""
+
+set ignoreList ""
+
 set forumGroups {
     126     General
     1339    Desktop
@@ -83,27 +88,24 @@ set forumGroups {
     19109   Web-development
 }
 
-#------------------------------
-set forumGroups {
-    4068    Linux-org-ru
-    8404    Talks
-}
-#------------------------------
-
 ############################################################################
 #                                 FUNCTIONS                                #
 ############################################################################
 
 proc initMenu {} {
     menu .menu -type menubar
-    .menu add cascade -label "Topic" -menu .menu.file
+    .menu add cascade -label "LOR" -menu .menu.lor
+    .menu add cascade -label "Topic" -menu .menu.topic
     .menu add cascade -label "Help" -menu .menu.help
 
-    menu .menu.file -tearoff 0
-    .menu.file add command -label "Add..." -command addTopic
-    .menu.file add command -label "Refresh" -command refreshTopic
-    .menu.file add separator
-    .menu.file add command -label "Exit" -command exitProc
+    menu .menu.lor -tearoff 0
+    .menu.lor add command -label "Update topics" -command updateTopicList
+    .menu.lor add separator
+    .menu.lor add command -label "Exit" -command exitProc
+
+    menu .menu.topic -tearoff 0
+    .menu.topic add command -label "Add..." -command addTopic
+    .menu.topic add command -label "Refresh" -command refreshTopic
 
     menu .menu.help -tearoff 0
     .menu.help add command -label "About" -command helpAbout
@@ -115,21 +117,23 @@ proc initAllTopicsTree {} {
     global allTopicsWidget
     global forumGroups
 
-    set allTopicsWidget [ ttk::treeview .allTopicsTree -columns {nick unread unreadChild parent} -displaycolumns {unreadChild} ]
+    set allTopicsWidget [ ttk::treeview .allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} ]
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Messages" -anchor w
-    $allTopicsWidget column #0 -width 100
-    $allTopicsWidget column unreadChild -width 100
+    $allTopicsWidget column #0 -width 250
+    $allTopicsWidget column unreadChild -width 30
 
-    $allTopicsWidget insert "" end -id news -text "News" -values [ list 0 0 0 "" ]
+    $allTopicsWidget insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
 
-    $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list 0 0 0 "" ]
+    $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
     foreach {id title} $forumGroups {
-        $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list 0 0 0 "forum" ]
+        $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
     }
 
-    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list 0 0 0 "" ]
+    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
+
+    bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
 
     return $allTopicsWidget
 }
@@ -163,14 +167,14 @@ proc initTopicTree {} {
     global topicWidget
 
     set f [ frame .topicFrame ]
-    set topicWidget [ ttk::treeview $f.topicTree -columns {nick header time msg unread unreadChild parent parentNick} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
+    set topicWidget [ ttk::treeview $f.topicTree -columns {nick header time msg unread unreadChild parent parentNick text} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
     $topicWidget heading #0 -text "Nick" -anchor w
     $topicWidget heading header -text "Title" -anchor w
     $topicWidget heading time -text "Time" -anchor w
 
     configureTags $topicWidget
 
-    bind $topicWidget <<TreeviewSelect>> "messageClick %W"
+    bind $topicWidget <<TreeviewSelect>> "messageClick"
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
@@ -253,6 +257,7 @@ proc exitProc {} {
 
     if { [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
         saveTopicToCache $currentTopic
+        saveTopicListToCache
         exit
     }
 }
@@ -312,6 +317,7 @@ proc configureTags {w} {
 
 proc setTopic {topic} {
     global currentTopic lorUrl appName
+    global topicWidget
 
     startWait
 
@@ -319,11 +325,15 @@ proc setTopic {topic} {
         saveTopicToCache $currentTopic
     }
 
+    foreach item [ $topicWidget children "" ] {
+        $topicWidget delete $item
+    }
+
     set currentTopic $topic
     set err 1
     set errStr ""
     set url "http://pingu/lor.html"
-    #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
+    set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
@@ -396,10 +406,10 @@ proc setItemValue {w item valueName value} {
     $w item $item -values $val
 }
 
-proc messageClick {tree} {
+proc messageClick {} {
     upvar #0 topicWidget w
 
-    set item [ $tree focus ]
+    set item [ $w focus ]
     updateMessage $item
     if [ getItemValue $w $item unread ] {
         setItemValue $w $item unread 0
@@ -418,6 +428,23 @@ proc addUnreadChild {w item {count 1}} {
     }
 }
 
+proc getItemText {w item} {
+    global topicWidget
+    if { $w == $topicWidget } {
+        set text [ getItemValue $w $item nick ]
+        if [ getItemValue $w $item unreadChild ] {
+            append text " ([ getItemValue $w $item unreadChild ])"
+        }
+        return $text
+    } else {
+        set text [ getItemValue $w $item text ]
+        if { [ getItemValue $w $item nick ] != "" } {
+            append text " ([ getItemValue $w $item nick ])"
+        }
+        return $text
+    }
+}
+
 proc updateItemState {w item} {
     global ignoreList
 
@@ -432,6 +459,7 @@ proc updateItemState {w item} {
         append tag "_ignored"
     }
     $w item $item -tags [ list $tag ]
+    $w item $item -text [ getItemText $w $item ]
 }
 
 proc addTopic {} {
@@ -448,6 +476,19 @@ proc refreshTopic {} {
 
 proc initHttp {} {
     global appId
+    global useProxy proxyAutoSelect proxyHost proxyPort proxyUser proxyPassword
+
+    if $useProxy {
+        package require autoproxy
+        ::autoproxy::init 
+        if {! $proxyAutoSelect} {
+            ::autoproxy::configure -proxy_host $proxyHost -proxy_port $proxyPort
+        }
+        if {$proxyUser != ""} {
+            ::autoproxy::configure -basic -username $proxyUser -password $proxyPassword
+        }
+        ::http::config -proxyfilter ::autoproxy::filter
+    }
 
     ::http::config -useragent "$appId"
     set ::http::defaultCharset "utf-8"
@@ -465,6 +506,7 @@ proc saveTopicTextToCache {topic header text nick time approver approveTime} {
     global configDir threadSubDir
 
     set f [ open [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] "w+" ]
+    fconfigure $f -encoding utf-8
     puts $f "From $nick"
     puts $f "Subject: $header"
     puts $f "X-LOR-Time: $time"
@@ -485,6 +527,7 @@ proc parseMbox {fileName} {
     set res ""
 
     set f [ open $fileName "r" ]
+    fconfigure $f -encoding utf-8
     while { [ gets $f s ] >=0 } {
         if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
             break
@@ -532,7 +575,7 @@ proc loadTopicTextFromCache {topic} {
 
     updateTopicText "" ""
     catch {
-        array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic "_text" ] "" ] ] ] 0 ]
+        array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] ] 0 ]
         updateTopicText $res(Subject) $res(body)
     }
 }
@@ -542,6 +585,7 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
     global configDir threadSubDir
 
     set f [ open [ file join $configDir $threadSubDir $topic ] "a" ]
+    fconfigure $f -encoding utf-8
     puts $f "From $nick"
     puts $f "Subject: $header"
     puts $f "X-LOR-Time: $time"
@@ -646,8 +690,15 @@ proc stopWait {} {
     . configure -cursor ""
 }
 
+proc loadConfigFile {fileName} {
+    catch {uplevel #0 "source {$fileName}"}
+}
+
 proc loadConfig {} {
-    # TODO
+    global configDir
+
+    loadConfigFile [ file join $configDir "config" ]
+    loadConfigFile [ file join $configDir "userConfig" ]
 }
 
 proc updateTopicList {{section ""}} {
@@ -663,13 +714,13 @@ proc updateTopicList {{section ""}} {
 
     switch -glob -- $section {
         news {
-            
+            #TODO
         }
         forum* {
             parseForum [ string trimleft $section "forum" ]
         }
         default {
-            
+            #TODO
         }
     }
 }
@@ -679,8 +730,8 @@ proc parseForum {forum} {
 
     startWait
 
-    set url "http://$lorUrl/group.jsp?group=$forum"
     set url "http://pingu/lor-group.html"
+    set url "http://$lorUrl/group.jsp?group=$forum"
     set err 0
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
@@ -701,22 +752,43 @@ proc parseForum {forum} {
 
 proc parseTopicList {forum data} {
     upvar #0 allTopicsWidget w
+    global configDir threadSubDir
 
-    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\(стр\.(?: <a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+&amp;page=\d+">\d+</a>)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
+    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
                 $w insert "forum$forum" end -id $id -text $header
+                setItemValue $w $id text $header
                 setItemValue $w $id parent "forum$forum"
                 setItemValue $w $id nick $nick
-                setItemValue $w $id unread 1
                 setItemValue $w $id unreadChild 0
-                addUnreadChild $w "forum$forum"
+                if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
+                    setItemValue $w $id unread 1
+                    addUnreadChild $w "forum$forum"
+                }
                 updateItemState $w $id
             }
         }
     }
     $w see "forum$forum"
 }
+
+proc saveTopicListToCache {} {
+    #TODO
+}
+
+proc topicClick {} {
+    upvar #0 allTopicsWidget w
+
+    set item [ $w focus ]
+    if { [ regexp -lineanchor -- {^\d} $item ] } {
+        setItemValue $w $item unread 0
+        addUnreadChild $w [ getItemValue $w $item parent ] -1
+        updateItemState $w $item
+        setTopic $item
+    }
+}
+
 
 ############################################################################
 #                                   MAIN                                   #
@@ -726,12 +798,9 @@ processArgv
 loadConfig
 
 initDirs
+initHttp
 
 initMenu
 initMainWindow
-initHttp
 
-updateTopicList
-
-setTopic 2412284
-#setTopic 2418741
+update
