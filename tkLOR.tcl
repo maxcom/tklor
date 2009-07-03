@@ -81,6 +81,7 @@ set updateOnStart 0
 set doubleClickAllTopics 0
 set markIgnoredMessagesAsRead 0
 set exitConfirmation 1
+set threadListSize 20
 
 set colorList {{tklor blue foreground}}
 set colorCount [ llength $colorList ]
@@ -131,6 +132,7 @@ set options {
         "Use double-click to open topic"    check   doubleClickAllTopics ""
         "Confirm exit"  check   exitConfirmation ""
         "Browser"   editableCombo   browser { list "sensible-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
+        "Thread history size"   string  threadListSize ""
     }
     "Connection" {
         "Use proxy" check   useProxy ""
@@ -1155,6 +1157,7 @@ proc updateTopicList {{section ""}} {
 proc parseGroup {parent section {group ""}} {
     global lorUrl
     global appName
+    global threadListSize
 
     set url "http://$lorUrl/section-rss.jsp?section=$section"
     if { $group != "" } {
@@ -1164,17 +1167,16 @@ proc parseGroup {parent section {group ""}} {
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+            parseRss [ ::http::data $token ] [ list "addTopicFromCache" $parent ]
+
             set w $::allTopicsWidget
-            foreach item [ $w children $parent ] {
+            foreach item [ lrange [ $w children $parent ] $threadListSize end ] {
                 set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
                 if { $count != "0" } {
                     addUnreadChild $w $parent "-$count"
                 }
                 $w delete $item
             }
-            setItemValue $w $parent unreadChild 0
-
-            parseRss [ ::http::data $token ] [ list "addTopicFromCache" $parent ]
             set err 0
         } else {
             set errStr [ ::http::code $token ]
