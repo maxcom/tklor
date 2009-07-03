@@ -33,9 +33,6 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 *   Install Tk 8.5 to get better look of fonts on X11
 
-*   Commands "wish" and "tclsh" must be present in at least one directory 
-    listed in PATH envoronment variable
-
 *   You can specify variables in a command-line. For example, command:
 
     # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
@@ -45,7 +42,11 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 *   If you have problems like "Error in startup script: can't find package
     gaa_lambda 1.0", try to run in the following way:
 
-    # wish tkLOR.tcl -configDir=/home/jopa/prog/tkLOR -configDir=/home/jopa/prog/tkLOR/lib
+    # wish tkLOR.tcl -libDir=/home/jopa/prog/tkLOR/lib
+
+*   If on your system 'wish' are not located in $PATH, use -wishPath command-line key.
+
+    # /usr/local/tcltk/wish85 tkLOR.tcl -wishPath=/usr/local/tcltk/wish85
 
 ## For Debian GNU/Linux:
 
@@ -61,4 +62,4 @@ Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile in
 
 *   install ActiveTcl from http://www.activestate.com/store/freedownload.aspx?prdGuid=f0cd6399-fefb-466e-ba17-220dcd6f4078
 *   install tcllib from http://sourceforge.net/project/showfiles.php?group_id=12883
-*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLORlib"
+*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib"

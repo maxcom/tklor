@@ -41,6 +41,8 @@ set appHome "http://code.google.com/p/tklor/"
 set configDir [ file join $::env(HOME) ".$appName" ]
 set threadSubDir "threads"
 
+set wishPath [ auto_execok wish ]
+
 if {[ string first Windows $tcl_platform(os) ] == -1} {
     set libDir "/usr/lib/tkLOR"
 } else {
@@ -1967,9 +1969,9 @@ proc updateForumGroups {} {
 }
 
 proc runBackend {} {
-    global backend configDir libDir appId
+    global backend configDir libDir appId wishPath
 
-    exec [ auto_execok wish ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId &
+    exec $wishPath [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId &
 }
 
 proc defCallbackLambda {name params script args} {
