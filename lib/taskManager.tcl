@@ -47,6 +47,8 @@ array set stopped {
     postMessage     0
 }
 
+variable lastMessageTime 0
+
 proc addTask {queue args} {
     variable stopped
     variable updateScript
@@ -82,17 +84,29 @@ proc stopAllTasks {queue} {
 proc runFromQueue {queue} {
     variable stopped
     variable updateScript
+    variable lastMessageTime
 
     array set stopped [ list $queue 0 ]
     if { [ $queue size ] != 0 } {
-        set script [ $queue peek ]
-        eval $script
+        set delta [ expr [ clock seconds ] - $lastMessageTime ]
+        if { $queue == "postMessage" && $delta <= 30 } {
+            after [ expr ( 30 - $delta ) * 1000 ] ::tkLor::taskManager::runFromQueue $queue
+            return
+        } else {
+            set script [ $queue peek ]
+            eval $script
+        }
     }
     uplevel #0 $updateScript
 }
 
 proc taskCompleted {queue} {
+    variable lastMessageTime
+
     $queue get
+    if { $queue == "postMessage" } {
+        set lastMessageTime [ clock seconds ]
+    }
     runFromQueue $queue
 }
 
