@@ -46,6 +46,10 @@
 	"Open selection in browser"		"Открыть выделенное в браузере"
         "Header"         "Тема"
 	"Title"		"Заголовок"
+        "Messages"      "Сообщения"
+        "Sent"          "Отправленные"
+        "Outcoming"     "Исходящие"
+        "Draft"         "Черновики"
 	"Threads"		"Темы"
 	"News"		"Новости"
 	"Gallery"		"Галерея"
@@ -149,7 +153,7 @@
         "Send"                  "Отправить"
         "Compose message"       "Редактирование сообщения"
         "Auto URL"              "Автораспознавание гиперссылок"
-        "An error occured while posting '%s'"      "Произошла ошибка при отправке сообщения '%s'"
+        "Error while sending '%s'"      "Произошла ошибка при отправке сообщения '%s'"
         "There are %s running tasks"            "Выполняется %s фоновых задач"
         "Are you want to exit and stop it?"     "Хотите их остановить и выйти?"
         "Fetching new topics in category %s"    "Обновление списка тем в категории %s"
@@ -158,4 +162,7 @@
         "Error while loading topic %s"  "Ошибка при загрузке темы %s"
         "Getting new messages"          "Получение новых сообщений"
         "Error while getting messages"  "Ошибка про получении сообщений"
+        "Sending message '%s'"          "Отправка сообщения '%s'"
+        "Send queued messages"          "Отправить сообщения"
 }
+

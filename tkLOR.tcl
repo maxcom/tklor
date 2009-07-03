@@ -135,6 +135,7 @@ set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 1
 set tasksWidgetVisible 0
 
 set loadTaskId ""
+set deliverTaskId ""
 
 set loggedIn 0
 
@@ -234,7 +235,17 @@ proc initMenu {} {
     .menu add cascade -label [ mc "Help" ] -menu .menu.help -underline 0
 
     set m [ menu .menu.lor -tearoff 0 ]
-    $m add command -label [ mc "Search new topics" ] -accelerator "F2" -command updateTopicList
+    $m add command \
+        -label [ mc "Search new topics" ] \
+        -accelerator "F2" \
+        -command updateTopicList
+    $m add command \
+        -label [ mc "Add topic..." ] \
+        -command addTopic
+    $m add separator
+    $m add command \
+        -label [ mc "Send queued messages" ] \
+        -command startDelivery
     $m add separator
     $m add checkbutton -label [ mc "Autonomous mode" ] -onvalue 1 -offvalue 0 -variable autonomousMode
     $m add command -label [ mc "Options..." ] -command showOptionsDialog
@@ -268,10 +279,6 @@ proc initMenu {} {
         $m add command -label [ mc "Refresh sub-tree" ] -command [ list $invoke $topicTree refreshTopicSubList ] -accelerator "F4"
         $m add separator
     }
-
-    set m $menuTopic
-    $m add command -label [ mc "Add topic..." ] -command addTopic
-    $m add separator
 
     foreach {m w invoke} [ list \
         $menuTopic $topicTree invokeMenuCommand \
@@ -817,6 +824,7 @@ proc insertMessage {replace letter} {
     updateItemState $w $id
     if { $id == "topic" } {
         $w item $id -open 1
+        set ::topicHeader $header
 #TODO: найти более удачное место
         saveTopicTextToCache $::currentTopic $letter
     }
@@ -1682,12 +1690,14 @@ proc updateWindowTitle {} {
     global currentTopic
 
     set s $appName
-    if { $currentTopic != "" } {
+    if [ regexp {^\d+$} $currentTopic ] {
         append s ": $topicHeader"
         set k [ getItemValue $messageTree {} unreadChild ]
         if { $k != "0" } {
             append s [ mc " \[ %s new \]" $k ]
         }
+    } elseif { $currentTopic != "" } {
+        append s ": [ getItemValue $::topicTree $currentTopic text ]"
     }
     wm title . $s
 }
@@ -2252,7 +2262,7 @@ proc loginCallback {str} {
     set loggedIn 1
 }
 
-proc login {} {
+proc login {oncomplete} {
     global lorLogin lorPassword
 
     set f [ callPlugin login {} \
@@ -2260,6 +2270,7 @@ proc login {} {
         -mode "r+" \
         -onoutput loginCallback \
         -onerror [ list errorProc [ mc "Login failed" ] ] \
+        -oncomplete $oncomplete \
     ]
     puts $f "login: $lorLogin"
     puts $f "password: $lorPassword"
@@ -2299,9 +2310,13 @@ proc makeReplyToMessage {origLetter} {
     set letter(Subject) [ makeReplyHeader [ htmlToText $orig(Subject) ] ]
     set letter(To) $orig(From)
     if [ info exists orig(X-LOR-Id) ] {
-        set letter(X-LOR-ReplyTo-Id) "$currentTopic.$orig(X-LOR-Id)"
+        if { $orig(X-LOR-Id) == $currentTopic } {
+            set letter(Reply-To) $currentTopic
+        } else {
+            set letter(Reply-To) "$currentTopic.$orig(X-LOR-Id)"
+        }
     } else {
-        set letter(X-LOR-ReplyTo-Id) $currentTopic
+        set letter(Reply-To) $currentTopic
     }
     set letter(X-Mailer) $appId
     set letter(body) [ quoteText [ htmlToText $orig(body) ] ]
@@ -2339,6 +2354,10 @@ proc editMessage {letter} {
     grid \
         [ ttk::label $w.labelTo -text [ mc "To: " ] -anchor w ] \
         [ ttk::label $w.entryTo -text $msg(To) ] \
+        -sticky we
+    grid \
+        [ ttk::label $w.labelReplyTo -text [ mc "Reply to: " ] -anchor w ] \
+        [ ttk::label $w.entryReplyTo -text $msg(Reply-To) ] \
         -sticky we
     grid \
         [ ttk::label $w.labelSubject -text [ mc "Subject: " ] -anchor w ] \
@@ -2448,7 +2467,7 @@ proc putMailToQueue {queueName newLetter} {
     upvar #0 $queueName queue
 
     lappend queue $newLetter
-    if { $queue == "outcoming" } {
+    if { $queueName == "outcoming" } {
         startDelivery
     }
 }
@@ -2457,6 +2476,7 @@ proc putMailToQueue {queueName newLetter} {
 proc processDataFromEditWindow {f queue} {
     set header [ $f.headerFrame.entrySubject get ]
     set to [ $f.headerFrame.entryTo cget -text ]
+    set replyTo [ $f.headerFrame.entryReplyTo cget -text ]
     set text [ $f.textFrame.textContainer.text get 0.0 end ]
     set preformattedText [ $f.optionsFrame.format current ]
     set autoUrl [ set ::$f.optionsFrame.autoUrl ]
@@ -2471,6 +2491,7 @@ proc processDataFromEditWindow {f queue} {
         ] \
         "X-LOR-AutoUrl" $autoUrl \
         "X-LOR-Pre" $preformattedText \
+        "Reply-To"  $replyTo \
         "body"      $text \
     ]
 }
@@ -2615,7 +2636,53 @@ proc edit {w item} {
 }
 
 proc startDelivery {} {
-#TODO
+    global deliverTaskId
+    global loginCookie loggedIn
+
+    if { !$loggedIn } {
+        login startDelivery
+        return
+    }
+
+    if { $deliverTaskId != "" } {
+        return
+    }
+
+    global outcoming
+    if { [ llength $outcoming ] < 1 } {
+        return
+    }
+    set letter [ lindex $outcoming 0 ]
+    array set msg $letter
+    if [ info exists msg(Subject) ] {
+        set subject $msg(Subject)
+    } else {
+        set subject "<no subject>"
+    }
+    array unset msg
+    set deliverTaskId [ callPlugin send {} \
+        -title [ mc "Sending message '%s'" $subject ] \
+        -mode "r+" \
+        -oncomplete [ lambda {} {
+            global outcoming sent
+
+            lappend sent [ lindex $outcoming 0 ]
+            set outcoming [ lreplace $outcoming 0 0 ]
+
+            set ::deliverTaskId ""
+            after idle startDelivery
+        } ] \
+        -onerror [ closure {subject} {err} {
+            set ::deliverTaskId ""
+            errorProc [ mc "Error while sending '%s'" $subject ] $err
+        } ] \
+    ]
+    puts $deliverTaskId $loginCookie
+    puts $deliverTaskId ""
+    ::mbox::writeToStream $deliverTaskId $letter
+
+#TODO: remove stubbed message
+    ::mbox::writeToStream $deliverTaskId {From stub body ""}
 }
 
 ############################################################################

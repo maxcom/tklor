@@ -108,7 +108,7 @@ proc pushArgs {stack args} {
 ############################################################################
 
 foreach stream {stdin stdout} {
-    fconfigure $stream -encoding "utf-8"
+    fconfigure $stream -encoding "utf-8" -buffering line
 }
 
 array set p [ ::cmdline::getoptions argv [ list \
@@ -117,6 +117,7 @@ array set p [ ::cmdline::getoptions argv [ list \
     {last.arg           "0"     "Specifies ID of last received message"} \
     {list.arg           ""      "List threads in category"} \
     {login                      "Log in to LOR"} \
+    {send                       "Send message"} \
     {useragent.arg      "tkLOR" "HTTP User-Agent"} \
     {useproxy                   "Use proxy"} \
     {autoproxy                  "Use proxy autoconfiguration"} \
@@ -154,6 +155,30 @@ if [ catch {
         array set arg [ parseArgs stdin ]
         puts -nonewline [ ::lor::login $arg(login) $arg(password) ]
         exit 0
+    }
+    if $p(send) {
+        gets stdin cookies
+
+        ::mbox::parseStream stdin [ ::lambda::closure {cookies} {letter} {
+            array set params {
+                Reply-To        ""
+                Subject         ""
+                body            ""
+                X-LOR-Pre       "0"
+                X-LOR-AutoUrl   "1"
+            }
+            array set params $letter
+            regexp {^(\d+)(?:\.(\d+)){0,1}$} $params(Reply-To) dummy topic msg
+
+            ::lor::postMessage $topic $msg \
+                $params(Subject) $params(body) \
+                $params(X-LOR-Pre) $params(X-LOR-AutoUrl) \
+                $cookies
+
+            after 30000
+            exit 0
+        } ] -sync 1
+        error "No messages passed!"
     }
 } err ] {
     if $p(debug) {

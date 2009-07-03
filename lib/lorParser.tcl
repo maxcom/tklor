@@ -72,9 +72,7 @@ proc parseTopic {topic topicTextCommand messageCommand lastId} {
             parseTopicText $data $topicTextCommand
             set maxPage [ parseMaxPageNumber $data ]
         } else {
-            set err [ ::http::code $token ]
-            ::http::cleanup $token
-            error $err
+            error [ parseError $token ]
         }
         ::http::cleanup $token
     } err ] {
@@ -108,9 +106,7 @@ proc parseTopic {topic topicTextCommand messageCommand lastId} {
                     break
                 }
             } else {
-                set err [ ::http::code $token ]
-                ::http::cleanup $token
-                error $err
+                error [ parseError $token ]
             }
             ::http::cleanup $token
         }
@@ -228,9 +224,7 @@ proc parseGroup {command section {group ""}} {
                     [ encoding convertfrom "utf-8" [ ::http::data $token ] ]
                 parseRss $data $processRssItem
             } else {
-                set err [ ::http::code $token ]
-                ::http::cleanup $token
-                error $err
+                error [ parseError $token ]
             }
             ::http::cleanup $token
     } err ] {
@@ -331,9 +325,7 @@ proc startSession {} {
             error "Unable to start LOR session!"
         }
     } else {
-        set err [ ::http::code $token ]
-        ::http::cleanup $token
-        error $err
+        error [ parseError $token ]
     }
 }
 
@@ -361,9 +353,7 @@ proc login {user password} {
             }
             ::http::cleanup $token
         } else {
-            set err [ ::http::code $token ]
-            ::http::cleanup $token
-            error $err
+            error [ parseError $token ]
         }
     } err ] {
         error $err
@@ -371,20 +361,9 @@ proc login {user password} {
     return $cookies
 }
 
-proc postMessage {topic message title text preformattedText autoUrl onError onComplete} {
+proc postMessage {topic message title text preformattedText autoUrl loginCookie} {
     variable lorUrl
-#move to params
-    variable cookies
-    variable loggedIn
 
-    if { !$loggedIn } {
-        eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl "You must be logged in before sending messages" ] ]
-        eval $onComplete
-
-        return
-    }
-
-    array set param $cookies
     if $preformattedText {
         set mode "pre"
     } else {
@@ -393,8 +372,14 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
 
     set url "$lorUrl/add_comment.jsp?topic=$topic"
     set s ""
-    foreach {name value} $cookies {
+    foreach {name value} $loginCookie {
         lappend s "$name=$value"
+        if { $name == "JSESSIONID" } {
+            set session $value
+        }
+    }
+    if { ![ info exists session ] } {
+        error "No session information in login cookies!"
     }
     set headers [ list "Cookie" [ join $s "; " ] ]
 
@@ -405,37 +390,37 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
         "mode"      $mode \
         "autourl"   $autoUrl \
         "texttype"  0 \
+        "session"   $session \
     ]
-    if [ catch {lappend queryList "session" $param(JSESSIONID)} err ] {
-        eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl $err "$::errorInfo\ncookies=$cookies" ] ]
-        eval $onComplete
-
-        return
-    }
     if { $message != "" } {
         lappend queryList "replyto" $message
         append url "&replyto=$message"
     }
 
-    if [ catch {::http::geturl $url \
+    set token [ ::http::geturl $url \
         -headers $headers \
         -query [ eval [ concat ::http::formatQuery $queryList ] ] \
-        -command [ ::lambda::closure {onError onComplete} {token} {
-            if [ catch {
-                # here 302 too :)
-                if { [ ::http::status $token ] != "ok" || [ ::http::ncode $token ] != 302 } {
-                    error [ ::http::code $token ]
-                }
-            } err ] {
-                eval [ concat $onError [ list $err [ ::http::data $token ] ] ]
-            }
-            catch {::http::cleanup $token}
-            eval $onComplete
-        } ]
-    } err ] {
-        eval [ concat $onError [ list $topic $message $title $text $preformattedText $autoUrl $err $::errorInfo ] ]
-        eval $onComplete
+    ]
+
+    # here 302 too :)
+    if { [ ::http::status $token ] != "ok" || [ ::http::ncode $token ] != 302 } {
+        error [ parseError $token ]
     }
+    ::http::cleanup $token
+}
+
+proc parseError {token} {
+    if { [ ::http::status $token ] == "ok" } {
+        if [ regexp {<h1>(.*)</h1>} [ ::http::data $token ] dummy str ] {
+            set err $str
+        } else {
+            set err [ ::http::code $token ]
+        }
+    } else {
+        set err [ ::http::code $token ]
+    }
+    ::http::cleanup $token
+    return $err
 }
 
 }
