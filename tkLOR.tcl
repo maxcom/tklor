@@ -940,6 +940,18 @@ proc mark {w item type unread} {
         setItemValue $w $item unread $unread
         addUnreadChild $w [ getItemValue $w $item parent ] [ expr $unread - $old ]
         updateItemState $w $item
+        if { $w == $::allTopicsWidget } {
+            global configDir threadSubDir
+
+            if { [ regexp -lineanchor {^\d+$} $item ] } {
+                if { $unread == "0" } {
+                    set f [ open [ file join $configDir $threadSubDir "$item.topic" ] "w" ]
+                    close $f
+                } else {
+                    file delete [ file join $configDir $threadSubDir "$item.topic" ]
+                }
+            }
+        }
     }
     if {$type == "thread"} {
         foreach i [ $w children $item ] {
