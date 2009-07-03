@@ -599,32 +599,39 @@ proc setTopic {topic} {
 
     if { ! $autonomousMode } {
         deflambda processText {topic nick header text time approver approveTime} {
-            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
-            set header [ htmlToText $header ]
-            updateTopicText $topic $header $nick
-            insertMessage "topic" $nick $header $time $text "" "" 1 force
+            invokeMaster [ lambda {topic nick header text time approver approveTime} {
+                saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
+                set header [ htmlToText $header ]
+                updateTopicText $topic $header $nick
+                insertMessage "topic" $nick $header $time $text "" "" 1 force
+            } $topic $nick $header $text $time $approver $approveTime ]
         } $topic
         deflambda processMessage {w id nick header time msg parent parentNick} {
-            if { $parent == "" } {
-                set parent "topic"
-                set parentNick [ getItemValue $w "topic" nick ]
-            }
-            if { ![ $w exists $id ] } {
-                insertMessage $id $nick $header $time $msg $parent $parentNick 1
-            }
+            invokeMaster [ ::gaa::lambda::lambda {w id nick header time msg parent parentNick} {
+                if { $parent == "" } {
+                    set parent "topic"
+                    set parentNick [ getItemValue $w "topic" nick ]
+                }
+                if { ![ $w exists $id ] } {
+                    insertMessage $id $nick $header $time $msg $parent $parentNick 1
+                }
+            } $w $id $nick $header $time $msg $parent $parentNick ]
         } $messageTree
 
-        if [ catch {lor::parseTopic $topic $processText $processMessage} errStr ] {
-            tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
-        }
+        deflambda finish {messageTree expandNewMessages} {
+            focus $messageTree
+            update
+            updateWindowTitle
+            if { $expandNewMessages == "1" } {
+                nextUnread $messageTree ""
+            }
+            stopWait
+        } $messageTree $expandNewMessages
+
+        global configDir libDir
+
+        invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] $finish [ list lor::parseTopic $topic $processText $processMessage ]
     }
-    focus $messageTree
-    update
-    updateWindowTitle
-    if { $expandNewMessages == "1" } {
-        nextUnread $messageTree ""
-    }
-    stopWait
 }
 
 proc insertMessage {id nick header time msg parent parentNick unread {force ""}} {
@@ -1285,17 +1292,6 @@ proc applyOptions {{nosave ""}} {
     global appId
     global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
-    gaa::httpTools::init \
-        -useragent $appId \
-        -proxy $useProxy \
-        -autoproxy $proxyAutoSelect \
-        -proxyhost $proxyHost \
-        -proxyport $proxyPort \
-        -proxyauth $proxyAuthorization \
-        -proxyuser $proxyUser \
-        -proxypassword $proxyPassword \
-        -charset "utf-8"
-
     configureTags $topicTree
     configureTags $messageTree
 
@@ -1815,7 +1811,6 @@ proc loadAppLibs {} {
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require lorParser 1.0
-    package require gaa_httpTools 1.0
     package require gaa_remoting 1.0
 
     namespace import ::gaa::lambda::*
