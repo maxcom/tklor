@@ -191,6 +191,8 @@ proc initMenu {} {
     $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
     $m add separator
+    $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $allTopicsWidget nextUnread}
+    $m add separator
     $m add command -label "Mark as read" -command {invokeMenuCommand $allTopicsWidget mark message 0}
     $m add command -label "Mark as unread" -command {invokeMenuCommand $allTopicsWidget mark message 1}
     $m add command -label "Mark thread as read" -command {invokeMenuCommand $allTopicsWidget mark thread 0}
@@ -206,6 +208,8 @@ proc initMenu {} {
     $m add command -label "Reply" -accelerator "Ctrl-R" -command {invokeMenuCommand $topicWidget reply}
     $m add command -label "User info" -accelerator "Ctrl-I" -command {invokeMenuCommand $topicWidget userInfo}
     $m add command -label "Open in browser" -accelerator "Ctrl-O" -command {invokeMenuCommand $topicWidget openMessage}
+    $m add separator
+    $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $topicWidget nextUnread}
     $m add separator
     $m add command -label "Mark as read" -command {invokeMenuCommand $topicWidget mark message 0}
     $m add command -label "Mark as unread" -command {invokeMenuCommand $topicWidget mark message 1}
@@ -281,6 +285,8 @@ proc initAllTopicsTree {} {
     bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
 
+    bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
+
     ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
     pack $f.scroll -side right -fill y
     pack $allTopicsWidget -expand yes -fill both
@@ -336,6 +342,8 @@ proc initTopicTree {} {
 
     bind $topicWidget <<TreeviewSelect>> "messageClick"
     bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
+
+    bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
@@ -1500,6 +1508,44 @@ proc addListItem {w} {
 proc removeListItem {w} {
     foreach item [ $w curselection ] {
         $w delete $item
+    }
+}
+
+proc nextUnread {w item} {
+    set cur $item
+    set fromChild 0
+    while 1 {
+        if { !$fromChild } {
+            set next [ lindex [ $w children $cur ] 0 ]
+        } else {
+            set next ""
+        }
+        set fromChild 0
+        if { $next == "" } {
+            set next [ $w next $cur ]
+            if { $next == "" } {
+                set next [ $w parent $cur ]
+                set fromChild 1
+                if { $next == "" } {
+                    set next [ lindex [ $w children "" ] 0 ]
+                }
+            }
+        }
+        set cur $next
+        if { $cur == $item && ! $fromChild } {
+            return
+        }
+        if { [ getItemValue $w $cur unread ] == "1" } {
+            $w see $cur
+            $w focus $cur
+            $w selection set $cur
+            if { $w == $::topicWidget } {
+                messageClick
+            } else {
+                topicClick
+            }
+            return
+        }
     }
 }
 
