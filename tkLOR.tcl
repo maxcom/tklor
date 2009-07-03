@@ -80,6 +80,7 @@ set messageTextMenu ""
 set autonomousMode 0
 set expandNewMessages 1
 set updateOnStart 0
+set doubleClickAllTopics 0
 
 set tileTheme "default"
 
@@ -118,6 +119,7 @@ set options {
         "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
         "Start in autonomous mode"  check   autonomousMode ""
         "Update topics list on start"    check   updateOnStart ""
+        "Use double-click to open topic"    check   doubleClickAllTopics ""
         "Browser"   editableCombo   browser { list "sensible-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
     }
     "Connection" {
@@ -307,15 +309,6 @@ proc initAllTopicsTree {} {
     $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
     updateItemState $allTopicsWidget "favorites"
 
-    bind $allTopicsWidget <<TreeviewSelect>> {invokeMenuCommand $allTopicsWidget click}
-#    bind $allTopicsWidget <Double-Button-1> {invokeMenuCommand $allTopicsWidget click}
-    bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
-
-#    bind $allTopicsWidget <Return> {invokeMenuCommand $allTopicsWidget click}
-    bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
-    bind $allTopicsWidget N {invokeMenuCommand $allTopicsWidget nextUnread}
-    bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
-
     ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
     pack $f.scroll -side right -fill y
     pack $allTopicsWidget -expand yes -fill both
@@ -358,7 +351,6 @@ proc initTopicText {} {
         }
     }
     pack $f -expand yes -fill both
-    bind $topicTextWidget <ButtonPress-3> {popupMenu $topicTextMenu %X %Y %x %y}
 
     return $mf
 }
@@ -376,13 +368,6 @@ proc initTopicTree {} {
     $topicWidget column time -width 1
 
     configureTags $topicWidget
-
-    bind $topicWidget <<TreeviewSelect>> {invokeMenuCommand $topicWidget click}
-    bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
-
-    bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
-    bind $topicWidget N {invokeMenuCommand $topicWidget nextUnread}
-    bind $topicWidget <Menu> {openContextMenu $topicWidget $messageMenu}
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
@@ -435,7 +420,6 @@ proc initMessageWidget {} {
             pack $messageWidget -expand yes -fill both
         }
     }
-    bind $messageWidget <ButtonPress-3> {popupMenu $messageTextMenu %X %Y %x %y}
 
     return $mf
 }
@@ -462,20 +446,6 @@ proc initMainWindow {} {
     .vertPaned add [ initTopicText ] -weight 3
     .vertPaned add [ initTopicTree ] -weight 1
     .vertPaned add [ initMessageWidget ] -weight 3
-
-    bind . <F1> helpAbout
-    bind . <F2> updateTopicList
-    bind . <F3> findNext
-    bind . <F5> refreshTopic
-
-    bind . <Control-r> {invokeMenuCommand $topicWidget reply}
-    bind . <Control-R> {invokeMenuCommand $topicWidget reply}
-    bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
-    bind . <Control-I> {invokeMenuCommand $topicWidget userInfo}
-    bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
-    bind . <Control-O> {invokeMenuCommand $topicWidget openMessage}
-    bind . <Control-f> find
-    bind . <Control-F> find
 
     ttk::style theme use $tileTheme
 }
@@ -1511,6 +1481,8 @@ proc applyOptions {} {
         $topicTextWidget configure -font $messageTextFont
         $messageWidget configure -font $messageTextFont
     }
+
+    initBindings
 }
 
 proc saveOptions {} {
@@ -1897,6 +1869,52 @@ proc parseRss {data script} {
     }
 }
 
+proc initBindings {} {
+    global allTopicsWidget topicWidget
+    global topicTextWidget messageWidget
+    global doubleClickAllTopics
+
+    foreach i {<<TreeviewSelect>> <Double-Button-1> <Return>} {
+        bind $allTopicsWidget $i ""
+    }
+
+    if { $doubleClickAllTopics == "0" } {
+        bind $allTopicsWidget <<TreeviewSelect>> {invokeMenuCommand $allTopicsWidget click}
+    } else {
+        bind $allTopicsWidget <Double-Button-1> {invokeMenuCommand $allTopicsWidget click}
+        bind $allTopicsWidget <Return> {invokeMenuCommand $allTopicsWidget click}
+    }
+    bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
+    bind $allTopicsWidget n {invokeMenuCommand $allTopicsWidget nextUnread}
+    bind $allTopicsWidget N {invokeMenuCommand $allTopicsWidget nextUnread}
+    bind $allTopicsWidget <Menu> {openContextMenu $allTopicsWidget $topicMenu}
+
+    bind $topicTextWidget <ButtonPress-3> {popupMenu $topicTextMenu %X %Y %x %y}
+
+    bind $topicWidget <<TreeviewSelect>> {invokeMenuCommand $topicWidget click}
+    bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
+
+    bind $topicWidget n {invokeMenuCommand $topicWidget nextUnread}
+    bind $topicWidget N {invokeMenuCommand $topicWidget nextUnread}
+    bind $topicWidget <Menu> {openContextMenu $topicWidget $messageMenu}
+
+    bind $messageWidget <ButtonPress-3> {popupMenu $messageTextMenu %X %Y %x %y}
+
+    bind . <F1> helpAbout
+    bind . <F2> updateTopicList
+    bind . <F3> findNext
+    bind . <F5> refreshTopic
+
+    bind . <Control-r> {invokeMenuCommand $topicWidget reply}
+    bind . <Control-R> {invokeMenuCommand $topicWidget reply}
+    bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
+    bind . <Control-I> {invokeMenuCommand $topicWidget userInfo}
+    bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
+    bind . <Control-O> {invokeMenuCommand $topicWidget openMessage}
+    bind . <Control-f> find
+    bind . <Control-F> find
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -1910,6 +1928,7 @@ initHttp
 initMenu
 initPopups
 initMainWindow
+initBindings
 
 update
 
