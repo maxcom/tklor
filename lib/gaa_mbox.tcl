@@ -49,7 +49,7 @@ proc parseLine {id line} {
     if { $state == "EOF" ||
             ( [ regexp {^From:{0,1} (.+)$} $line dummy nick ] &&
                 ( $state == "BODYSPACE" || $state == "BEGIN" ) ) } {
-        if { ! [ regexp {^\s*$} $letter ] } {
+        if { $state != "BEGIN" } {
             uplevel #0 [ concat [ set command$id ] [ list $letter ] ]
         }
         if { $state != "EOF" } {
@@ -75,7 +75,7 @@ proc parseLine {id line} {
         return
     }
     if { $state == "HEAD" } {
-        if [ regexp {^([\w-]+): (.+)$} $line dummy tag val ] {
+        if [ regexp {^([\w-]+):\s*(.*)$} $line dummy tag val ] {
             set lt($tag) $val
         } else {
             error "Invalid data in the header section: $line"
@@ -135,19 +135,16 @@ proc parseStream {stream command args} {
     if $p(sync) {
         fconfigure $stream -blocking 1
         if [ catch {
-            if [ catch {
-                while { [ gets $stream s ] >= 0 } {
-                    parseLine $id $s
-                }
-            } err ] {
-                closeParser $id
-                error $err $::errorInfo
+            while { [ gets $stream s ] >= 0 } {
+                parseLine $id $s
             }
-            closeParser $id
-            close $stream
         } err ] {
-            uplevel #0 [ concat $p(onerror) [ list $err ] ]
+            set errInfo $::errorInfo
+            catch {closeParser $id}
+            error $err $errInfo
         }
+        closeParser $id
+        close $stream
     } else {
         fconfigure $stream \
             -buffering line \
@@ -171,7 +168,7 @@ proc initParser {command} {
     variable state$id
     variable command$id
 
-    set letter$id ""
+    set letter$id {body ""}
     set state$id "BEGIN"
     set command$id $command
 

@@ -570,18 +570,6 @@ proc renderHtmlTag {w stack tag slash param text} {
     $w insert end $text
 }
 
-proc updateTopicText {id header nick} {
-    global topicHeader
-    global topicTree
-
-    set topicHeader $header
-
-    if { [ $topicTree exists $id ] } {
-        setItemValue $topicTree $id nick $nick
-        updateItemState $topicTree $id
-    }
-}
-
 proc updateMessage {item} {
     global messageTextWidget
     global currentHeader currentNick currentPrevNick currentTime
@@ -653,14 +641,11 @@ proc setTopic {topic} {
 
         set currentTopic $topic
 
-        loadTopicTextFromCache $topic
-        setFocusedItem $messageTree "topic"
-        update
-        loadCachedMessages $topic
+        loadTopicFromCache $topic ""
     }
     if { ! $autonomousMode } {
         #TODO here
-        #loadMessagesFromFile $topic
+        #loadMessagesFromTask $topic
     }
 
 
@@ -671,7 +656,7 @@ proc setTopic {topic} {
 #            }
 #            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
 #            set header [ htmlToText $header ]
-#            updateTopicText $topic $header $nick
+#            updateTopicText $header
 #            insertMessage topic $nick $header $time $text {} {} 1 force
 #        } $topic
 #        defCallbackLambda processMessage {w id nick header time msg parent parentNick} {
@@ -894,19 +879,36 @@ proc saveTopicTextToCache {topic header text nick time approver approveTime} {
     ::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
 }
 
-proc loadTopicTextFromCache {topic} {
+proc loadTopicFromCache {topic oncomplete} {
     global cacheDir
+    global messageTree
+    global topicHeader
 
-    updateTopicText "" "" ""
-    catch {
-        set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
-        deflambda script {topic letter} {
-            array set res $letter
-            updateTopicText $topic $res(Subject) $res(From)
-            insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
-        } $topic
-#TODO: do via addTask
-        ::mbox::parse $fname $script -encoding utf-8 -noasync
+    set topicHeader ""
+    set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
+    deflambda script {topic letter} {
+        global topicHeader
+
+        array set res $letter
+        set topicHeader "$res(Subject)\($res(From)\)"
+        insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
+    } $topic
+
+    set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
+    if [ catch {
+        ::mbox::parseFile $fname $script -sync 1
+    } err ] {
+        eval [ concat $onerr [ list $err $::errorInfo ] ]
+    } else {
+        setFocusedItem $messageTree "topic"
+        update 
+        loadMessagesFromTask \
+            [ file join $cacheDir $topic ] \
+            $topic \
+            $oncomplete \
+            -title [ mc "Loading topic %s" $topic ] \
+            -cat \
+            -onerror $onerr
     }
 }
 
@@ -928,36 +930,35 @@ proc saveMessage {topic id header text nick time replyTo replyToId unread} {
     ::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
 }
 
-proc loadCachedMessages {topic} {
-    global cacheDir
-    loadMessagesFromFile [ file join $cacheDir $topic ] $topic
-}
-
-proc loadMessagesFromFile {fname topic} {
+proc loadMessagesFromTask {task topic oncomplete args} {
     upvar #0 messageTree w
 
     deflambda processLetter {letter} {
         array set res $letter
-#        catch { ...}
-            if { [ lsearch -exact [ array names res ] "To" ] != -1 } {
-                set parentNick $res(To)
-                set parent $res(X-LOR-ReplyTo-Id)
-            } else {
-                set parentNick ""
-                set parent ""
-            }
-            #for all items without parent it assumed to "topic"
-            if { $parent == "" } {
-                set parent "topic"
-            }
-            insertMessage $res(X-LOR-Id) $res(From) $res(Subject) $res(X-LOR-Time) $res(body) $parent $parentNick $res(X-LOR-Unread)
-#{...        }
+        if [ info exists res(To) ]  {
+            set parentNick $res(To)
+            set parent $res(X-LOR-ReplyTo-Id)
+        } else {
+            set parentNick ""
+            set parent ""
+        }
+        #for all items without parent it assumed to "topic"
+        if { $parent == "" } {
+            set parent "topic"
+        }
+        insertMessage $res(X-LOR-Id) $res(From) $res(Subject) $res(X-LOR-Time) $res(body) $parent $parentNick $res(X-LOR-Unread)
         array unset res
     }
-#    catch { ...}
-#TODO: do via addTask
-        ::mbox::parse $fname $processLetter -encoding utf-8
-#{...    }
+
+    set id [ ::mbox::initParser $processLetter ]
+    set arg [ list \
+        -onoutput [ list ::mbox::parseLine $id ] \
+        -oncomplete [ join [ list \
+            [ list ::mbox::closeParser $id ] \
+            $oncomplete \
+        ] ";" ] \
+    ]
+    eval [ concat [ list ::taskManager::addTask $task ] $arg $args ]
 }
 
 proc clearDiskCache {topic} {

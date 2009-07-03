@@ -58,12 +58,16 @@ proc addTask {command args} {
         [ list title.arg $command "Title to display in task manager" ] \
         {mode.arg       "r"       "File open mode"} \
         {encoding.arg   "utf-8"   "Encoding"} \
+        {cat                      "Read file instead of command execution"} \
         {onoutput.arg   ""        "Script to execute on output(1 arg)"} \
         {onerror.arg    ""        "Script to execute on error(1 arg)"} \
         {oncomplete.arg ""        "Script to execute on command finish"} \
     ] ]
 
-    set f [ open "|$command" $p(mode) ]
+    if { !$p(cat) } {
+        set command "!$command"
+    }
+    set f [ open $command $p(mode) ]
     if { $p(encoding) != ""} {
         fconfigure $f -encoding $p(encoding)
     }

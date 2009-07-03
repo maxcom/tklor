@@ -152,6 +152,8 @@
         "An error occured while posting '%s'"      "Произошла ошибка при отправке сообщения '%s'"
         "There are %s running tasks"            "Выполняется %s фоновых задач"
         "Are you want to exit and stop it?"     "Хотите их остановить и выйти?"
-        "Fetching new topics"                   "Обновление списка тем"
-        "Fetching topics list failed"           "Ошибка при получении списка тем"
+        "Fetching new topics"           "Обновление списка тем"
+        "Fetching topics list failed"   "Ошибка при получении списка тем"
+        "Loading topic %s"              "Загрузка темы %s"
+        "Error while loading topic %s"  "Ошибка при загрузке темы %s"
 }
