@@ -152,30 +152,30 @@ proc initPopups {} {
     global messageMenu topicMenu
 
     set messageMenu [ menu .messageMenu -tearoff 0 ]
-    $messageMenu add command -label "Reply" -command "reply"
-    $messageMenu add command -label "User info" -command "userInfo"
-    $messageMenu add command -label "Open in browser" -command "openMessage"
+    $messageMenu add command -label "Reply" -command {invokeItemCommand $topicWidget reply}
+    $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
+    $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
     $messageMenu add separator
-    $messageMenu add command -label "Mark as read" -command "markMessage message 0"
-    $messageMenu add command -label "Mark as unread" -command "markMessage message 1"
-    $messageMenu add command -label "Mark thread as read" -command "markMessage thread 0"
-    $messageMenu add command -label "Mark thread as unread" -command "markMessage thread 1"
+    $messageMenu add command -label "Mark as read" -command {invokeItemCommand $topicWidget mark message 0}
+    $messageMenu add command -label "Mark as unread" -command {invokeItemCommand $topicWidget mark message 1}
+    $messageMenu add command -label "Mark thread as read" -command {invokeItemCommand $topicWidget mark thread 0}
+    $messageMenu add command -label "Mark thread as unread" -command {invokeItemCommand $topicWidget mark thread 1}
     $messageMenu add command -label "Mark all as read" -command "markAllMessages 0"
     $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
-    $topicMenu add command -label "Refresh list" -command "refreshTopicList"
-    $topicMenu add command -label "Reply" -command "topicReply"
-    $topicMenu add command -label "User info" -command "topicUserInfo"
-    $topicMenu add command -label "Open in browser" -command "topicOpenMessage"
+    $topicMenu add command -label "Refresh list" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
+    $topicMenu add command -label "Reply" -command {invokeItemCommand $allTopicsWidget topicReply}
+    $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
+    $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
     $topicMenu add separator
-    $topicMenu add command -label "Mark as read" -command "markTopic topic 0"
-    $topicMenu add command -label "Mark as unread" -command "markTopic topic 1"
-    $topicMenu add command -label "Mark thread as read" -command "markTopic thread 0"
-    $topicMenu add command -label "Mark thread as unread" -command "markTopic thread 1"
+    $topicMenu add command -label "Mark as read" -command {invokeItemCommand $allTopicsWidget mark message 0}
+    $topicMenu add command -label "Mark as unread" -command {invokeItemCommand $allTopicsWidget mark message 1}
+    $topicMenu add command -label "Mark thread as read" -command {invokeItemCommand $allTopicsWidget mark thread 0}
+    $topicMenu add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
     $topicMenu add separator
-    $topicMenu add command -label "Move to favorites" -command "addToFavorites"
-    $topicMenu add command -label "Delete" -command "deleteTopic"
+    $topicMenu add command -label "Move to favorites" -command {invokeItemCommand $allTopicsWidget addToFavorites}
+    $topicMenu add command -label "Delete" -command {invokeItemCommand $allTopicsWidget deleteTopic}
 }
 
 proc initAllTopicsTree {} {
@@ -204,7 +204,7 @@ proc initAllTopicsTree {} {
     $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "favorites" ]
 
     bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
-    bind $allTopicsWidget <ButtonPress-3> "topicPopup %X %Y %x %y"
+    bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
 
     ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
     pack $f.scroll -side right -fill y
@@ -260,7 +260,7 @@ proc initTopicTree {} {
     configureTags $topicWidget
 
     bind $topicWidget <<TreeviewSelect>> "messageClick"
-    bind $topicWidget <ButtonPress-3> "messagePopup %X %Y %x %y"
+    bind $topicWidget <ButtonPress-3> {popupMenu $messageMenu %X %Y %x %y}
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
@@ -991,50 +991,19 @@ proc mark {w item type unread} {
     }
 }
 
-proc messagePopup {xx yy x y} {
-    global messageMenu mouseX mouseY
+proc popupMenu {menu xx yy x y} {
+    global mouseX mouseY
 
     set mouseX $x
     set mouseY $y
 
-    tk_popup $messageMenu $xx $yy
+    tk_popup $menu $xx $yy
 }
 
-proc markMessage {thread unread} {
-    upvar #0 topicWidget w
-    global mouseX mouseY
+proc refreshTopicList {w item} {
+    global allTopicsWidget
 
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        mark $w $item $thread $unread
-    }
-}
-
-proc topicPopup {xx yy x y} {
-    global topicMenu mouseX mouseY
-
-    set mouseX $x
-    set mouseY $y
-
-    tk_popup $topicMenu $xx $yy
-}
-
-proc markTopic {thread unread} {
-    upvar #0 allTopicsWidget w
-    global mouseX mouseY
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        mark $w $item $thread $unread
-    }
-}
-
-proc refreshTopicList {} {
-    upvar #0 allTopicsWidget w
-    global mouseX mouseY
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
+    if { $w == $allTopicsWidget } {
         updateTopicList $item
     }
 }
@@ -1047,76 +1016,34 @@ proc markAllMessages {unread} {
     }
 }
 
-proc reply {} {
-    upvar #0 topicWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
-    }
+proc reply {w item} {
+    global topicWidget lorUrl currentTopic
+    openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
 }
 
-proc userInfo {} {
-    upvar #0 topicWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
-    }
+proc userInfo {w item} {
+    global topicWidget lorUrl
+    openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
 }
 
-proc openMessage {} {
-    upvar #0 topicWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
-    }
+proc openMessage {w item} {
+    global topicWidget lorUrl currentTopic
+    openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
 }
 
-proc topicReply {} {
-    upvar #0 allTopicsWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
-    }
+proc topicReply {w item} {
+    global allTopicsWidget lorUrl
+    openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
 }
 
-proc topicUserInfo {} {
-    upvar #0 allTopicsWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
-    }
+proc topicUserInfo {w item} {
+    global allTopicsWidget lorUrl
+    openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
 }
 
-proc topicOpenMessage {} {
-    upvar #0 allTopicsWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
-
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
-    }
+proc topicOpenMessage {w item} {
+    global allTopicsWidget lorUrl
+    openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
 }
 
 proc openUrl {url} {
@@ -1211,35 +1138,31 @@ proc replaceHtmlEntities {text} {
     return $text
 }
 
-proc addToFavorites {} {
-    upvar #0 allTopicsWidget w
-    global mouseX mouseY
-    global lorUrl
-    global currentTopic
+proc addToFavorites {w item} {
+    global allTopicsWidget
 
-    set item [ $w identify row $mouseX $mouseY ]
-    if { $item != "" } {
-        $w detach $item
-        set childs [ $w children "favorites" ]
-        lappend childs $item
-        $w children "favorites" $childs
-        if [ getItemValue $w $item unread ] {
-            addUnreadChild $w [ getItemValue $w $item parent ] -1
-            addUnreadChild $w "favorites"
-        }
-        setItemValue $w $item parent "favorites"
+    $w detach $item
+    set childs [ $w children "favorites" ]
+    lappend childs $item
+    $w children "favorites" $childs
+    if [ getItemValue $w $item unread ] {
+        addUnreadChild $w [ getItemValue $w $item parent ] -1
+        addUnreadChild $w "favorites"
     }
+    setItemValue $w $item parent "favorites"
 }
 
-proc deleteTopic {} {
-    upvar #0 allTopicsWidget w
+proc deleteTopic {w item} {
+    global allTopicsWidget
+    $w delete $item
+}
+
+proc invokeItemCommand {w command args} {
     global mouseX mouseY
-    global lorUrl
-    global currentTopic
 
     set item [ $w identify row $mouseX $mouseY ]
     if { $item != "" } {
-        $w delete $item
+        eval "$command $w $item $args"
     }
 }
 
