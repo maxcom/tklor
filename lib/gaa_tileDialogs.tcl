@@ -25,6 +25,7 @@ package require Tk 8.4
 package require cmdline 1.2.5
 package require tile 0.8
 package require gaa_lambda 1.0
+package require gaa_tools 1.0
 
 namespace eval ::gaa {
 namespace eval tileDialogs {
@@ -34,8 +35,6 @@ namespace export \
     onePageOptionsDialog \
     inputStringDialog \
     buttonBox
-
-set lastGeneratedIdSuffix -1
 
 proc packOptionsItem {w name item type val opt} {
     if { $type != "check" } {
@@ -300,10 +299,22 @@ proc fetchOptionsFrameValues {optList page ws} {
     return $result
 }
 
-proc onePageOptionsDialog {title optList script} {
-    set d [ generateUniqueWidgetId ".onePageOptionsDialog" ]
+proc onePageOptionsDialog {args} {
+    array set param [ ::cmdline::getoptions args {
+        {title.arg      "Options" "Window title"}
+        {options.arg    ""        "Options list in format {title type id value opt}"}
+        {script.arg     ""        "Script to execute on OK click"}
+    } ]
+    if { $param(options) == "" } {
+        error "Parameter -options is mandatory!"
+    }
+    if { $param(script) == "" } {
+        error "Parameter -script is mandatory!"
+    }
+
+    set d [ gaa::tools::generateUniqueWidgetId ".onePageOptionsDialog" ]
     toplevel $d
-    wm title $d $title
+    wm title $d $param(title)
     set page [ ttk::frame $d.optFrame ]
     pack $page -fill both
 
@@ -311,7 +322,7 @@ proc onePageOptionsDialog {title optList script} {
     set okList ""
     set genList ""
     set fetchList ""
-    foreach {item type var value opt} $optList {
+    foreach {item type var value opt} $param(options) {
         lappend genList $item $type $value $opt
         lappend fetchList $item $type $var $opt
     }
@@ -322,7 +333,7 @@ proc onePageOptionsDialog {title optList script} {
                 lappend var [ lindex $optList [ expr $i*4+2 ] ] [ lindex $vals $i ]
             }
             eval [ concat $script [ list $var ] ]
-        } $fetchList $page [ generateOptionsFrame $d $genList $page ] $script \
+        } $fetchList $page [ generateOptionsFrame $d $genList $page ] $param(script) \
     ]
 
     lappend okList [ list "destroy" $d ]
@@ -368,7 +379,7 @@ proc inputStringDialog {args} {
         error "Parameter -script is mandatory!"
     }
 
-    set f [ generateUniqueWidgetId ".inputStringDialog" ]
+    set f [ gaa::tools::generateUniqueWidgetId ".inputStringDialog" ]
 
     toplevel $f
     wm title $f $param(title)
@@ -400,17 +411,6 @@ proc inputStringDialog {args} {
     wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f.entry <Return> $okScript
     bind $f <Escape> $cancelScript
-}
-
-proc generateUniqueWidgetId {prefix} {
-    global lastGeneratedIdSuffix
-
-    set id $prefix
-    while [ winfo exists $id ] {
-        set id [ join [ list $prefix $lastGeneratedIdSuffix ] "" ]
-        incr lastGeneratedIdSuffix
-    }
-    return $id
 }
 
 }

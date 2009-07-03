@@ -1919,41 +1919,47 @@ proc tagUser {w item} {
     for {set i 0} {$i < [ llength $userTagList ]} {incr i} {
         set item [ lindex $userTagList $i ]
         if { [ lindex $item 0 ] == $nick } {
-            onePageOptionsDialog "Modify user tag" [ list \
-                "Nick"  string nick $nick "" \
-                "Tag"   string tag  [ lindex $item 1 ] "" \
-            ] [ lambda {w pos vals} {
+            onePageOptionsDialog \
+                -title "Modify user tag" \
+                -options [ list \
+                    "Nick"  string nick $nick "" \
+                    "Tag"   string tag  [ lindex $item 1 ] "" \
+                ] \
+                -script [ lambda {w pos vals} {
                     global userTagList
                     array set arr $vals
                     lset userTagList $pos [ list $arr(nick) $arr(tag) ]
                     array unset arr
-                } $w $i \
-            ]
+                } $w $i ]
             return
         }
     }
-    onePageOptionsDialog "Add user tag" [ list \
-        "Nick"  string nick $nick "" \
-        "Tag"   string tag  "" "" \
-    ] [ lambda {w vals} {
+    onePageOptionsDialog \
+        -title "Add user tag" \
+        -options [ list \
+            "Nick"  string nick $nick "" \
+            "Tag"   string tag  "" "" \
+        ] \
+        -script [ lambda {w vals} {
             global userTagList
             array set arr $vals
             lappend userTagList [ list $arr(nick) $arr(tag) ]
             array unset arr
-        } $w \
-    ]
+        } $w ]
 }
 
 proc addUserTagListItem {w} {
-    onePageOptionsDialog "Add user tag" {
-        "Nick"  string nick "" ""
-        "Tag"   string tag  "" ""
-    } [ lambda {w vals} {
+    onePageOptionsDialog \
+        -title "Add user tag" \
+        -options {
+            "Nick"  string nick "" ""
+            "Tag"   string tag  "" ""
+        } \
+        -script [ lambda {w vals} {
             array set arr $vals
             $w insert {} end -text $arr(nick) -values [ list $arr(tag) ]
             array unset arr
-        } $w \
-    ]
+        } $w ]
 }
 
 proc modifyUserTagListItem {w} {
@@ -1961,15 +1967,17 @@ proc modifyUserTagListItem {w} {
     if { $id == "" } {
         addUserTagListItem $w
     } else {
-        onePageOptionsDialog "Modify user tag" [ list \
-            "Nick"  string nick [ $w item $id -text ] "" \
-            "Tag"   string tag  [ lindex [ $w item $id -values ] 0 ] "" \
-        ] [ lambda {w id vals} {
+        onePageOptionsDialog \
+            -title "Modify user tag" \
+            -options [ list \
+                "Nick"  string nick [ $w item $id -text ] "" \
+                "Tag"   string tag  [ lindex [ $w item $id -values ] 0 ] "" \
+            ] \
+            -script [ lambda {w id vals} {
                 array set arr $vals
                 $w item $id -text $arr(nick) -values [ list $arr(tag) ]
                 array unset arr
-            } $w $id \
-        ]
+            } $w $id ]
     }
 }
 
@@ -1980,16 +1988,18 @@ proc isUserIgnored {nick} {
 }
 
 proc addColorListItem {w} {
-    onePageOptionsDialog "Add color regexp" {
-        "Regexp" string regexp  "" ""
-        "Color"  color color    "red" ""
-        "Element" readOnlyCombo element "foreground" { list foreground background }
-    } [ lambda {w vals} {
+    onePageOptionsDialog \
+        -title "Add color regexp" \
+        -options {
+            "Regexp" string regexp  "" ""
+            "Color"  color color    "red" ""
+            "Element" readOnlyCombo element "foreground" { list foreground background }
+        } \
+        -script [ lambda {w vals} {
             array set arr $vals
             $w insert {} end -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
             array unset arr
-        } $w \
-    ]
+        } $w ]
 }
 
 proc modifyColorListItem {w} {
@@ -1997,16 +2007,18 @@ proc modifyColorListItem {w} {
     if { $id == "" } {
         addColorListItem $w
     } else {
-        onePageOptionsDialog "Modify color regexp" [ list \
-            "Regexp" string regexp  [ $w item $id -text ] "" \
-            "Color"  color color    [ lindex [ $w item $id -values ] 0 ] "" \
-            "Element" readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
-        ] [ lambda {w id vals} {
+        onePageOptionsDialog \
+            -title "Modify color regexp" \
+            -options [ list \
+                "Regexp" string regexp  [ $w item $id -text ] "" \
+                "Color"  color color    [ lindex [ $w item $id -values ] 0 ] "" \
+                "Element" readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
+            ] \
+            -script [ lambda {w id vals} {
                 array set arr $vals
                 $w item $id -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
                 array unset arr
-            } $w $id \
-        ]
+            } $w $id ]
     }
 }
 
