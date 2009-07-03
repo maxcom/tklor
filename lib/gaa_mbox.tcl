@@ -67,12 +67,11 @@ proc parseLine {id line} {
             BODY {
                 set state$id BODYSPACE
             }
-            BODYSPACE {
-                set lt(body) "$lt(body)\n"
-            }
         }
         set letter$id [ array get lt ]
         return
+    } elseif { $state == "BODYSPACE" } {
+        set lt(body) "$lt(body)\n"
     }
     if { $state == "HEAD" || $state == "BEGIN" } {
         if [ regexp {^([\w-]+):\s*(.*)$} $line dummy tag val ] {
@@ -84,7 +83,7 @@ proc parseLine {id line} {
         if [ regexp {^>(>*From:{0,1} .*)$} $line dummy ss ] {
             set line $ss
         }
-        append lt(body) "\n$line"
+        append lt(body) "$line\n"
     }
     set letter$id [ array get lt ]
 }
