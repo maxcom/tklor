@@ -112,7 +112,7 @@ proc writeToStream {stream letter} {
     set body ""
     foreach {header value} $letter {
         if {$header != "body"} {
-            puts $stream "$header"
+            puts -nonewline $stream "$header"
             if {$header != "From"} {
                 puts -nonewline $stream ":"
             }

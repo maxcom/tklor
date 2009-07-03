@@ -831,7 +831,7 @@ proc saveTopicTextToCache {topic header text nick time approver approveTime} {
     lappend letter "X-LOR-Approver" $approver
     lappend letter "X-LOR-Approve-Time" $approveTime
     lappend letter "body" $text
-    ::gaa::mbox::writeToFile $fname [ list $letter ] -append -encoding utf-8
+    ::gaa::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
 }
 
 proc loadTopicTextFromCache {topic} {
@@ -1409,11 +1409,7 @@ proc saveOptions {} {
     foreach {category optList} $options {
         foreach {item type var opt} $optList {
             puts $f "# $category :: $item"
-            if [ array exists ::$var ] {
-                puts $f [ list "array" "set" $var [ array get ::$var ] ]
-            } else {
-                puts $f [ list "set" $var [ set ::$var ] ]
-            }
+            puts $f [ list "set" $var [ set ::$var ] ]
             puts $f ""
         }
     }
@@ -1786,12 +1782,12 @@ proc initBindings {} {
         bind $w n [ list invokeMenuCommand $w nextUnread ]
         bind $w N [ list invokeMenuCommand $w nextUnread ]
 
-        bind . <Control-r> {invokeMenuCommand $w reply}
-        bind . <Control-R> {invokeMenuCommand $w reply}
-        bind . <Control-i> {invokeMenuCommand $w userInfo}
-        bind . <Control-I> {invokeMenuCommand $w userInfo}
-        bind . <Control-o> {invokeMenuCommand $w openMessage}
-        bind . <Control-O> {invokeMenuCommand $w openMessage}
+        bind . <Control-r> [ list invokeMenuCommand $w reply ]
+        bind . <Control-R> [ list invokeMenuCommand $w reply ]
+        bind . <Control-i> [ list invokeMenuCommand $w userInfo ]
+        bind . <Control-I> [ list invokeMenuCommand $w userInfo ]
+        bind . <Control-o> [ list invokeMenuCommand $w openMessage ]
+        bind . <Control-O> [ list invokeMenuCommand $w openMessage ]
     }
 
     bind . <F1> helpAbout
