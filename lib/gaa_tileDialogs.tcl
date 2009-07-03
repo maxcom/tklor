@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_tileDialogs 1.2
+package provide gaa_tileDialogs 1.3
 
 package require Tcl 8.4
 package require Tk 8.4
@@ -104,6 +104,26 @@ proc packOptionsItem {w name item type val opt} {
                 ] \
             ] -fill x -side bottom
         }
+        selectList {
+            set f [ ttk::frame $name ]
+            set v [ ttk::treeview $f.list -yscrollcommand "$f.scroll set" -selectmode none ]
+            pack [ ttk::scrollbar $f.scroll -command "$v yview" ] -side right -fill y
+            pack $v -anchor w -fill both
+            pack $f -anchor w -fill both
+
+            foreach {id text} $opt {
+                $v insert {} end -id $id -text $text
+                if { [ lsearch $val $id ] != -1 } {
+                    $v selection add $id
+                }
+            }
+            bind $v <space> [ ::gaa::lambda::lambda {v} {
+                set cur [ $v focus ]
+                if {$cur != ""} {
+                   $v selection toggle $cur
+                }
+            } $v ]
+        }
         editableCombo {
             pack [ ttk::combobox $name -values $opt ] -anchor w -fill x
             $name set $val
@@ -184,6 +204,9 @@ proc getOptionsItemValue {name type} {
                 lappend res $l
             }
             return $res
+        }
+        selectList {
+            return [ $name.list selection ]
         }
         font -
         color {

@@ -102,6 +102,8 @@ set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
 set messageTextQuoteFont "-slant italic"
 
+set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 19109}
+
 array set fontPart {
     none ""
     item "-family Sans"
@@ -161,6 +163,9 @@ set options {
         "Quote font"        font    messageTextQuoteFont ""
         "Font color"        color   color(htmlFg) ""
         "Background"        color   color(htmlBg) ""
+    }
+    "Forum groups" {
+        "Visible forum groups"  selectList  forumVisibleGroups  {set lor::forumGroups}
     }
 }
 
@@ -274,6 +279,7 @@ proc initMenu {} {
 
 proc initTopicTree {} {
     upvar #0 topicTree w
+    global forumVisibleGroups
 
     set f [ ttk::frame .topicTreeFrame -width 250 -relief sunken ]
     set w [ ttk::treeview $f.w -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
@@ -295,9 +301,12 @@ proc initTopicTree {} {
 
     $w insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
     foreach {id title} $::lor::forumGroups {
-        $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
-        updateItemState $w "forum$id"
+        if { [ lsearch $forumVisibleGroups $id ] != -1 } {
+            $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
+            updateItemState $w "forum$id"
+        }
     }
+    sortChildrens $w "forum"
     updateItemState $w "forum"
 
     $w insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
@@ -1021,7 +1030,7 @@ proc addTopicFromCache {parent id nick text unread} {
 
     if { ! [ $w exists $id ] } {
         $w insert $parent end -id $id
-        $w children $parent [ lsort -decreasing [ $w children $parent ] ]
+        sortChildrens $w $parent
 
         setItemValue $w $id nick $nick
         setItemValue $w $id text $text
@@ -1305,6 +1314,8 @@ proc applyOptions {{nosave ""}} {
     initBindings
 
     set colorCount [ llength $colorList ]
+
+    updateForumGroups
 
     if { $nosave != "" } {
         saveOptions
@@ -1864,6 +1875,36 @@ proc errorProc {err} {
 
     tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
     updateStatusText
+}
+
+proc sortChildrens {w parent} {
+    $w children $parent [ lsort -decreasing [ $w children $parent ] ]
+}
+
+proc updateForumGroups {} {
+    upvar #0 topicTree w
+    global forumVisibleGroups
+
+    foreach {id title} $::lor::forumGroups {
+        if { [ lsearch $forumVisibleGroups $id ] != -1 } {
+            # if forum group must be visible ...
+            if { ! [ $w exists "forum$id" ] } {
+                $w insert forum end \
+                    -id "forum$id" \
+                    -text $title \
+                    -values [ list "" 0 0 "forum" $title ]
+                updateItemState $w "forum$id"
+            }
+        } else {
+            # if forum group must be hidden ...
+            if { [ $w exists "forum$id" ] } {
+                clearTreeItemChildrens $w "forum$id"
+                $w delete "forum$id"
+            }
+        }
+    }
+    sortChildrens $w "forum"
+    updateItemState $w "forum"
 }
 
 ############################################################################

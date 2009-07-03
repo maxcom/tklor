@@ -9,7 +9,7 @@
 # full path name of this file's directory.
 
 package ifneeded gaa_lambda 1.0 [list source [file join $dir gaa_lambda.tcl]]
-package ifneeded gaa_tileDialogs 1.2 [list source [file join $dir gaa_tileDialogs.tcl]]
+package ifneeded gaa_tileDialogs 1.3 [list source [file join $dir gaa_tileDialogs.tcl]]
 package ifneeded gaa_tools 1.1 [list source [file join $dir gaa_tools.tcl]]
 package ifneeded gaa_mbox 1.0 [list source [file join $dir gaa_mbox.tcl]]
 package ifneeded lorParser 1.0 [list source [file join $dir lorParser.tcl]]
