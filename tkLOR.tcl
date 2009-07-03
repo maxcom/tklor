@@ -521,6 +521,7 @@ proc setTopic {topic} {
     global topicWidget messageWidget
     global currentHeader currentNick currentPrevNick currentTime topicNick topicTime
     global autonomousMode
+    global expandNewMessages
 
     if { $currentTopic != "" } {
         saveTopicToCache $currentTopic
@@ -564,12 +565,15 @@ proc setTopic {topic} {
             tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
         }
     }
+    focus $topicWidget
+    update
+    if { $expandNewMessages == "1" } {
+        nextUnread $topicWidget ""
+    }
     stopWait
 }
 
 proc parseTopicText {topic data} {
-#    global topicNick topicHeader topicTime
-
     if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         set topicText $msg
         set topicNick $nick
@@ -588,9 +592,6 @@ proc parseTopicText {topic data} {
 
 proc parsePage {topic data} {
     upvar #0 topicWidget w
-    global expandNewMessages
-
-    set first ""
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
@@ -604,23 +605,8 @@ proc parsePage {topic data} {
                 setItemValue $w $id unreadChild 0
                 addUnreadChild $w $parent
                 updateItemState $w $id
-
-                if { $expandNewMessages } {
-                    if { [ getItemValue $w [ getItemValue $w $id parent ] unread ] != "1" } {
-                        $w see $id
-                        if { $first == "" } {
-                            set first $id
-                        }
-                    }
-                }
             }
         }
-    }
-    if { $first != "" } {
-        focus $w
-        $w see $first
-        $w focus $first
-        $w selection set $first
     }
 }
 
