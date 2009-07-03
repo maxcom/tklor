@@ -73,6 +73,7 @@ set messageMenu ""
 set topicMenu ""
 
 set autonomousMode 0
+set expandNewMessages 1
 
 set forumGroups {
     126     General
@@ -513,6 +514,7 @@ proc parseTopicText {topic data} {
 
 proc parsePage {topic data} {
     upvar #0 topicWidget w
+    global expandNewMessages
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
@@ -526,6 +528,10 @@ proc parsePage {topic data} {
                 setItemValue $w $id unreadChild 0
                 addUnreadChild $w $parent
                 updateItemState $w $id
+
+                if { $expandNewMessages } {
+                    if { [ getItemValue $w [ getItemValue $w $id parent ] unread ] != "1" ) } {$w see $id}
+                }
             }
         }
     }

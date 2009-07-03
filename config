@@ -83,3 +83,6 @@ set proxyPassword "secret"
 
 # force browser to use
 # set browser "firefox"
+
+# set if you want to auto-expand new messages in message tree
+set expandNewMessages 1
