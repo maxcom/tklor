@@ -33,8 +33,14 @@ namespace export \
     killSlave \
     defMasterLambda
 
-proc invokeSlave {slave onComplete onError arg} {
-    set f [ open [ concat "|$slave" [ list "<<" $arg ] ] "r" ]
+proc invokeSlave {backend command args} {
+    array set params [ ::cmdline::getoptions args {
+        {oncomplete.arg ""  "Script to execute on background operation completes"}
+        {onerror.arg    ""  "Script to execute on background operation error"}
+        {timeout.arg    "0" "Execution timeout in milliseconds (0 - no timeout)"}
+        {ontimeout.arg  ""  "Script to execute on background operation timeout"}
+    } ]
+    set f [ open [ concat "|$backend" [ list "<<" $command ] ] "r" ]
     fconfigure $f -encoding utf-8
     fileevent $f readable [ ::gaa::lambda::lambda {f onComplete onError} {
         if { ![ eof $f ] } {
@@ -49,7 +55,10 @@ proc invokeSlave {slave onComplete onError arg} {
             }
             eval $onComplete
         }
-    } $f $onComplete $onError ]
+    } $f $params(oncomplete) $params(onerror) ]
+    if { $params(timeout) > 0 } {
+        after $params(timeout) $params(ontimeout)
+    }
     return $f
 }
 
@@ -60,8 +69,10 @@ proc invokeMaster {arg} {
     puts -nonewline $s
 }
 
-proc killSlave {slave} {
-    catch {close $slave}
+proc killSlave {slave {script ""}} {
+    if { ![ catch {close $slave} ] } {
+        eval $script
+    }
 }
 
 proc addDollars {arg} {

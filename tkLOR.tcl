@@ -96,7 +96,6 @@ set findPos ""
 set waitDeep 0
 
 set backend ""
-set topicProcess ""
 set messageSlave ""
 
 set messageTextFont [ font actual system ]
@@ -632,8 +631,11 @@ proc setTopic {topic} {
 
         set command [ list lor::parseTopic $topic $processText $processMessage ]
 
-        killSlave $messageSlave
-        set messageSlave [ invokeSlave $backend $finish errorProc $command ]
+        killSlave $messageSlave stopWait
+        set messageSlave [ invokeSlave $backend $command \
+            -oncomplete $finish \
+            -onerror    errorProc \
+        ]
     }
 }
 
@@ -965,7 +967,6 @@ proc updateTopicList {{section ""}} {
     global appName
     global topicTree
     global backend
-    global topicSlave
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -1020,8 +1021,9 @@ proc updateTopicList {{section ""}} {
 
     set command [ list ::lor::getTopicList $section $processTopic ]
 
-    killSlave $topicSlave
-    set topicSlave [ invokeSlave $backend $onComplete errorProc $command ]
+    invokeSlave $backend $command \
+        -oncomplete $onComplete \
+        -onerror    errorProc
 }
 
 proc addTopicFromCache {parent id nick text unread} {
