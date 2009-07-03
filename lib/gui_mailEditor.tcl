@@ -153,7 +153,13 @@ proc editMessage {title letter buttons default command} {
 
     focus $textWidget
 
-    set menu [ menu $f.popupMenu -tearoff 0 ]
+    set menu [ makeContextMenu $f $textWidget ]
+
+    bind $textWidget <ButtonPress-3> [ list tk_popup $menu %X %Y ]
+}
+
+proc makeContextMenu {window textWidget} {
+    set menu [ menu $window.popupMenu -tearoff 0 ]
     $menu add command \
         -label [ mc "Cut" ] \
         -accelerator "Ctrl-X" \
@@ -167,7 +173,7 @@ proc editMessage {title letter buttons default command} {
         -accelerator "Ctrl-V" \
         -command [ list tk_textPaste $textWidget ]
 
-    bind $textWidget <ButtonPress-3> [ list tk_popup $menu %X %Y ]
+    return $menu
 }
 
 proc destroyWindow {w storage} {
