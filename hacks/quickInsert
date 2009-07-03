@@ -1,0 +1,121 @@
+#
+# Расширение, добавляющее возможность использовать шаблоны для быстрого наполнения сообщений.
+#
+# Использование:
+#  Добавьте в файл ~/.config/tkLOR/userConfig (или создайте его, если он отсутствует)
+#  строку
+#    loadPlugin "/путь/к/этому/файлу"
+#  Путь можно указывать как абсолютный, так и относительно текущего каталога.
+#  Обращаться к переменным окружения можно через $env(VARIABLE), например:
+#    loadPlugin "$env(HOME)/tklor-addons/quickInsert"
+#
+
+package require getstring
+
+namespace eval user {
+namespace eval quickInsert {
+
+if { ![ info exists __user_quickInsert_texts ] } {
+    set ::__user_quickInsert_texts {
+        "А что скажет Патрег?"
+        "Тормозное быдлоподелие!"
+        "Убей себя как Томми!"
+        "В биореактор, быдло!"
+        "Где же гик?"
+        "Жава не тормозит!!111"
+        "<> не нужно"
+    }
+
+    set opt $::options
+    set ::options {}
+    foreach {t v} $opt {
+        if { $t == "Global options" } {
+            lappend v \
+                "quick insert text" \
+                hidden \
+                __user_quickInsert_texts \
+                {}
+        }
+        lappend ::options $t $v
+    }
+}
+
+proc customize {parent} {
+    set w [ toplevel .quickInsertCustomizer -class Dialog ]
+    wm withdraw $w
+    wm title $w "Настройка быстрой вставки"
+
+    set listw [ listbox $w.list -listvariable __user_quickInsert_texts ]
+    grid $listw -sticky nswe -padx 2 -pady 2
+
+    set f [ ttk::frame $w.buttons ]
+    grid $f -sticky nswe
+
+    grid \
+        [ ttk::button $f.add \
+            -command [ ::lambda::lambda {} {
+                set ::user::quickInsert::tempVar {}
+
+                if [ ::getstring::tk_getString .quickInsertCustomizer.getStringWindow \
+                        ::user::quickInsert::tempVar \
+                        "Введите новый шаблон"
+                ] {
+                    lappend ::__user_quickInsert_texts $::user::quickInsert::tempVar
+                }
+            } ] \
+            -text "Добавить" \
+        ] \
+        [ ttk::button $f.remove \
+            -command [ ::lambda::closure {listw} {} {
+                if { [ $listw curselection ] != "" } {
+                    $listw delete [ $listw curselection ]
+                }
+            } ] \
+            -text "Удалить" \
+        ] \
+        [ ttk::button $f.close \
+            -command "destroy $w" \
+            -text "Закрыть" \
+        ] \
+        -padx 2 \
+        -pady 2 \
+        -sticky nswe
+
+    grid columnconfigure $w 0 -weight 1
+    grid rowconfigure $w 0 -weight 1
+
+    wm deiconify $w
+    wm transient $w $parent
+    update
+    grab $w
+}
+
+}
+}
+
+rename ::mailEditor::makeContextMenu ::user::quickInsert::makeContextMenu_orig
+
+proc makeContextMenu {window textWidget} {
+    upvar #0 __user_quickInsert_texts texts
+
+    set menu [ ::user::quickInsert::makeContextMenu_orig $window $textWidget ]
+
+    set m [ menu $menu.quickInsertMenu -tearoff 0 ]
+    foreach t $texts {
+        $m add command \
+            -label $t \
+            -command [ list $textWidget insert insert $t ]
+    }
+    $m add separator
+    $m add command \
+        -label "Настроить..." \
+        -command [ list ::user::quickInsert::customize $textWidget ]
+
+    $menu add separator
+    $menu add cascade \
+        -label "Быстрая вставка" \
+        -menu $m
+
+    return $menu
+}
+
