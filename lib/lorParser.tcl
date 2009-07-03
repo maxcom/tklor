@@ -62,76 +62,65 @@ proc parseTopic {topic topicTextCommand messageCommand} {
 
     set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
-    set datavar [ namespace current ]::[ incr id ]
-    set statevar "${datavar}_state"
-    set $datavar ""
-    set $statevar FIRST
-
-    ::lambda::defclosure handler {datavar statevar topicTextCommand messageCommand} {socket token} {
-        upvar #0 $datavar data $statevar state
-        upvar #0 $token httpState
-
-        if { $state == "FIRST" } {
-            fconfigure $socket -encoding "utf-8" -buffering line -blocking 0
-            set state TOPIC
-        }
-        set nbytes [ gets $socket httpData ]
-        if { $nbytes <= 0 } {
-            return 0
-        }
-
-        append data $httpData
-        if { $state == "TOPIC" } {
-            if { ! [ catch {
-                set data [ ::lor::parseTopicText $data $topicTextCommand ]
-            } ] } {
-                set state MESSAGES
-            }
-        } else {
-            catch {
-                set data [ ::lor::parsePage $data $messageCommand ]
-            }
-        }
-        return $nbytes
-    }
+#    ::lambda::defclosure handler {datavar statevar topicTextCommand messageCommand} {socket token} {
+#        upvar #0 $datavar data $statevar state
+#        upvar #0 $token httpState
+#
+#        if { $state == "FIRST" } {
+#            fconfigure $socket -encoding "utf-8" -buffering line -blocking 0
+#            set state TOPIC
+#        }
+#        set nbytes [ gets $socket httpData ]
+#        if { $nbytes <= 0 } {
+#            return 0
+#        }
+#
+#        append data $httpData
+#        if { $state == "TOPIC" } {
+#            if { ! [ catch {
+#                set data [ ::lor::parseTopicText $data $topicTextCommand ]
+#            } ] } {
+#                set state MESSAGES
+#            }
+#        } else {
+#            catch {
+#                set data [ ::lor::parsePage $data $messageCommand ]
+#            }
+#        }
+#        return $nbytes
+#    }
     if [ catch {
-        set token [ ::http::geturl $url -blocksize 4096 -handler $handler ]
-        if { ! ( [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 ) } {
+        set token [ ::http::geturl $url ]
+        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+            parseTopicText [ ::http::data $token ] $topicTextCommand
+            parsePage [ ::http::data $token ] $messageCommand
+        } else {
             set err [ ::http::code $token ]
             ::http::cleanup $token
-            unset $datavar
             error $err
         }
         ::http::cleanup $token
     } err ] {
-        unset $datavar
         error $err $::errorInfo
     }
-    unset $datavar
 }
 
 proc parseTopicText {data command} {
-    if [ regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>(.*)$} $data dummy header msg nick time approver approveTime extra ] {
-        eval [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
-        return $extra
+    if [ regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
+        uplevel #0 [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
     } else {
-        error "1"
+        error "Unable to parse topic text"
     }
 }
 
 proc parsePage {data command} {
-    set extra $data
-    set end 0
-    foreach {dummy1 message} [ regexp -all -indices -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        set end [ lindex $message 1 ]
-        set message [ string range $data [ lindex $message 0 ] $end ]
+    foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- \
 {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} \
 $message dummy2 parent parentNick id header msg nick time ] {
-            eval [ concat $command [ list $id $nick $header $time $msg $parent $parentNick ] ]
+            uplevel #0 [ concat $command [ list $id $nick $header $time $msg $parent $parentNick ] ]
         }
     }
-    return [ string range $data [ expr $end + 1 ] end ]
 }
 
 proc getTopicList {section command} {

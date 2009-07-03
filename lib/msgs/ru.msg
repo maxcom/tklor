@@ -54,7 +54,7 @@
 	"Favorites"		"Избранное"
 	"Nick"		"Ник"
 	"Time"		"Время"
-	"Header: "		"Тема: "
+	"Subject: "		"Тема: "
 	"From: "		"От: "
 	"To: "		"К: "
 	"Time: "		"Время: "

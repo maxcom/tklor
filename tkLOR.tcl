@@ -70,7 +70,7 @@ set messageTree ""
 set horPane ""
 set tasksWidget ""
 
-set currentHeader ""
+set currentSubject ""
 set currentNick ""
 set currentTopic ""
 set currentMessage ""
@@ -375,14 +375,14 @@ proc initMessageTree {} {
 
 proc initMessageWidget {} {
     global messageTextWidget
-    global currentHeader currentNick currentPrevNick currentTime
+    global currentSubject currentNick currentPrevNick currentTime
     global messageTextFont
 
     set mf [ ttk::frame .msgFrame -relief sunken ]
     set f [ ttk::frame $mf.labels ]
 
     foreach {var label} [ list \
-        currentHeader   [ mc "Header: " ] \
+        currentSubject   [ mc "Subject: " ] \
         currentNick     [ mc "From: " ] \
         currentPrevNick [ mc "To: " ] \
         currentTime     [ mc "Time: " ] \
@@ -500,8 +500,7 @@ proc renderHtml {w msg} {
     $w tag bind hyperlink <Enter> "$w configure -cursor hand1"
     $w tag bind hyperlink <Leave> "$w configure -cursor {}"
 
-    set stackId [ join [ list "stack" [ generateId ] ] "" ]
-    ::struct::stack $stackId
+    set stackId [ ::struct::stack ]
 
     ::htmlparse::parse -cmd [ list "renderHtmlTag" $w $stackId ] " $msg"
 
@@ -584,10 +583,10 @@ proc renderHtmlTag {w stack tag slash param text} {
 
 proc showMessageInMainWindow {msg} {
     global messageTextWidget
-    global currentHeader currentNick currentPrevNick currentTime
+    global currentSubject currentNick currentPrevNick currentTime
 
     array set letter $msg
-    set currentHeader $letter(Subject)
+    set currentSubject $letter(Subject)
     set currentNick $letter(From)
     if [ info exists letter(To) ] {
     	set currentPrevNick $letter(To)
@@ -633,7 +632,7 @@ proc configureTags {w} {
 proc setTopic {topic} {
     global appName
     global messageTree messageTextWidget
-    global currentTopic currentHeader currentNick currentPrevNick currentTime
+    global currentTopic currentSubject currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
     global loadTaskId
@@ -656,7 +655,7 @@ proc setTopic {topic} {
         setItemValue $messageTree "" unreadChild 0
 
         clearTreeItemChildrens $messageTree ""
-        foreach item {currentHeader currentNick currentPrevNick currentTime} {
+        foreach item {currentSubject currentNick currentPrevNick currentTime} {
             set $item ""
         }
         renderHtml $messageTextWidget ""
@@ -2183,50 +2182,89 @@ proc goOnline {} {
     }
 }
 
-#TODO: beautifulize window(v 1.1)
+proc makeReplyToMessage {origLetter} {
+    global lorLogin
+    global currentTopic
+    global appId
+
+    array set orig $origLetter
+puts ">$origLetter<"
+    array set letter ""
+
+    set letter(From) $lorLogin
+    set letter(Subject) [ makeReplyHeader $orig(Subject) ]
+    set letter(To) $orig(From)
+    if [ info exists orig(X-LOR-Id) ] {
+        set letter(X-LOR-ReplyTo-Id) "$currentTopic.$orig(X-LOR-Id)"
+    } else {
+        set letter(X-LOR-ReplyTo-Id) $currentTopic
+    }
+    set letter(X-Mailer) $appId
+    set letter(body) [ quoteText $orig(body) ]
+    array unset orig
+
+    return [ array get letter ]
+}
+
 proc postMessage {topic {item ""}} {
-    global appName
     upvar #0 messageTree w
 
-    goOnline
-    if { $::autonomousMode } {
-        return
-    }
-
-    global currentMessage
     if { $item == "" } {
-        set currentMessage "topic"
-        showMessageInMainWindow [ getItemValue $w "topic" msg ]
-        set text [ $::messageTextWidget get 0.0 end ]
-    } else {
-        set currentMessage $item
-        showMessageInMainWindow [ getItemValue $w $item msg ]
-        set text [ $::messageTextWidget get 0.0 end ]
+        set $item topic
     }
-    set text [ quoteText $text ]
+    editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ] {}
+}
 
-    set f [ toplevel .messagePostWindow -class Dialog ]
+#TODO: beautifulize window(v 1.1)
+# buttons: save, send, close
+proc editMessage {letter queue} {
+    global $queue
+
+#    goOnline
+#    if { $::autonomousMode } {
+#        return
+#    }
+
+#    global currentMessage
+#    if { $item == "" } {
+#        set currentMessage "topic"
+#        showMessageInMainWindow [ getItemValue $w "topic" msg ]
+#        set text [ $::messageTextWidget get 0.0 end ]
+#    } else {
+#        set currentMessage $item
+#        showMessageInMainWindow [ getItemValue $w $item msg ]
+#        set text [ $::messageTextWidget get 0.0 end ]
+#    }
+    array set msg $letter
+    set text $msg(body)
+
+    set f [ toplevel ".messagePostWindow[ generateId ]" -class Dialog ]
     wm withdraw $f
     wm title $f [ mc "Compose message" ]
 
-    set sendScript "[ list sendReply $f $topic $item ]; [ list destroy $f ]"
+#XXX: here
+#TODO
+#    set sendScript "[ list sendReply $f $topic $item ]; [ list destroy $f ]"
+    set sendScript [ list destroy $f ]
+#TODO
     set cancelScript [ list destroy $f ]
+
 
     set w [ ttk::frame $f.headerFrame ]
     grid \
         [ ttk::label $w.labelTo -text [ mc "To: " ] -anchor w ] \
-        [ ttk::label $w.entryTo -textvariable currentNick ] \
+        [ ttk::label $w.entryTo -text $msg(From) ] \
         -sticky we
     grid \
-        [ ttk::label $w.labelTime -text [ mc "Time: " ] -anchor w ] \
-        [ ttk::label $w.entryTime -textvariable currentTime ] \
+        [ ttk::label $w.labelSubject -text [ mc "Subject: " ] -anchor w ] \
+        [ ttk::label $w.entrySubject -text $msg(Subject) ] \
         -sticky we
     grid columnconfigure $w 1 -weight 1
     grid $w -sticky nwse
 
     set w [ ttk::frame $f.textFrame ]
     grid [ ttk::entry $w.header ] -sticky we
-    $w.header insert 0 [ makeReplyHeader $::currentHeader ]
+    $w.header insert 0 $msg(Subject)
 
     set ww [ ttk::frame $w.textContainer ]
     grid \
@@ -2279,7 +2317,7 @@ proc postMessage {topic {item ""}} {
     bind $f <Control-S> $sendScript
 
     focus $f.textFrame.textContainer.text
-    login
+#    login
 }
 
 proc makeReplyHeader {header} {
