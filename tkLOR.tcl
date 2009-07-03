@@ -93,10 +93,12 @@ set forumGroups {
     19109   Web-development
 }
 
+#------------------------------
 set forumGroups {
     4068    Linux-org-ru
     8404    Talks
 }
+#------------------------------
 
 ############################################################################
 #                                 FUNCTIONS                                #
@@ -169,17 +171,19 @@ proc initTopicTree {} {
     global topicWidget
 
     set f [ frame .topicFrame ]
-    set topicWidget [ ttk::treeview $f.topicTree -columns {title time message unread unreadChilds parent parentNick} -displaycolumns {title time} -yscrollcommand "$f.scroll set" ]
+    set topicWidget [ ttk::treeview $f.topicTree -columns {nick header time msg unread unreadChild parent parentNick} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
     $topicWidget heading #0 -text "Nick" -anchor w
-    $topicWidget heading title -text "Title" -anchor w
+    $topicWidget heading header -text "Title" -anchor w
     $topicWidget heading time -text "Time" -anchor w
 
     configureTags $topicWidget
 
     bind $topicWidget <<TreeviewSelect>> "messageClick %W"
 
-    ttk::scrollbar $f.scroll -command "$topicWidget yview"
-    pack $f.scroll -side right -fill y
+    ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
+    ttk::scrollbar $f.scrolly -command "$topicWidget yview"
+    pack $f.scrollx -side bottom -fill x
+    pack $f.scrolly -side right -fill y
     pack $topicWidget -expand yes -fill both
 
     return $f
@@ -368,30 +372,36 @@ proc parsePage {topic data} {
     global topicWidget
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 prev prevNick id header msg nick time ] {
+        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class=reply>\[<a href="add_comment.jsp\?topic=\d+&amp;replyto=\d+">[^<]+</a>} $message dummy2 parent parentNick id header msg nick time ] {
             if { ! [ $topicWidget exists $id ] } {
-                $topicWidget insert $prev end -id $id -text $nick -values [ list $header $time $msg 1 0 $prev $prevNick ]
-                addUnreadChild $prev
+                $topicWidget insert $parent end -id $id -text $nick
+                foreach i {nick header time msg parent parentNick} {
+                    setItemValue $id $i [ set $i ]
+                }
+                setItemValue $id unread 1
+                setItemValue $id unreadChild 0
+                addUnreadChild $parent
                 updateItemState $id
             }
         }
     }
 }
 
-proc getItemValue {item value} {
+proc getItemValue {item valueName} {
     global topicWidget itemValuesMap
-    if { $value == "nick" } {
-        return [ $topicWidget item $item -text ]
-    } else {
-        set val [ $topicWidget item $item -values ]
-        return [ lindex $val $itemValuesMap($value) ]
-    }
+    set val [ $topicWidget item $item -values ]
+    set pos [ lsearch -exact [ $topicWidget cget -columns ] $valueName ]
+    return [ lindex $val $pos ]
 }
 
 proc setItemValue {item valueName value} {
     global topicWidget itemValuesMap
     set val [ $topicWidget item $item -values ]
-    set val [ lreplace $val $itemValuesMap($valueName) $itemValuesMap($valueName) $value ]
+    if { $val == "" } {
+        set val [ $topicWidget cget -columns ]
+    }
+    set pos [ lsearch -exact [ $topicWidget cget -columns ] $valueName ]
+    lset val $pos $value
     $topicWidget item $item -values $val
 }
 
@@ -574,17 +584,27 @@ proc loadCachedMessages {topic} {
         array set res $letter
         catch {
             if { [ lsearch -exact [ array names res ] "To" ] != -1 } {
-                set prevNick $res(To)
-                set prev $res(X-LOR-ReplyTo-Id)
+                set parentNick $res(To)
+                set parent $res(X-LOR-ReplyTo-Id)
             } else {
-                set prev ""
-                set prevNick ""
+                set parentNick ""
+                set parent ""
             }
             set id $res(X-LOR-Id)
+            set nick $res(From)
+            set header $res(Subject)
+            set time $res(X-LOR-Time)
+            set msg $res(body)
+            set unread $res(X-LOR-Unread)
+            puts "$id $unread"
 
-            $topicWidget insert $prev end -id $id -text $res(From) -values [ list $res(Subject) $res(X-LOR-Time) $res(body) $res(X-LOR-Unread) 0 $prev $prevNick ]
-            if $res(X-LOR-Unread) {
-                addUnreadChild $prev
+            $topicWidget insert $parent end -id $id -text $nick
+            foreach i {nick header time msg parent parentNick unread} {
+                setItemValue $id $i [ set $i ]
+            }
+            setItemValue $id unreadChild 0
+            if $unread {
+                addUnreadChild $parent
             }
             updateItemState $id
         }
