@@ -1610,6 +1610,7 @@ proc saveOptions {} {
             puts $f ""
         }
     }
+    puts $f [ list wm geometry . [ wm geometry . ] ]
     close $f
 }
 
