@@ -66,7 +66,7 @@ proc parseTopic {topic topicTextCommand messageCommand} {
     set $datavar ""
     set $statevar TOPIC
 
-    ::lambda::defclosure handler {datavar statevar topicCommand messageCommand} {socket token} {
+    ::lambda::defclosure handler {datavar statevar topicTextCommand messageCommand} {socket token} {
         upvar #0 $datavar data $statevar state
         upvar #0 $token httpState
 
@@ -79,7 +79,7 @@ proc parseTopic {topic topicTextCommand messageCommand} {
         append data $httpData
         if { $state == "TOPIC" } {
             if { ! [ catch {
-                set data [ ::lor::parseTopicText $data $topicCommand ]
+                set data [ ::lor::parseTopicText $data $topicTextCommand ]
             } ] } {
                 set state MESSAGES
             }
@@ -190,9 +190,8 @@ proc parseGroup {command section {group ""}} {
                     [ ::http::ncode $token ] == 200 } {
                 #decoding binary data
                 set data \
-                    [ encoding convertfrom "utf-8" [ ::http::data $token ] \
-                ]
-                ::lor::parseRss $data $processRssItem
+                    [ encoding convertfrom "utf-8" [ ::http::data $token ] ]
+                parseRss $data $processRssItem
             } else {
                 set err [ ::http::code $token ]
                 ::http::cleanup $token

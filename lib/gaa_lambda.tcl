@@ -85,7 +85,7 @@ proc defclosure {id locals params script args} {
         lappend localArgs [ uplevel [ list set $p ] ]
     }
     uplevel [ concat \
-        [ list deflambda \
+        [ list [ namespace current ]::deflambda \
             $id \
             [ concat $localParams $params ] \
             $script \

@@ -116,12 +116,14 @@ proc outputHandler {id stream onoutput onerror oncomplete} {
 proc parseFile {fileName command args} {
     array set p [ ::cmdline::getoptions args {
         {mode.arg       "r"     "Stream open mode"}
+        {encoding.arg   "utf-8" "Encoding"}
         {sync.arg       "0"     "Parse stream in synchronous mode"}
         {oncomplete.arg ""      "Script to execute on complete(async mode)"}
         {onerror.arg    "error" "Script to execute on error(async mode)"}
     } ]
 
     set f [ open $fileName $p(mode) ]
+    fconfigure $f -encoding $p(encoding)
     parseStream $f $command \
         -oncomplete [ join [ list $p(oncomplete) [ list close $f ] ] ";" ] \
         -onerror $p(onerror) \
