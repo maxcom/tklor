@@ -225,7 +225,7 @@ proc getTopicUrl {item} {
 proc getMessageUrl {item topic} {
     variable lorUrl
 
-    return "$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
+    return "$lorUrl/jump-message.jsp?msgid=$topic&cid=$item"
 }
 
 }

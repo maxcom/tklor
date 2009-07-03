@@ -1132,7 +1132,11 @@ proc openMessage {w item} {
     if { $w == $topicTree } {
         openUrl [ ::lor::getTopicUrl $item ]
     } else {
-        openUrl [ ::lor::getMessageUrl $item $topic ]
+        if { $item == "topic" } {
+            openUrl [ ::lor::getTopicUrl $currentTopic ]
+        } else {
+            openUrl [ ::lor::getMessageUrl $item $currentTopic ]
+        }
     }
 }
 
