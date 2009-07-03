@@ -29,58 +29,6 @@ set proxyPort 3128
 set proxyUser "johndoe"
 set proxyPassword "secret"
 
-# select forum groups what you want to see. default -- show all
-#set forumGroups {
-#    126     General
-#    1339    Desktop
-#    1340    Admin
-#    1342    Linux-install
-#    4066    Development
-#    4068    Linux-org-ru
-#    7300    Security
-#    8403    Linux-hardware
-#    8404    Talks
-#    9326    Job
-#    10161   Games
-#    19109   Web-development
-#}
-
-# select news groups what you want to see. default -- show all
-#set newsGroups {
-#    2       "Linux.org.ru server"
-#    3       Документация
-#    4       "Linux General"
-#    6       OpenSource
-#    7       Mozilla
-#    13      RedHat
-#    26      Java
-#    37      GNOME
-#    44      KDE
-#    196     "GNU's Not Unix"
-#    213     Security
-#    2121    "Linux в России"
-#    4228    "Коммерческое ПО"
-#    6204    "Linux kernel"
-#    6205    "Hardware and Drivers"
-#    9406    BSD
-#    10794   Debian
-#   10980   "OpenOffice (StarOffice)"
-#   19103   PDA
-#    19104   Игры
-#    19105   SCO
-#    19106   Кластеры
-#    19107   "Ubuntu Linux"
-#    19108   Slackware
-#    19110   Apple
-#}
-
-# you can define behaviour for running tkLOR ob different OSes. For example:
-#if {[ string first Windows $tcl_platform(os) ] != -1} {
-#    set useProxy 1
-#} else {
-#    set useProxy 0
-#}
-
 # force browser to use
 # set browser "firefox"
 

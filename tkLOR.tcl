@@ -62,12 +62,14 @@ set useProxy 0
 set proxyAutoSelect 0
 set proxyHost ""
 set proxyPort ""
+set proxyAuthorization 0
 set proxyUser ""
 set proxyPassword ""
 
 set browser ""
 
 set ignoreList ""
+set nickToIgnore ""
 
 set messageMenu ""
 set topicMenu ""
@@ -126,6 +128,38 @@ array set fontPart {
     ignored "-overstrike 1"
 }
 
+set options {
+    "Global" {
+        "Start in autonomous mode"    check   autonomousMode ""
+        "Browser"   editableCombo   browser { "x-www-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
+    }
+    "Connection" {
+        "Use proxy" check   useProxy ""
+        "Proxy auto-config" check   proxyAutoSelect ""
+        "Proxy host"    string  proxyHost ""
+        "Proxy port"    string  proxyPort ""
+        "Proxy autorization"    check   proxyAuthorization ""
+        "Proxy user"    string  proxyUser ""
+        "Proxy password"    password    proxyPassword ""
+    }
+    "Reading" {
+        "Expand new messages"   check   expandNewMessages   ""
+        "Ignore list"   list    ignoreList ""
+    }
+    "Normal font" {
+        "font"  font    fontPart(item) ""
+    }
+    "Unread font" {
+        "font"  font    fontPart(unread) ""
+    }
+    "Unread childs font" {
+        "font"  font    fontPart(child) ""
+    }
+    "Ignored font" {
+        "font"  font    fontPart(ignored) ""
+    }
+}
+
 ############################################################################
 #                                 FUNCTIONS                                #
 ############################################################################
@@ -141,6 +175,8 @@ proc initMenu {} {
     $m add command -label "Search new topics" -accelerator "F2" -command updateTopicList
     $m add separator
     $m add checkbutton -label "Autonomous mode" -onvalue 1 -offvalue 0 -variable autonomousMode
+    $m add separator
+    $m add command -label "Options" -command showOptionsDialog
     $m add separator
     $m add command -label "Exit" -command exitProc
 
@@ -215,7 +251,7 @@ proc initAllTopicsTree {} {
     global allTopicsWidget
     global forumGroups newsGroups
 
-    set f [ frame .allTopicsFrame ]
+    set f [ ttk::frame .allTopicsFrame ]
     set allTopicsWidget [ ttk::treeview $f.allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
 
     configureTags $allTopicsWidget
@@ -250,20 +286,20 @@ proc initTopicText {} {
     global htmlRenderer
     global topicNick topicTime
 
-    set mf [ frame .topicTextFrame ]
+    set mf [ ttk::frame .topicTextFrame ]
     pack [ ttk::label $mf.header -textvariable topicHeader -font "-size 14 -weight bold" ] -fill x
 
     set width 10
 
-    set f [ frame $mf.nick ]
+    set f [ ttk::frame $mf.nick ]
     pack [ ttk::label $f.label -text "From: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable topicNick ] -side left
     pack $f -fill x
 
-    set f [ frame $mf.time ]
+    set f [ ttk::frame $mf.time ]
     pack [ ttk::label $f.label -text "Time: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable topicTime ] -side left
     pack $f -fill x
 
-    set f [ frame $mf.textFrame ]
+    set f [ ttk::frame $mf.textFrame ]
     switch -exact $htmlRenderer {
         "local" {
             set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 15 ]
@@ -284,7 +320,7 @@ proc initTopicText {} {
 proc initTopicTree {} {
     global topicWidget
 
-    set f [ frame .topicFrame ]
+    set f [ ttk::frame .topicFrame ]
     set topicWidget [ ttk::treeview $f.topicTree -columns {nick header time msg unread unreadChild parent parentNick text} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
     $topicWidget heading #0 -text "Nick" -anchor w
     $topicWidget heading header -text "Title" -anchor w
@@ -309,23 +345,23 @@ proc initMessageWidget {} {
     global htmlRenderer
     global currentHeader currentNick currentPrevNick currentTime
 
-    set mf [ frame .msgFrame ]
+    set mf [ ttk::frame .msgFrame ]
 
     set width 10
 
-    set f [ frame $mf.header ]
+    set f [ ttk::frame $mf.header ]
     pack [ ttk::label $f.label -text "Header: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentHeader ] -side left
     pack $f -fill x
 
-    set f [ frame $mf.nick ]
+    set f [ ttk::frame $mf.nick ]
     pack [ ttk::label $f.label -text "From: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentNick ] -side left
     pack $f -fill x
 
-    set f [ frame $mf.prevNick ]
+    set f [ ttk::frame $mf.prevNick ]
     pack [ ttk::label $f.label -text "To: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentPrevNick ] -side left
     pack $f -fill x
 
-    set f [ frame $mf.time ]
+    set f [ ttk::frame $mf.time ]
     pack [ ttk::label $f.label -text "Time: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentTime ] -side left
     pack $f -fill x
 
@@ -384,6 +420,7 @@ proc exitProc {} {
     if { [ tk_messageBox -title $appName -message "Are you really want to quit?" -type yesno -icon question -default yes ] == yes } {
         saveTopicToCache $currentTopic
         saveTopicListToCache
+        saveOptions
         exit
     }
 }
@@ -625,7 +662,7 @@ proc refreshTopic {} {
 
 proc initHttp {} {
     global appId
-    global useProxy proxyAutoSelect proxyHost proxyPort proxyUser proxyPassword
+    global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
     if $useProxy {
         package require autoproxy
@@ -633,7 +670,7 @@ proc initHttp {} {
         if {! $proxyAutoSelect} {
             ::autoproxy::configure -proxy_host $proxyHost -proxy_port $proxyPort
         }
-        if {$proxyUser != ""} {
+        if $proxyAuthorization {
             ::autoproxy::configure -basic -username $proxyUser -password $proxyPassword
         }
         ::http::config -proxyfilter ::autoproxy::filter
@@ -839,16 +876,12 @@ proc startWait {} {
     update
     wm withdraw $f
 
-    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry . ] md mw mh mx my
-    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $f ] d w h x y
-    set x [ expr ( $mw - $w ) / 2  ]
-    if { $x > "0" } {set x "+$x"}
-    set y [ expr ( $mh - $h ) / 2  ]
-    if { $y > "0" } {set y "+$y"}
-    wm geometry $f [ join [ list $w "x" $h $x $y ] "" ]
-    wm resizable $f 0 0
-    wm deiconify $f
-    grab $f
+    catch {
+        centerToParent $f .
+        update
+        wm deiconify $f
+        grab $f
+    }
 }
 
 proc stopWait {} {
@@ -1250,7 +1283,6 @@ proc invokeMenuCommand {w command args} {
 }
 
 proc clearTopicCache {w item} {
-    global allTopicsWidget
     global configDir threadSubDir
 
     if [ regexp -lineanchor {^\d+$} $item ] {
@@ -1259,6 +1291,197 @@ proc clearTopicCache {w item} {
             file delete [ file join $configDir $threadSubDir $item ]
             file delete [ file join $configDir $threadSubDir "$item.topic" ]
         }
+    }
+}
+
+proc packOptionsItem {name item type var opt} {
+    if { $type != "check" } {
+        pack [ ttk::label [ join [ list $name Label ] "" ] -text "$item:" ] -anchor w -fill x
+    }
+    switch -exact -- $type {
+        check {
+            pack [ ttk::checkbutton $name -variable $var -text $item ] -anchor w -fill x
+        }
+        list {
+            set v [ listbox $name -listvariable $var -selectmode extended ]
+            pack $v -anchor w -fill x
+            pack [ ttk::button [ join [ list $name Add ] "" ] -text "Add" -command "addListItem $v" ] [ ttk::button [ join [ list $name Remove ] "" ] -text "Remove" -command "removeListItem $v" ] -fill x -side left
+        }
+        editableCombo {
+            pack [ ttk::combobox $name -values $opt -textvariable $var ] -anchor w -fill x
+        }
+        readOnlyCombo {
+            pack [ ttk::combobox $name -values $opt -textvariable $var -state readonly ] -anchor w -fill x
+        }
+        password {
+            pack [ ttk::entry $name -textvariable $var -show * ] -anchor w -fill x
+        }
+        string -
+        default {
+            pack [ ttk::entry $name -textvariable $var ] -anchor w -fill x
+        }
+    }
+}
+
+proc showOptionsDialog {} {
+    global options optionsTmp
+
+    catch {array unset optionsTmp}
+    array set optionsTmp ""
+
+    set d .optionsDialog
+    toplevel $d
+    set notebook [ ttk::notebook $d.notebook ]
+    pack $notebook -fill both
+
+    set n 0
+    foreach {category optList} $options {
+        set page [ ttk::frame "$notebook.page$n" ]
+
+        set i 0
+        foreach {item type var opt} $optList {
+            set f [ ttk::frame "$page.item$i" -relief raised -borderwidth 1 -padding 1 ]
+
+            if { $type != "font" } {
+                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                packOptionsItem $f.value $item $type "optionsTmp($n.$i)" $opt
+            } else {
+                array set ff [ set ::$var ]
+                set names [ array names ff ]
+                foreach param {family size weight slant underline overstrike} {
+                    if { [ lsearch -exact $names "-$param" ] == -1 } {
+                        array set optionsTmp [ list "$n.$i.$param" "" ]
+                    } else {
+                        array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
+                    }
+                }
+                array unset ff
+
+                packOptionsItem $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
+                packOptionsItem $f.size "Size" string "optionsTmp($n.$i.size)" ""
+                packOptionsItem $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
+                packOptionsItem $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
+                packOptionsItem $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
+                packOptionsItem $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
+            }
+
+            pack $f -anchor w -fill x
+            incr i
+        }
+        $notebook add $page -sticky nswe -text $category
+        incr n
+    }
+    set f [ ttk::frame $d.buttonFrame ]
+    pack [ ttk::button $f.discard -text "Cancel" -command discardOptions ] [ ttk::button $f.save -text "OK" -command acceptOptions ] -side right
+    pack $f -fill x -side bottom
+    update
+
+    wm resizable $d 0 0
+    centerToParent $d .
+    grab $d
+}
+
+proc acceptOptions {} {
+    global options optionsTmp
+    global allTopicsWidget topicWidget
+
+    catch {destroy .optionsDialog}
+
+    set n 0
+    foreach {category optList} $options {
+        set i 0
+        foreach {item type var opt} $optList {
+            if { $type != "font" } {
+                set ::$var [ set "optionsTmp($n.$i)" ]
+            } else {
+                set s ""
+                foreach param {family size weight slant underline overstrike} {
+                    set v [ set "optionsTmp($n.$i.$param)" ]
+                    if {$v != ""} {
+                        lappend s [ list "-$param" $v ]
+                    }
+                }
+                set ::$var [ join $s ]
+            }
+            incr i
+        }
+        incr n
+    }
+    array unset optionsTmp
+
+    configureTags $allTopicsWidget
+    configureTags $topicWidget
+}
+
+proc saveOptions {} {
+    global options
+    global configDir
+
+    set f [ open [ file join $configDir "config" ] "w+" ]
+    fconfigure $f -encoding utf-8
+    puts $f {# This is autogenerated file. Do not edit it by hands.}
+    puts $f {# If you want to make configuration that cannot be changed from GUI,}
+    puts $f {# use "$configDir/userConfig" instead of "$configDir/config"(this file).}
+    puts $f ""
+
+    foreach {category optList} $options {
+        foreach {item type var opt} $optList {
+            puts $f "# $category :: $item"
+            if [ array exists ::$var ] {
+                puts -nonewline $f "array set "
+                puts -nonewline $f $var
+                puts -nonewline $f " {"
+                puts -nonewline $f [ array get ::$var ]
+                puts $f "}\n"
+            } else {
+                puts -nonewline $f "set "
+                puts -nonewline $f $var
+                puts -nonewline $f " "
+                puts -nonewline $f " {"
+                puts -nonewline $f [ set ::$var ]
+                puts $f "}\n"
+            }
+        }
+    }
+    close $f
+}
+
+proc discardOptions {} {
+    global options optionsTmp
+
+    catch {destroy .optionsDialog}
+    array unset optionsTmp
+}
+
+proc centerToParent {window parent} {
+    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
+    regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $window ] d w h x y
+    set x [ expr ( $mw - $w ) / 2  ]
+    if { $x > "0" } {set x "+$x"}
+    set y [ expr ( $mh - $h ) / 2  ]
+    if { $y > "0" } {set y "+$y"}
+    wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
+}
+
+proc addListItem {w} {
+    global nickToIgnore
+
+    set f .addListItemDialog
+    toplevel $f
+
+    set nickToIgnore ""
+    pack [ ttk::label $f.label -text "Enter nick:" ] -fill x
+    pack [ ttk::entry $f.entry -textvariable nickToIgnore ] -fill x
+    pack [ ttk::button $f.ok -text "OK" -command "$w insert end \$nickToIgnore;destroy $f" ] [ ttk::button $f.cancel -text "Cancel" -command "destroy $f" ] -side left
+
+    update
+    centerToParent $f .
+    grab $f
+}
+
+proc removeListItem {w} {
+    foreach item [ $w curselection ] {
+        $w delete $item
     }
 }
 
@@ -1279,3 +1502,7 @@ initMainWindow
 update
 
 loadTopicListFromCache
+
+if {! [ file exists [ file join $configDir "config" ] ] } {
+    showOptionsDialog
+}
