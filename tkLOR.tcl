@@ -197,6 +197,7 @@ proc initMenu {} {
 
     $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
     $m add command -label "Ignore user" -command {invokeMenuCommand $allTopicsWidget ignoreUser}
+    $m add command -label "Tag user..." -command {invokeMenuCommand $allTopicsWidget tagUser}
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $allTopicsWidget nextUnread}
     $m add separator
@@ -220,6 +221,7 @@ proc initMenu {} {
 
     $m add command -label "User info" -accelerator "Ctrl-I" -command {invokeMenuCommand $topicWidget userInfo}
     $m add command -label "Ignore user" -command {invokeMenuCommand $topicWidget ignoreUser}
+    $m add command -label "Tag user..." -command {invokeMenuCommand $topicWidget tagUser}
     $m add command -label "Open in browser" -accelerator "Ctrl-O" -command {invokeMenuCommand $topicWidget openMessage}
     $m add separator
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $topicWidget nextUnread}
@@ -253,6 +255,7 @@ proc initPopups {} {
 
     $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
     $topicMenu add command -label "Ignore user" -command {invokeItemCommand $allTopicsWidget ignoreUser}
+    $topicMenu add command -label "Tag user..." -command {invokeItemCommand $allTopicsWidget tagUser}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
     $topicMenu add separator
     $topicMenu add command -label "Move to favorites..." -command {invokeItemCommand $allTopicsWidget addToFavorites}
@@ -273,6 +276,7 @@ proc initPopups {} {
 
     $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
     $messageMenu add command -label "Ignore user" -command {invokeItemCommand $topicWidget ignoreUser}
+    $messageMenu add command -label "Tag user..." -command {invokeItemCommand $topicWidget tagUser}
     $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
 
     set m [ menu .topicTextMenu -tearoff 0 ]
@@ -672,7 +676,7 @@ proc parsePage {topic data} {
     upvar #0 topicWidget w
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)" *onclick="highLight\(\d+\);">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
+        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
             if { ! [ $w exists $id ] } {
                 $w insert $parent end -id $id -text $nick
                 foreach i {nick time msg parent parentNick} {
@@ -2031,17 +2035,69 @@ proc chooseColor {parent w} {
     }
 }
 
+proc tagUser {w item} {
+    global userTagList
+
+    set nick [ getItemValue $w $item nick ]
+    for {set i 0} {$i < [ llength $userTagList ]} {incr i} {
+        set item [ lindex $userTagList $i ]
+        if { [ lindex $item 0 ] == $nick } {
+            onePageOptionsDialog "Modify user tag" [ list \
+                "Nick"  string nick $nick "" \
+                "Tag"   string tag  [ lindex $item 1 ] "" \
+            ] [ list \
+                lambda {w pos vals} {
+                    global userTagList
+                    array set arr $vals
+                    lset userTagList $pos [ list $arr(nick) $arr(tag) ]
+                    array unset arr
+                } $w $i \
+            ]
+            return
+        }
+    }
+    onePageOptionsDialog "Add user tag" [ list \
+        "Nick"  string nick $nick "" \
+        "Tag"   string tag  "" "" \
+    ] [ list \
+        lambda {w vals} {
+            global userTagList
+            array set arr $vals
+            lappend userTagList [ list $arr(nick) $arr(tag) ]
+            array unset arr
+        } $w \
+    ]
+}
+
 proc addUserTagListItem {w} {
-#    inputStringDialog "User tags list" "Enter nick:" [ list $w "insert" "{}" "end" "-text" ]
-#    inputStringDialog "User tags list" "Enter tag:" [ list $w "insert" "{}" "end" "-values" ]
+    onePageOptionsDialog "Add user tag" {
+        "Nick"  string nick "" ""
+        "Tag"   string tag  "" ""
+    } [ list \
+        lambda {w vals} {
+            array set arr $vals
+            $w insert {} end -text $arr(nick) -values $arr(tag)
+            array unset arr
+        } $w \
+    ]
 }
 
 proc modifyUserTagListItem {w} {
-#    if { [ $w focus ] == "" } {
-#        addUserTagListItem $w
-#    } else {
-#        inputStringDialog "Ignore list" "Enter nick:" [ list $w "item" "\[ $w focus \]" "-text" ] [ $w item [ $w focus ] -text ]
-#    }
+    set id [ $w focus ]
+    if { $id == "" } {
+        addUserTagListItem $w
+    } else {
+        onePageOptionsDialog "Modify user tag" [ list \
+            "Nick"  string nick [ $w item $id -text ] "" \
+            "Tag"   string tag  [ lindex [ $w item $id -values ] 0 ] "" \
+        ] [ list \
+            lambda {w id vals} {
+                array set arr $vals
+                $w item $id -text $arr(nick) -values $arr(tag)
+                array unset arr
+            } $w $id \
+        ]
+    }
 }
 
 proc generateOptionsFrame {d optList page} {
@@ -2109,7 +2165,6 @@ proc fetchOptionsFrameValues {optList page ws} {
                     overstrike check} {
                     set p [ getOptionsItemValue "$v.item$j.value" $t ]
                     if { $p != "" } {
-                        #TODO
                         lappend s [ list "-$param" $p ]
                     }
                     incr j
@@ -2133,37 +2188,32 @@ proc fetchOptionsFrameValues {optList page ws} {
     return $result
 }
 
-proc onePageOptionsDialog {title options script} {
+proc onePageOptionsDialog {title optList script} {
     set d [ join [ list ".onePageOptionsDialog" [ generateId ] ] "" ]
     toplevel $d
     wm title $d $title
-    set notebook [ ttk::notebook $d.notebook ]
-    pack $notebook -fill both
+    set page [ ttk::frame $d.optFrame ]
+    pack $page -fill both
 
     set n 0
     set okList ""
-    foreach {category optList} $options {
-        set page [ ttk::frame "$notebook.page$n" ]
-
-        set o ""
-        foreach {item type var opt} $optList {
-            lappend o $item $type [ set ::$var ] $opt
-        }
-
-        lappend okList [ list \
-            lambda {optList page ws} {
-                set vals [ fetchOptionsFrameValues $optList $page $ws ]
-                for {set i 0} {$i < [ llength $vals ]} {incr i} {
-                    set var [ lindex $optList [ expr $i*4+2 ] ]
-                    set ::$var [ lindex $vals $i ]
-                }
-                applyOptions
-            } $optList $page [ generateOptionsFrame $d $o $page ] \
-        ]
-
-        $notebook add $page -sticky nswe -text $category
-        incr n
+    set genList ""
+    set fetchList ""
+    foreach {item type var value opt} $optList {
+        lappend genList $item $type $value $opt
+        lappend fetchList $item $type $var $opt
     }
+    lappend okList [ list \
+        lambda {optList page ws script} {
+            set vals [ fetchOptionsFrameValues $optList $page $ws ]
+            set var ""
+            for {set i 0} {$i < [ llength $vals ]} {incr i} {
+                lappend var [ lindex $optList [ expr $i*4+2 ] ] [ lindex $vals $i ]
+            }
+            eval [ concat $script [ list $var ] ]
+        } $fetchList $page [ generateOptionsFrame $d $genList $page ] $script \
+    ]
+
     lappend okList [ list "destroy" $d ]
     set okScript [ join $okList ";" ]
     set cancelScript [ list "destroy" $d ]
@@ -2184,14 +2234,22 @@ proc onePageOptionsDialog {title options script} {
     bind $d <Escape> $cancelScript
 }
 
+proc lambdaLowlevel {paramsVar scriptVar argsVar} {
+    set params [ uplevel [ list set $paramsVar ] ]
+    set script [ uplevel [ list set $scriptVar ] ]
+    set args [ uplevel [ list set $argsVar ] ]
+    uplevel [ list unset $paramsVar $scriptVar $argsVar ]
+    for {set i 0} {$i < [ llength $params ]} {incr i} {
+        uplevel [ list set [ lindex $params $i ] [ lindex $args $i ] ]
+    }
+    uplevel [ list eval $script ]
+}
+
 proc lambda {params script args} {
     if { [ llength $params ] != [ llength $args ] } {
         error "Arguments count mismatch!"
     }
-    for {set i 0} {$i < [ llength $params ]} {incr i} {
-        set [ lindex $params $i ] [ lindex $args $i ]
-    }
-    return [ eval $script ]
+    lambdaLowlevel params script args
 }
 
 ############################################################################
