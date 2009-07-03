@@ -29,6 +29,8 @@ package require http 2.0
 set appName "tkLOR"
 set appVersion "0.1.0"
 
+set threadSubDir "threads"
+
 #---------------- debug start --------------
 set currentTopic 2412284
 set ignoreList {HEBECTb_KTO adminchik anonymous}
@@ -277,13 +279,13 @@ proc setTopic {topic} {
     set curentTopic $topic
     set err 1
     set errStr ""
-    set url "http://pingu3/lor.html"
+    set url "http://pingu/lor.html"
     #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseTopicText [ ::http::data $token ]
-            parsePage [ ::http::data $token ]
+            parseTopicText $topic [ ::http::data $token ]
+            parsePage $topic [ ::http::data $token ]
             set err 0
         } else {
             set errStr [ ::http::code $token ]
@@ -295,22 +297,25 @@ proc setTopic {topic} {
     }
 }
 
-proc parseTopicText {data} {
+proc parseTopicText {topic data} {
     global topicNick topicHeader
 
     if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(\w+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w]+">\*</a>\) \(([^)]+)\)<br><i>[^ ]+ (\w+) \(<a href="whois.jsp\?nick=\w+">\*</a>\) ([^<]+)</i></div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         #puts "matched-topic: {$header} {$msg} {$nick} {$time} {$approver} {$approveTime}"
-        updateTopicText $msg
+        set topicText $msg
         set topicNick $nick
         set topicHeader $header
+        saveTopicTextToCache $topic $header $topicText $nick $time $approver $approveTime
     } else {
-        updateTopicText "Unable to parse topic text :("
+        set topicText "Unable to parse topic text :("
         set topicNick ""
         set topicHeader ""
+        saveTopicTextToCache $topic "" $topicText "" "" "" ""
     }
+    updateTopicText $topicText
 }
 
-proc parsePage {data} {
+proc parsePage {topic data} {
     global topicWidget
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
@@ -321,6 +326,8 @@ proc parsePage {data} {
             addUnreadChild $prev
             updateItemState $id
 #            after 100
+
+            saveMessage $topic $id $header $msg $nick $time $prevNick $prev 1
         }
     }
 }
@@ -392,9 +399,64 @@ proc initHttp {} {
     set ::http::defaultCharset "utf-8"
 }
 
+proc initDirs {} {
+    global appName threadSubDir
+
+    file mkdir [ file join $::env(HOME) ".$appName" ]
+    file mkdir [ file join $::env(HOME) ".$appName" $threadSubDir ]
+}
+
+proc saveTopicTextToCache {topic header text nick time approver approveTime} {
+    global appName threadSubDir
+
+    set f [ open [ file join $::env(HOME) ".$appName" $threadSubDir [ join [ list $topic "_text" ] "" ] ] "w+" ]
+    puts $f "From $nick"
+    puts $f "Subject: $header"
+    puts $f "X-LOR-Time: $time"
+    puts $f "X-LOR-Approver: $approver"
+    puts $f "X-LOR-Approve-Time: $approveTime"
+    puts $f ""
+    foreach line [ split $text "\n" ] {
+        if [ string equal -length 5 $line "From " ] {
+            puts $f ">$line"
+        } else {
+            puts $f $line
+        }
+    }
+    close $f
+}
+
+proc saveMessage {topic id header text nick time replyTo replyToId unread} {
+    global appName threadSubDir
+
+    set f [ open [ file join $::env(HOME) ".$appName" $threadSubDir $topic ] "a" ]
+    puts $f "From $nick"
+    puts $f "Subject: $header"
+    puts $f "X-LOR-Time: $time"
+    puts $f "X-LOR-Id: $id"
+    puts $f "X-LOR-Unread: $unread"
+    if { $replyTo != "" } {
+        puts $f "Reply-To: $replyTo"
+        puts $f "X-LOR-ReplyTo-Id: $replyToId"
+    }
+    puts $f ""
+
+    foreach line [ split $text "\n" ] {
+        if [ string equal -length 5 $line "From " ] {
+            puts $f ">$line"
+        } else {
+            puts $f $line
+        }
+    }
+    puts $f ""
+    close $f
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
+
+initDirs
 
 initMenu
 initMainWindow
