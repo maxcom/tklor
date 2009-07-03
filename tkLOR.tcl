@@ -171,12 +171,12 @@ proc initMenu {} {
     global messageMenu topicMenu messageTextMenu
 
     menu .menu -tearoff 0
-    .menu add cascade -label "LOR" -menu .menu.lor
-    .menu add cascade -label "View" -menu .menu.view
-    .menu add cascade -label "Topic" -menu .menu.topic
-    .menu add cascade -label "Message" -menu .menu.message
-    .menu add cascade -label "Search" -menu .menu.search
-    .menu add cascade -label "Help" -menu .menu.help
+    .menu add cascade -label "LOR" -menu .menu.lor -underline 0
+    .menu add cascade -label "View" -menu .menu.view -underline 0
+    .menu add cascade -label "Topic" -menu .menu.topic -underline 0
+    .menu add cascade -label "Message" -menu .menu.message -underline 0
+    .menu add cascade -label "Search" -menu .menu.search -underline 0
+    .menu add cascade -label "Help" -menu .menu.help -underline 0
 
     set m [ menu .menu.lor -tearoff 0 ]
     $m add command -label "Search new topics" -accelerator "F2" -command updateTopicList
