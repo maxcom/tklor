@@ -18,7 +18,6 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 
-
 ## tkLOR
 
 This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
@@ -27,7 +26,7 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 *   Tcl 8.4 or 8.5
 *   Tk
-*   Tile
+*   Tile (not in Tk 8.5)
 *   Tcllib
 *   (optional) Iwidgets v4 (will be used to display HTML if present)
 
