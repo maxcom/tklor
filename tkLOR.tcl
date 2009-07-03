@@ -217,7 +217,7 @@ proc initMenu {} {
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
     $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $allTopicsWidget nextUnread}
     $m add separator
-    $m add command -label "Move to favorites" -command {invokeMenuCommand $allTopicsWidget addToFavorites}
+    $m add command -label "Move to favorites..." -command {invokeMenuCommand $allTopicsWidget addToFavorites}
     $m add command -label "Clear cache" -command {invokeMenuCommand $allTopicsWidget clearTopicCache}
     $m add command -label "Delete" -command {invokeMenuCommand $allTopicsWidget deleteTopic}
 
@@ -272,7 +272,7 @@ proc initPopups {} {
     $topicMenu add command -label "Ignore user" -command {invokeItemCommand $allTopicsWidget ignoreUser}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
     $topicMenu add separator
-    $topicMenu add command -label "Move to favorites" -command {invokeItemCommand $allTopicsWidget addToFavorites}
+    $topicMenu add command -label "Move to favorites..." -command {invokeItemCommand $allTopicsWidget addToFavorites}
     $topicMenu add command -label "Clear cache" -command {invokeItemCommand $allTopicsWidget clearTopicCache}
     $topicMenu add command -label "Delete" -command {invokeItemCommand $allTopicsWidget deleteTopic}
 
@@ -1283,11 +1283,18 @@ proc replaceHtmlEntities {text} {
 
 proc addTopicToFavorites {w item category caption} {
     if { $category != "" && $item != $category } {
+        set parentSave [ getItemValue $w $item parent ]
+        set fromChildsSave [ $w children $parentSave ]
         $w detach $item
         set childs [ $w children $category ]
+        set toChildsSave $childs
         lappend childs $item
         set childs [ lsort -decreasing $childs ]
-        $w children $category $childs
+        if [ catch {$w children $category $childs} ] {
+            $w children $category $toChildsSave
+            $w children $parentSave $fromChildsSave
+            return
+        }
         if [ getItemValue $w $item unread ] {
             addUnreadChild $w [ getItemValue $w $item parent ] -1
             addUnreadChild $w $category
@@ -1299,8 +1306,7 @@ proc addTopicToFavorites {w item category caption} {
 }
 
 proc deleteTopic {w item} {
-    set parent [ getItemValue $w $item parent ]
-    if { $parent != "" && $parent != "news" && $parent != "forum" } {
+    if { ![ isCategoryFixed $item ] } {
         $w delete $item
     }
 }
@@ -1783,7 +1789,7 @@ proc copyFavoritesCategory {from to item} {
 proc addToFavorites {w id} {
     global allTopicsWidget
 
-    if { $id != "" && ![ regexp -lineanchor {^news\d*$} $id ] && ![ regexp -lineanchor {^forum\d*$} $id ] } {
+    if { ![ isCategoryFixed $id ] } {
         showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ]
     }
 }
@@ -1832,6 +1838,15 @@ proc buttonBox {parent args} {
     }
     eval "pack $b -side right"
     return $f
+}
+
+proc isCategoryFixed {id} {
+    return [ expr {
+        $id == "" || \
+        [ regexp -lineanchor {^news\d*$} $id ] || \
+        [ regexp -lineanchor {^forum\d*$} $id ] || \
+        $id == "favorites" \
+    } ]
 }
 
 ############################################################################
