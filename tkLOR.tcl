@@ -1911,7 +1911,7 @@ proc loadAppLibs {} {
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require gaa_remoting 2.0
-    package require lorParser 1.1
+    package require lorParser 1.2
     package require tkLor_taskManager 1.0
     package require gaa_logger 1.0
 

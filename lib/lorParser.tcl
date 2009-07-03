@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide lorParser 1.1
+package provide lorParser 1.2
 
 package require Tcl 8.4
 package require http 2.0
