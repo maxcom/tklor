@@ -79,6 +79,7 @@ set autonomousMode 0
 set expandNewMessages 1
 set updateOnStart 0
 set doubleClickAllTopics 0
+set markIgnoredMessagesAsRead 0
 
 set tileTheme "default"
 
@@ -137,6 +138,7 @@ set options {
     }
     "Reading" {
         "Expand new messages"   check   expandNewMessages   ""
+        "Mark messages from ignored users as read"  check   markIgnoredMessagesAsRead ""
         "Ignore list"   ignoreList    ignoreList { list "Nick" }
     }
     "User tags" {
@@ -674,6 +676,7 @@ proc parseTopicText {topic data} {
 
 proc parsePage {topic data} {
     upvar #0 topicWidget w
+    global markIgnoredMessagesAsRead
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
@@ -685,7 +688,9 @@ proc parsePage {topic data} {
                 setItemValue $w $id header [ htmlToText $header ]
                 setItemValue $w $id unread 0
                 setItemValue $w $id unreadChild 0
-                mark $w $id item 1
+                if { ![ isUserIgnored $nick ] || $markIgnoredMessagesAsRead != "1" } {
+                    mark $w $id item 1
+                }
                 updateItemState $w $id
             }
         }
@@ -755,7 +760,7 @@ proc getItemText {w item} {
 }
 
 proc updateItemState {w item} {
-    global ignoreList userTagList
+    global userTagList
 
     if { $item == "" } return
 
@@ -766,7 +771,7 @@ proc updateItemState {w item} {
     if [ getItemValue $w $item unreadChild ] {
         append tag "_child"
     }
-    if { [ lsearch -exact $ignoreList [ getItemValue $w $item nick ] ] != -1 } {
+    if [ isUserIgnored [ getItemValue $w $item nick ] ] {
         append tag "_ignored"
     }
     $w item $item -tags [ list $tag ]
@@ -774,7 +779,7 @@ proc updateItemState {w item} {
     set text [ getItemText $w $item ]
     foreach i $userTagList {
         if { [ lindex $i 0 ] == [ getItemValue $w $item nick ] } {
-            append text [ join [ list " (" [ lindex $i 1 ] ")" ] "" ]
+            append text [ join [ list " (" [ lindex [ lindex $i 1 ] 0 ] ")" ] "" ]
         }
     }
     $w item $item -text $text
@@ -1823,7 +1828,7 @@ proc ignoreUser {w item} {
     global ignoreList
 
     set nick [ getItemValue $w $item nick ]
-    if { [ lsearch -exact $ignoreList [ getItemValue $w $item nick ] ] == -1 } {
+    if { ![ isUserIgnored [ getItemValue $w $item nick ] ] } {
         lappend ignoreList $nick
     }
 }
@@ -2250,6 +2255,12 @@ proc lambda {params script args} {
         error "Arguments count mismatch!"
     }
     lambdaLowlevel params script args
+}
+
+proc isUserIgnored {nick} {
+    global ignoreList
+
+    return [ expr { [ lsearch -exact $ignoreList $nick ] != -1 } ]
 }
 
 ############################################################################
