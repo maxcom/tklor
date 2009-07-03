@@ -74,6 +74,8 @@ set nickToIgnore ""
 
 set messageMenu ""
 set topicMenu ""
+set topicTextMenu ""
+set messageTextMenu ""
 
 set autonomousMode 0
 set expandNewMessages 1
@@ -242,7 +244,7 @@ proc initMenu {} {
 }
 
 proc initPopups {} {
-    global messageMenu topicMenu
+    global messageMenu topicMenu topicTextMenu messageTextMenu
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
     $topicMenu add command -label "Refresh sub-tree" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
@@ -276,6 +278,16 @@ proc initPopups {} {
 
     $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
     $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
+
+    set m [ menu .topicTextMenu -tearoff 0 ]
+    set topicTextMenu $m
+    $m add command -label "Copy selection" -command {tk_textCopy $topicTextWidget}
+    $m add command -label "Open selection in browser" -command {tk_textCopy $topicTextWidget;openUrl [ clipboard get ]}
+
+    set m [ menu .messageTextMenu -tearoff 0 ]
+    set messageTextMenu $m
+    $m add command -label "Copy selection" -command {tk_textCopy $messageWidget}
+    $m add command -label "Open selection in browser" -command {tk_textCopy $messageWidget;openUrl [ clipboard get ]}
 }
 
 proc initAllTopicsTree {} {
@@ -347,6 +359,7 @@ proc initTopicText {} {
         }
     }
     pack $f -expand yes -fill both
+    bind $topicTextWidget <ButtonPress-3> {popupMenu $topicTextMenu %X %Y %x %y}
 
     return $mf
 }
@@ -417,6 +430,7 @@ proc initMessageWidget {} {
             pack $messageWidget -expand yes -fill both
         }
     }
+    bind $messageWidget <ButtonPress-3> {popupMenu $messageTextMenu %X %Y %x %y}
 
     return $mf
 }
