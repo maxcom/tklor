@@ -15,7 +15,7 @@ package require getstring
 namespace eval user {
 namespace eval quickInsert {
 
-if { ![ info exists __user_quickInsert_texts ] } {
+if { ![ info exists ::__user_quickInsert_texts ] } {
     set ::__user_quickInsert_texts {
         "А что скажет Патрег?"
         "Тормозное быдлоподелие!"
@@ -24,20 +24,22 @@ if { ![ info exists __user_quickInsert_texts ] } {
         "Где же гик?"
         "Жава не тормозит!!111"
         "<> не нужно"
+        "Ждём ебилдов"
+        "У меня всё работает. ЧЯДНТ?"
     }
+}
 
-    set opt $::options
-    set ::options {}
-    foreach {t v} $opt {
-        if { $t == "Global options" } {
-            lappend v \
-                "quick insert text" \
-                hidden \
-                __user_quickInsert_texts \
-                {}
-        }
-        lappend ::options $t $v
+set opt $::options
+set ::options {}
+foreach {t v} $opt {
+    if { $t == "Global options" } {
+        lappend v \
+            "Быстрая вставка" \
+            hidden \
+            __user_quickInsert_texts \
+            {}
     }
+    lappend ::options $t $v
 }
 
 proc customize {parent} {
@@ -102,8 +104,13 @@ proc makeContextMenu {window textWidget} {
 
     set m [ menu $menu.quickInsertMenu -tearoff 0 ]
     foreach t $texts {
+        if { [ string length $t ] > 20 } {
+            set tt "[ string range $t 0 20 ]..."
+        } else {
+            set tt $t
+        }
         $m add command \
-            -label $t \
+            -label $tt \
             -command [ list $textWidget insert insert $t ]
     }
     $m add separator
