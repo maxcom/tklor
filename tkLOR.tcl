@@ -454,7 +454,6 @@ proc exitProc {} {
     global backendId
 
     set total 0
-    set nonEmptyCategory ""
     foreach category [ getQueues ] {
         incr total [ getTasksCount $category ]
     }
@@ -2341,7 +2340,9 @@ proc deliveryError {topic message header text preformattedText autoUrl errStr er
     global appName backendId
 
     logger::log "message delivery error: $errStr"
-    logger::log "extended info: $errExtInfo"
+    if { $extInfo != "" } {
+        logger::log "extended info: $errExtInfo"
+    }
 
     if { [ tk_messageBox -title $appName -message [ mc "An error occured while posting '%s':\n%s" $header $errStr ] -type retrycancel ] == "retry" } {
         defCallbackLambda finish {type} {
