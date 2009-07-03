@@ -2049,7 +2049,7 @@ proc tagUser {w item} {
                 lambda {w pos vals} {
                     global userTagList
                     array set arr $vals
-                    lset userTagList $pos [ list $arr(nick) $arr(tag) ]
+                    lset userTagList $pos [ list $arr(nick) [ list $arr(tag) ] ]
                     array unset arr
                 } $w $i \
             ]
@@ -2063,7 +2063,7 @@ proc tagUser {w item} {
         lambda {w vals} {
             global userTagList
             array set arr $vals
-            lappend userTagList [ list $arr(nick) $arr(tag) ]
+            lappend userTagList [ list $arr(nick) [ list $arr(tag) ] ]
             array unset arr
         } $w \
     ]
@@ -2076,7 +2076,7 @@ proc addUserTagListItem {w} {
     } [ list \
         lambda {w vals} {
             array set arr $vals
-            $w insert {} end -text $arr(nick) -values $arr(tag)
+            $w insert {} end -text $arr(nick) -values [ list $arr(tag) ]
             array unset arr
         } $w \
     ]
@@ -2093,7 +2093,7 @@ proc modifyUserTagListItem {w} {
         ] [ list \
             lambda {w id vals} {
                 array set arr $vals
-                $w item $id -text $arr(nick) -values $arr(tag)
+                $w item $id -text $arr(nick) -values [ list $arr(tag) ]
                 array unset arr
             } $w $id \
         ]
