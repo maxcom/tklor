@@ -117,7 +117,9 @@ proc initAllTopicsTree {} {
     global allTopicsWidget
     global forumGroups
 
-    set allTopicsWidget [ ttk::treeview .allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} ]
+    set f [ frame .allTopicsFrame ]
+    set allTopicsWidget [ ttk::treeview $f.allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
+    
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Messages" -anchor w
@@ -135,7 +137,10 @@ proc initAllTopicsTree {} {
 
     bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
 
-    return $allTopicsWidget
+    ttk::scrollbar $f.scroll -command "$allTopicsWidget yview"
+    pack $f.scroll -side right -fill y
+    pack $allTopicsWidget -expand yes -fill both
+    return $f
 }
 
 proc initTopicText {} {
@@ -357,7 +362,7 @@ proc setTopic {topic} {
 proc parseTopicText {topic data} {
     global topicNick topicHeader
 
-    if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i></div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
+    if [ regexp -- {<div class=msg><h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div><div class=reply>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         set topicText $msg
         set topicNick $nick
         set topicHeader $header
