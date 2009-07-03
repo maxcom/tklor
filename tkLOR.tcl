@@ -964,6 +964,10 @@ proc updateTopicList {{section ""}} {
         }
     }
 
+    if [ regexp -lineanchor -- {^\d+$} $section ] {
+        return
+    }
+
     startWait "Updating topics list"
     if {$section == "" } {
         updateTopicList news
@@ -1814,6 +1818,7 @@ proc setPerspective {mode {force ""}} {
     global horPane
     global perspectiveAutoSwitch
     global currentPerspective
+    global topicTree messageTree
 
     if { $force == "" && $perspectiveAutoSwitch == "0" } {
         return
@@ -1822,9 +1827,11 @@ proc setPerspective {mode {force ""}} {
     switch -exact -- $mode {
         navigation {
             $horPane sashpos 0 [ expr [ winfo width . ] / 2 ]
+            focus $topicTree
         }
         reading {
             $horPane sashpos 0 [ expr [ winfo width . ] / 5 ]
+            focus $messageTree
         }
     }
 }
