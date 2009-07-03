@@ -276,7 +276,7 @@ proc initMenu {} {
 proc initTopicTree {} {
     upvar #0 topicTree w
 
-    set f [ ttk::frame .topicTreeFrame -width 250 ]
+    set f [ ttk::frame .topicTreeFrame -width 250 -relief sunken ]
     set w [ ttk::treeview $f.w -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
 
     configureTags $w
@@ -313,7 +313,7 @@ proc initTopicTree {} {
 proc initMessageTree {} {
     upvar #0 messageTree w
 
-    set f [ ttk::frame .messageTreeFrame ]
+    set f [ ttk::frame .messageTreeFrame -relief sunken ]
     set w [ ttk::treeview $f.w -columns {nick header time msg unread unreadChild parent parentNick text} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
     $w heading #0 -text "Nick" -anchor w
     $w heading header -text "Title" -anchor w
@@ -339,7 +339,7 @@ proc initMessageWidget {} {
     global currentHeader currentNick currentPrevNick currentTime
     global messageTextFont
 
-    set mf [ ttk::frame .msgFrame ]
+    set mf [ ttk::frame .msgFrame -relief sunken ]
 
     set width 10
 
