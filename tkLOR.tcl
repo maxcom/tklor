@@ -234,13 +234,13 @@ proc initMenu {} {
         $m add cascade -label "Mark" -menu $m.mark
 
         set mm [ menu $m.mark -tearoff 0 ]
-        $mm add command -label "Mark as read" -command [ list $invoke $w mark message 0 ]
-        $mm add command -label "Mark as unread" -command [ list $invoke $w mark message 1 ]
-        $mm add command -label "Mark thread as read" -command [ list $invoke $w mark thread 0 ]
-        $mm add command -label "Mark thread as unread" -command [ list $invoke $w mark thread 1 ]
+        $mm add command -label "Mark as read" -command [ list $invoke $w mark message 0 ] -accelerator "M"
+        $mm add command -label "Mark as unread" -command [ list $invoke $w mark message 1 ] -accelerator "U"
+        $mm add command -label "Mark thread as read" -command [ list $invoke $w mark thread 0 ] -accelerator "Ctrl-M"
+        $mm add command -label "Mark thread as unread" -command [ list $invoke $w mark thread 1 ] -accelerator "Ctrl-U"
 
-        $mm add command -label "Mark all as read" -command [ list markAllMessages $w 0 ]
-        $mm add command -label "Mark all as unread" -command [ list markAllMessages $w 1 ]
+        $mm add command -label "Mark all as read" -command [ list markAllMessages $w 0 ] -accelerator "Ctrl-Alt-M"
+        $mm add command -label "Mark all as unread" -command [ list markAllMessages $w 1 ] -accelerator "Ctrl-Alt-U"
 
         $m add cascade -label "User" -menu $m.user
 
@@ -1720,6 +1720,15 @@ proc initBindings {} {
         bind $w <Control-I> [ list invokeMenuCommand $w userInfo ]
         bind $w <Control-o> [ list invokeMenuCommand $w openMessage ]
         bind $w <Control-O> [ list invokeMenuCommand $w openMessage ]
+
+        bind $w <m> [ list invokeMenuCommand $w mark message 0 ]
+        bind $w <u> [ list invokeMenuCommand $w mark message 1 ]
+
+        bind $w <Control-m> [ list invokeMenuCommand $w mark thread 0 ]
+        bind $w <Control-u> [ list invokeMenuCommand $w mark thread 1 ]
+
+        bind $w <Control-Alt-m> [ list markAllMessages $w 0 ]
+        bind $w <Control-Alt-u> [ list markAllMessages $w 1 ]
     }
 
     bind . <F1> helpAbout
