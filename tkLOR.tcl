@@ -584,6 +584,7 @@ proc setTopic {topic} {
     global backend
     global messageSlave
 
+    setPerspective reading
     focus $messageTree
     if { $currentTopic != "" } {
         saveTopicToCache $currentTopic
