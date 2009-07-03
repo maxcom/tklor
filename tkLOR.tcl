@@ -1083,8 +1083,9 @@ proc updateTopicList {{section ""}} {
             [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
     } $section
     set id [ ::mbox::initParser $fun ]
+    set category [ getItemValue $topicTree $section text ]
     callPlugin list [ list $section ] \
-        -title [ mc "Fetching new topics" ] \
+        -title [ mc "Fetching new topics in category %s" $category ] \
         -onoutput [ list ::mbox::parseLine $id ] \
         -oncomplete [ list ::mbox::closeParser $id ] \
         -onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
@@ -2031,8 +2032,7 @@ proc initTasksWindow {} {
 
     bind $tasksWidget <Escape> toggleTaskList
 
-    set w [ ttk::treeview $tasksWidget.list ]
-    $w heading #0 -text [ mc "Category" ] -anchor w
+    set w [ ttk::treeview $tasksWidget.list -show tree ]
     grid $w -sticky nswe
 
     deflambda stopScript {w} {
@@ -2044,7 +2044,7 @@ proc initTasksWindow {} {
         [ list -text [ mc "Stop" ] -command $stopScript ] \
         [ list -text [ mc "Stop all" ] -command stopAllTasks ] \
     ] -sticky nswe
-    grid columnconfigure $tasksWidget 0 -weight 1
+    grid columnconfigure $tasksWidget 0 -weight 1 -minsize 300
     grid rowconfigure $tasksWidget 0 -weight 1
 }
 
