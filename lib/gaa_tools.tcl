@@ -18,10 +18,9 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_tools 1.0
+package provide gaa_tools 1.1
 
 package require Tcl 8.4
-package require Tk 8.4
 
 namespace eval ::gaa {
 namespace eval tools {
@@ -30,8 +29,7 @@ namespace export \
     generateUniqueWidgetId \
     generateUniqueVariable \
     generateUniqueId \
-    generateId \
-    centerToParent
+    generateId
 
 set lastGeneratedIdSuffix 0
 
@@ -52,18 +50,6 @@ proc generateUniqueId {prefix script} {
         incr lastGeneratedIdSuffix
     }
     return $id
-}
-
-proc centerToParent {window parent} {
-    catch {
-        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
-        regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $window ] d w h x y
-        set x [ expr ( $mw - $w ) / 2  ]
-        if { $x > "0" } {set x "+$x"}
-        set y [ expr ( $mh - $h ) / 2  ]
-        if { $y > "0" } {set y "+$y"}
-        wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
-    }
 }
 
 proc generateId {} {

@@ -771,7 +771,7 @@ proc addTopic {} {
         regexp -lineanchor {^(\d+)$} $str dummy id
         if { $id != "" && ![ $topicTree exists $id ] } {
             addTopicFromCache "favorites" $id "" $str 1
-            showFavoritesTree {Select category and topic text} $str [ list addTopicToFavorites $topicTree $id ] "favorites"
+            showFavoritesTree {Select category and topic text} $str [ list addTopicToFavorites $topicTree $id ] "favorites" .
         }
     }
     inputStringDialog \
@@ -1332,14 +1332,15 @@ proc saveOptions {} {
     close $f
 }
 
-proc addIgnoreListItem {w} {
+proc addIgnoreListItem {w parent} {
     inputStringDialog \
         -title "Ignore list" \
         -label "Enter nick" \
-        -script [ list $w "insert" "" "end" "-text" ]
+        -script [ list $w "insert" "" "end" "-text" ] \
+        -parent $parent
 }
 
-proc modifyIgnoreListItem {w} {
+proc modifyIgnoreListItem {w parent} {
     if { [ $w focus ] == "" } {
         addIgnoreListItem $w
     } else {
@@ -1349,7 +1350,8 @@ proc modifyIgnoreListItem {w} {
             -script [ lambda {w text} {
                 $w item [ $w focus ] -text $text
             } $w ] \
-            -default [ $w item [ $w focus ] -text ]
+            -default [ $w item [ $w focus ] -text ] \
+            -parent $parent
     }
 }
 
@@ -1522,9 +1524,9 @@ proc ignoreUser {w item} {
     }
 }
 
-proc showFavoritesTree {title name script parent} {
+proc showFavoritesTree {title name script parent parentWindow} {
     set f [ join [ list ".favoritesTreeDialog" [ generateId ] ] "" ]
-    toplevel $f
+    toplevel $f -class Dialog
     wm title $f $title
 
     pack [ ttk::label $f.label -text "Item name: " ] -fill x
@@ -1554,9 +1556,9 @@ proc showFavoritesTree {title name script parent} {
         ] ";" \
     ]
     set cancelScript "destroy $f"
-    set newCategoryScript [ lambda {f categoryWidget} {
-            showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ]
-        } $f $categoryWidget \
+    set newCategoryScript [ lambda {f categoryWidget parent} {
+            showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ] $parent
+        } $f $categoryWidget $parentWindow \
     ]
 
     pack [ buttonBox $f \
@@ -1566,10 +1568,9 @@ proc showFavoritesTree {title name script parent} {
     ] -side bottom -fill x
 
     update
-    centerToParent $f .
-    grab $f
     focus $nameWidget
     wm protocol $f WM_DELETE_WINDOW $cancelScript
+    wm transient $f $parentWindow
     bind $f.itemName <Return> $okScript
     bind $f.category <Return> $okScript
     bind $f <Escape> $cancelScript
@@ -1579,7 +1580,7 @@ proc addToFavorites {w id} {
     global topicTree
 
     if { ![ isCategoryFixed $id ] } {
-        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $topicTree $id ] [ getItemValue $topicTree $id parent ]
+        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $topicTree $id ] [ getItemValue $topicTree $id parent ] .
     }
 }
 
@@ -1696,7 +1697,7 @@ proc initBindings {} {
     bind . <Control-X> {setPerspective reading -force}
 }
 
-proc tagUser {w item} {
+proc tagUser {w item parent} {
     global userTagList
 
     set nick [ getItemValue $w $item nick ]
@@ -1714,7 +1715,8 @@ proc tagUser {w item} {
                     array set arr $vals
                     lset userTagList $pos [ list $arr(nick) $arr(tag) ]
                     array unset arr
-                } $w $i ]
+                } $w $i ] \
+                -parent $parent
             return
         }
     }
@@ -1729,10 +1731,11 @@ proc tagUser {w item} {
             array set arr $vals
             lappend userTagList [ list $arr(nick) $arr(tag) ]
             array unset arr
-        } $w ]
+        } $w ] \
+        -parent $parent
 }
 
-proc addUserTagListItem {w} {
+proc addUserTagListItem {w parent} {
     onePageOptionsDialog \
         -title "Add user tag" \
         -options {
@@ -1743,13 +1746,14 @@ proc addUserTagListItem {w} {
             array set arr $vals
             $w insert {} end -text $arr(nick) -values [ list $arr(tag) ]
             array unset arr
-        } $w ]
+        } $w ] \
+        -parent $parent
 }
 
-proc modifyUserTagListItem {w} {
+proc modifyUserTagListItem {w parent} {
     set id [ $w focus ]
     if { $id == "" } {
-        addUserTagListItem $w
+        addUserTagListItem $w $parent
     } else {
         onePageOptionsDialog \
             -title "Modify user tag" \
@@ -1761,7 +1765,8 @@ proc modifyUserTagListItem {w} {
                 array set arr $vals
                 $w item $id -text $arr(nick) -values [ list $arr(tag) ]
                 array unset arr
-            } $w $id ]
+            } $w $id ] \
+            -parent $parent
     }
 }
 
@@ -1771,7 +1776,7 @@ proc isUserIgnored {nick} {
     return [ expr { [ lsearch -exact $ignoreList $nick ] != -1 } ]
 }
 
-proc addColorListItem {w} {
+proc addColorListItem {w parent} {
     onePageOptionsDialog \
         -title "Add color regexp" \
         -options {
@@ -1783,10 +1788,11 @@ proc addColorListItem {w} {
             array set arr $vals
             $w insert {} end -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
             array unset arr
-        } $w ]
+        } $w ] \
+        -parent $parent
 }
 
-proc modifyColorListItem {w} {
+proc modifyColorListItem {w parent} {
     set id [ $w focus ]
     if { $id == "" } {
         addColorListItem $w
@@ -1802,7 +1808,8 @@ proc modifyColorListItem {w} {
                 array set arr $vals
                 $w item $id -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
                 array unset arr
-            } $w $id ]
+            } $w $id ] \
+            -parent $parent
     }
 }
 
@@ -1813,7 +1820,7 @@ proc loadAppLibs {} {
     lappend auto_path $libDir
 
     package require gaa_lambda 1.0
-    package require gaa_tileDialogs 1.0
+    package require gaa_tileDialogs 1.2
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require lorParser 1.0
