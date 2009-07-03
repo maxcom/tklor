@@ -1248,6 +1248,7 @@ proc deleteTopic {w item} {
             addUnreadChild $w [ getItemValue $w $item parent ] -$s
         }
         $w delete $item
+        $w focus [ lindex [ $w children {} ] 0 ]
     }
 }
 
@@ -1891,13 +1892,18 @@ proc setPerspective {mode {force ""}} {
     }
     set currentPerspective $mode
     upvar #0 [ join [ list $mode "SashPos" ] "" ] pos
+    set w ''
     switch -exact -- $mode {
         navigation {
-            focus $topicTree
+            set w $topicTree
         }
         reading {
-            focus $messageTree
+            set w $messageTree
         }
+    }
+    focus $w
+    if { [ $w focus ] == "" } {
+        $w focus [ lindex [ $w children {} ] 0 ]
     }
     $horPane sashpos 0 [ expr [ winfo width . ] * $pos / 100 ]
 }
