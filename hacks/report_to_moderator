@@ -31,7 +31,7 @@ set reasons {
 }
 
 proc openDonosWindow {w item} {
-    if { $::rightViewState != "MESSAGE" } {
+    if { $w != $::messageTree || $::rightViewState != "MESSAGE" } {
         return
     }
 
@@ -46,6 +46,7 @@ proc openDonosWindow {w item} {
     }
 
     set f [ toplevel ".donosWindow[ incr id ]" -class Dialog ]
+    wm title $f "Накатать донос"
     wm withdraw $f
     set w [ ttk::frame $f.frame ]
     grid \

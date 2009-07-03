@@ -1,3 +1,5 @@
+# does not work with 1.1
+
 if {[lsearch -exact [info procs] "quoteText_orig"] eq -1} {
     rename quoteText quoteText_orig
     proc quoteText text {
