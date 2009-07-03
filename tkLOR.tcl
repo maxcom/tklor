@@ -1368,7 +1368,7 @@ proc applyOptions {} {
     ttk::setTheme $tileTheme
     catch {
     array set color [ list \
-        htmlFg  [ ttk::style lookup . -background ] \
+        htmlFg  [ ttk::style lookup . -foreground ] \
         htmlBg  [ ttk::style lookup Cell -background ] \
     ]
     }
