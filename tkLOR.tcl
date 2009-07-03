@@ -628,7 +628,7 @@ proc setTopic {topic} {
                     insertMessage $id $nick $header $time $msg $parent $parentNick 1
                 }
             } err ] {
-                tk_messageBox -message "Error while inserting item $id:\n$err" -title "$appName warning" -icon warning
+                errorProc "Error while inserting item $id:\n$err"
             }
         } $messageTree
         deflambda finish {messageTree expandNewMessages} {
@@ -955,7 +955,7 @@ proc loadConfigFile {fileName} {
 
         uplevel #0 $data
     } err ] {
-        tk_messageBox -title "$appName error" -message "Error loading $fileName\n$err" -parent . -type ok -icon error
+        errorProc "Error loading $fileName\n$err"
     }
 }
 
@@ -1912,7 +1912,6 @@ proc errorProc {err} {
     global appName
 
     tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
-    updateStatusText
 }
 
 proc sortChildrens {w parent} {
