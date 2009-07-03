@@ -68,6 +68,7 @@ set proxyPassword ""
 set browser ""
 
 set ignoreList ""
+set userTagList [ list [ list anonymous JOPA ] ]
 
 set messageMenu ""
 set topicMenu ""
@@ -85,6 +86,7 @@ set findString ""
 set findPos ""
 
 set lastId -1
+set waitDeep 0
 
 set messageTextFont [ font actual system ]
 
@@ -136,6 +138,9 @@ set options {
     "Reading" {
         "Expand new messages"   check   expandNewMessages   ""
         "Ignore list"   ignoreList    ignoreList { list "Nick" }
+    }
+    "User tags" {
+        "Tags"  userTagList userTagList { list "Nick" "Tag" }
     }
     "Normal font" {
         "font"  fontPart    fontPart(item) ""
@@ -285,13 +290,13 @@ proc initAllTopicsTree {} {
     global allTopicsWidget
     global forumGroups
 
-    set f [ ttk::frame .allTopicsFrame ]
+    set f [ ttk::frame .allTopicsFrame -width 250 ]
     set allTopicsWidget [ ttk::treeview $f.allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
 
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Threads" -anchor w
-    $allTopicsWidget column #0 -width 250
+    $allTopicsWidget column #0 -width 220
     $allTopicsWidget column unreadChild -width 30 -stretch 0
 
     $allTopicsWidget insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
@@ -338,7 +343,7 @@ proc initTopicText {} {
     pack $f -fill x
 
     set f [ ttk::frame $mf.textFrame ]
-    set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 10 ]
+    set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 5 ]
 
     ttk::scrollbar $f.scroll -command "$topicTextWidget yview"
     pack $f.scroll -side right -fill y
@@ -419,14 +424,14 @@ proc initMainWindow {} {
     ttk::panedwindow .horPaned -orient horizontal
     pack .horPaned -fill both -expand 1
 
-    .horPaned add [ initAllTopicsTree ]
+    .horPaned add [ initAllTopicsTree ] -weight 0
 
     ttk::panedwindow .vertPaned -orient vertical
-    .horPaned add .vertPaned
+    .horPaned add .vertPaned -weight 1
 
-    .vertPaned add [ initTopicText ] -weight 3
-    .vertPaned add [ initTopicTree ] -weight 1
-    .vertPaned add [ initMessageWidget ] -weight 3
+    .vertPaned add [ initTopicText ] -weight 0
+    .vertPaned add [ initTopicTree ] -weight 0
+    .vertPaned add [ initMessageWidget ] -weight 1
 }
 
 proc helpAbout {} {
@@ -465,7 +470,7 @@ proc renderHtml {w msg} {
     set stackId [ join [ list "stack" [ generateId ] ] "" ]
     ::struct::stack $stackId
 
-    ::htmlparse::parse -cmd [ list "renderHtmlTag" $w $stackId ] $msg
+    ::htmlparse::parse -cmd [ list "renderHtmlTag" $w $stackId ] " $msg"
 
     $stackId destroy
 
@@ -474,6 +479,8 @@ proc renderHtml {w msg} {
 }
 
 proc renderHtmlTag {w stack tag slash param text} {
+    global lorUrl
+
     set text [ replaceHtmlEntities $text ]
     regsub -lineanchor -- {^[\n\r \t]+} $text {} text
     regsub -lineanchor -- {[\n\r \t]+$} $text { } text
@@ -497,7 +504,10 @@ proc renderHtmlTag {w stack tag slash param text} {
                 $w insert end "\n* "
             }
             a {
-                if [ regexp -- {href="{0,1}([^"]+)"{0,1}} $param dummy url ] {
+                if [ regexp -- {href="{0,1}([^"> ]+)"{0,1}} $param dummy url ] {
+                    if { ![ regexp -lineanchor {^\w+://} $url ] } {
+                        set url "http://$lorUrl/$url"
+                    }
                     set tagName [ join [ list "link" [ generateId ] ] "" ]
                     $w tag configure $tagName -underline 1 -foreground blue
                     $w tag bind $tagName <ButtonPress-1> [ list "openUrl" $url ]
@@ -521,6 +531,9 @@ proc renderHtmlTag {w stack tag slash param text} {
                     if { $tag == "a" } {
                         $w tag add hyperlink [ lindex $list 1 ] [ $w index end-1chars ]
                     }
+                }
+                if { $tag == "a" } {
+                    $w insert end " "
                 }
             }
             tr {
@@ -591,7 +604,7 @@ proc setTopic {topic} {
         saveTopicToCache $currentTopic
     }
 
-    startWait "Loading topic..."
+    startWait "Loading topic"
 
     if { $topic != $currentTopic } {
         setItemValue $topicWidget "" unreadChild 0
@@ -738,7 +751,7 @@ proc getItemText {w item} {
 }
 
 proc updateItemState {w item} {
-    global ignoreList
+    global ignoreList userTagList
 
     if { $item == "" } return
 
@@ -753,7 +766,14 @@ proc updateItemState {w item} {
         append tag "_ignored"
     }
     $w item $item -tags [ list $tag ]
-    $w item $item -text [ getItemText $w $item ]
+
+    set text [ getItemText $w $item ]
+    foreach i $userTagList {
+        if { [ lindex $i 0 ] == [ getItemValue $w $item nick ] } {
+            append text [ join [ list " (" [ lindex $i 1 ] ")" ] "" ]
+        }
+    }
+    $w item $item -text $text
 }
 
 proc addTopic {} {
@@ -978,22 +998,30 @@ proc processArgv {} {
 
 proc startWait {{text ""}} {
     global statusBarWidget
+    global waitDeep
 
     if { $text == "" } {
-        set text "Please, wait"
+        set text "Please, wait..."
     }
 
-    . configure -cursor watch
-    grab $statusBarWidget
-    $statusBarWidget configure -text $text
+    if { $waitDeep == "0" } {
+        . configure -cursor watch
+        grab $statusBarWidget
+        $statusBarWidget configure -text "$text..."
+    }
+    incr waitDeep
 }
 
 proc stopWait {} {
     global statusBarWidget
+    global waitDeep
 
-    grab release $statusBarWidget
-    $statusBarWidget configure -text ""
-    . configure -cursor ""
+    incr waitDeep -1
+    if { $waitDeep == "0" } {
+        grab release $statusBarWidget
+        $statusBarWidget configure -text ""
+        . configure -cursor ""
+    }
 }
 
 proc loadConfigFile {fileName} {
@@ -1021,7 +1049,7 @@ proc loadConfig {} {
     loadConfigFile [ file join $configDir "userConfig" ]
 }
 
-proc updateTopicList {{section ""} {recursive ""}} {
+proc updateTopicList {{section ""}} {
     global forumGroups
     global autonomousMode
     global appName
@@ -1034,16 +1062,14 @@ proc updateTopicList {{section ""} {recursive ""}} {
         }
     }
 
-    if {$recursive == ""} {
-        startWait "Updating topics list..."
-    }
+    startWait "Updating topics list"
     if {$section == "" } {
-        updateTopicList news 1
-        updateTopicList gallery 1
-        updateTopicList votes 1
-        updateTopicList forum 1
+        updateTopicList news
+        updateTopicList gallery
+        updateTopicList votes
+        updateTopicList forum
 
-        if {$recursive == ""} stopWait
+        stopWait
         return
     }
 
@@ -1059,7 +1085,7 @@ proc updateTopicList {{section ""} {recursive ""}} {
         }
         forum {
             foreach {id title} $forumGroups {
-                updateTopicList "forum$id" 1
+                updateTopicList "forum$id"
             }
         }
         forum* {
@@ -1069,7 +1095,7 @@ proc updateTopicList {{section ""} {recursive ""}} {
             # No action at this moment
         }
     }
-    if {$recursive == ""} stopWait
+    stopWait
 }
 
 proc parseGroup {parent section {group ""}} {
@@ -1220,7 +1246,6 @@ proc openMessage {w item} {
 
 proc topicReply {w item} {
     global lorUrl
-    global allTopicsWidget
 
     switch -regexp $item {
         news {
@@ -1251,7 +1276,27 @@ proc topicUserInfo {w item} {
 
 proc topicOpenMessage {w item} {
     global lorUrl
-    openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
+
+    switch -regexp $item {
+        news {
+            openUrl "http://$lorUrl/view-news.jsp?section=1"
+        }
+        forum {
+            openUrl "http://$lorUrl/view-section.jsp?section=2"
+        }
+        {forum\d+} {
+            openUrl "http://$lorUrl/group.jsp?group=[ string trim $item forum ]"
+        }
+        gallery {
+            openUrl "http://$lorUrl/view-news.jsp?section=3"
+        }
+        votes {
+            openUrl "http://$lorUrl/group.jsp?group=19387"
+        }
+        {\d+} {
+            openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
+        }
+    }
 }
 
 proc openUrl {url} {
@@ -1462,6 +1507,10 @@ proc showOptionsDialog {} {
                     array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
                     packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
                 }
+                userTagList {
+                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
+                }
                 default {
                     array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
                     packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
@@ -1511,7 +1560,8 @@ proc acceptOptions {} {
                     }
                     set ::$var $res
                 }
-                ignoreList {
+                ignoreList -
+                userTagList {
                     set v [ set "optionsTmp($n.$i)" ]
                     set ::$var ""
                     foreach item [ $v children "" ] {
@@ -1766,7 +1816,7 @@ proc clearOldTopics {} {
 
     set topics ""
 
-    startWait "Searching for obsolete topics..."
+    startWait "Searching for obsolete topics"
     if [ catch {
         foreach fname [ glob -directory [ file join $configDir $threadSubDir ] -types f {{*,*.topic}} ] {
             regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
@@ -1788,7 +1838,7 @@ proc clearOldTopics {} {
         return
     }
 
-    startWait "Deleting obsolete topics..."
+    startWait "Deleting obsolete topics"
     foreach id $topics {
         catch {
             file delete [ file join $configDir $threadSubDir $id ]
@@ -1833,7 +1883,7 @@ proc showFavoritesTree {title name script parent} {
         ] ";" \
     ]
     set cancelScript "destroy $f"
-    set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" ] "\[ $categoryWidget focus \]" ]
+    set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" $f ] "\[ $categoryWidget focus \]" ]
 
     pack [ buttonBox $f \
         [ list -text "New category..." -command $newCategoryScript ] \
@@ -1873,7 +1923,7 @@ proc addToFavorites {w id} {
     }
 }
 
-proc createCategory {categoryWidget parent name} {
+proc createCategory {categoryWidget parentWidget parent name} {
     upvar #0 allTopicsWidget w
 
     set id "category"
@@ -1890,7 +1940,8 @@ proc createCategory {categoryWidget parent name} {
     updateItemState $w $id
 
     clearTreeItemChildrens $categoryWidget ""
-    fillCategoryWidget $categoryWidget
+    fillCategoryWidget $categoryWidget $parentWidget
+    setFocusedItem $categoryWidget $id
 }
 
 proc fillCategoryWidget {categoryWidget parent} {
@@ -2013,6 +2064,137 @@ proc chooseColor {parent var} {
     if { $color != "" } {
         set ::$var $color
     }
+}
+
+proc addUserTagListItem {w} {
+#    inputStringDialog "User tags list" "Enter nick:" [ list $w "insert" "{}" "end" "-text" ]
+#    inputStringDialog "User tags list" "Enter tag:" [ list $w "insert" "{}" "end" "-values" ]
+}
+
+proc modifyUserTagListItem {w} {
+#    if { [ $w focus ] == "" } {
+#        addUserTagListItem $w
+#    } else {
+#        inputStringDialog "Ignore list" "Enter nick:" [ list $w "item" "\[ $w focus \]" "-text" ] [ $w item [ $w focus ] -text ]
+#    }
+}
+
+proc generateOptionsFrame {optList page} {
+    set ws ""
+    foreach {item type var opt} $optList {
+        set f [ ttk::frame "$page.item$i" -padding 1 ]
+
+        switch -exact -- $type {
+            font -
+            fontPart {
+                array set ff [ set ::$var ]
+                set names [ array names ff ]
+                foreach param {family size weight slant underline overstrike} {
+                    if { [ lsearch -exact $names "-$param" ] == -1 } {
+                        array set optionsTmp [ list "$n.$i.$param" "" ]
+                    } else {
+                        array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
+                    }
+                }
+                array unset ff
+
+                packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
+                packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
+                packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
+                packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
+                packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
+                packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
+            }
+            ignoreList {
+                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
+            }
+            userTagList {
+                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
+            }
+            default {
+                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
+            }
+        }
+
+        pack $f -anchor w -fill x
+        incr i
+    }
+    return $ws
+}
+
+proc onePageOptionsDialog {title options script} {
+    set optionsTmp ""
+
+    set d [ join [ list ".onePageOptionsDialog" [ generateId ] ] "" ]
+    toplevel $d
+    wm title $d $title
+    set notebook [ ttk::notebook $d.notebook ]
+    pack $notebook -fill both
+
+    set n 0
+    foreach {category optList} $options {
+        set page [ ttk::frame "$notebook.page$n" ]
+
+        set i 0
+        foreach {item type var opt} $optList {
+            set f [ ttk::frame "$page.item$i" -padding 1 ]
+
+            switch -exact -- $type {
+                font -
+                fontPart {
+                    array set ff [ set ::$var ]
+                    set names [ array names ff ]
+                    foreach param {family size weight slant underline overstrike} {
+                        if { [ lsearch -exact $names "-$param" ] == -1 } {
+                            array set optionsTmp [ list "$n.$i.$param" "" ]
+                        } else {
+                            array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
+                        }
+                    }
+                    array unset ff
+
+                    packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
+                    packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
+                    packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
+                    packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
+                    packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
+                    packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
+                }
+                ignoreList {
+                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
+                }
+                userTagList {
+                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addUserTagListItem" "modifyUserTagListItem" ]
+                }
+                default {
+                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                    packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
+                }
+            }
+
+            pack $f -anchor w -fill x
+            incr i
+        }
+        $notebook add $page -sticky nswe -text $category
+        incr n
+    }
+    set f [ ttk::frame $d.buttonFrame ]
+    pack [ buttonBox $f \
+        [ list -text "OK" -command acceptOptions ] \
+        [ list -text "Cancel" -command discardOptions ] \
+    ] -fill x
+    pack $f -fill x -side bottom
+    update
+
+    wm resizable $d 0 0
+    wm protocol $d WM_DELETE_WINDOW discardOptions
+    centerToParent $d .
+    grab $d
 }
 
 ############################################################################
