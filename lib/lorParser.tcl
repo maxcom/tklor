@@ -60,20 +60,24 @@ proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
     set errStr ""
     set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
-    ::http::geturl $url -command [ ::gaa::lambda::lambda {topicTextCommand messageCommand onError onComplete token} {
-        if [ catch {
-            if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-                ::lor::parseTopicText [ ::http::data $token ] $topicTextCommand
-                ::lor::parsePage [ ::http::data $token ] $messageCommand
-            } else {
-                error [ ::http::code $token ]
+    if [ catch {::http::geturl $url -command [ ::gaa::lambda::lambda {topicTextCommand messageCommand onError onComplete token} {
+            if [ catch {
+                if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+                    ::lor::parseTopicText [ ::http::data $token ] $topicTextCommand
+                    ::lor::parsePage [ ::http::data $token ] $messageCommand
+                } else {
+                    error [ ::http::code $token ]
+                }
+            } err ] {
+                eval [ concat $onError [ list $err ] ]
             }
-        } err ] {
-            eval [ concat $onError [ list $err ] ]
-        }
-        ::http::cleanup $token
+            ::http::cleanup $token
+            eval $onComplete
+        } $topicTextCommand $messageCommand $onError $onComplete ]
+    } err ] {
+        eval [ concat $onError [ list $err ] ]
         eval $onComplete
-    } $topicTextCommand $messageCommand $onError $onComplete ]
+    }
 }
 
 proc parseTopicText {data command} {
@@ -95,33 +99,33 @@ proc parsePage {data command} {
     }
 }
 
-proc getTopicList {section command} {
+proc getTopicList {section command onError onComplete} {
     switch -regexp $section {
         {^news$} {
-            parseGroup $command 1
+            parseGroup $command 1 "" $onError $onComplete
         }
         {^news\d+$} {
-            parseGroup $command 1 [ string trimleft $section "news" ]
+            parseGroup $command 1 [ string trimleft $section "news" ] $onError $onComplete
         }
         {^gallery$} {
-            parseGroup $command 3
+            parseGroup $command 3 "" $onError $onComplete
         }
         {^votes$} {
-            parseGroup $command 5
+            parseGroup $command 5 "" $onError $onComplete
         }
         {^forum$} {
-            parseGroup $command 2
+            parseGroup $command 2 "" $onError $onComplete
         }
         {^forum\d+$} {
-            parseGroup $command 2 [ string trimleft $section "forum" ]
+            parseGroup $command 2 [ string trimleft $section "forum" ] $onError $onComplete
         }
         default {
-            error "$section is not valid LOR object ID!"
+            error "$section is not a valid LOR object ID!"
         }
     }
 }
 
-proc parseGroup {command section {group ""}} {
+proc parseGroup {command section group onError onComplete} {
     variable lorUrl
 
     set url "$lorUrl/section-rss.jsp?section=$section"
@@ -149,20 +153,24 @@ proc parseGroup {command section {group ""}} {
         eval [ concat $command [ list $id $nick $header ] ]
     } $command
 
-    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
-        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            #decoding binary data
-            set data [ encoding convertfrom "utf-8" [ ::http::data $token ] ]
-
-            parseRss $data $processRssItem
-            set err 0
-        } else {
-            set errStr [ ::http::code $token ]
-        }
-        ::http::cleanup $token
-    }
-    if $err {
-        error $errStr
+    if { [ catch { ::http::geturl $url -command [ ::gaa::lambda::lambda {processRssItem onError onComplete token} {
+            if [ catch {
+                if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+                    #decoding binary data
+                    set data [ encoding convertfrom "utf-8" [ ::http::data $token ] ]
+                    ::lor::parseRss $data $processRssItem
+                } else {
+                    error [ ::http::code $token ]
+                }
+            } err ] {
+                eval [ concat $onError [ list $err ] ]
+            }
+            ::http::cleanup $token
+            eval $onComplete
+        } $processRssItem $onError $onComplete ]
+    } err ] } {
+        eval [ concat $onError [ list $err ] ]
+        eval $onComplete
     }
 }
 

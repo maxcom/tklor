@@ -621,10 +621,14 @@ proc setTopic {topic} {
                     set parentNick [ getItemValue $w "topic" nick ]
                 }
                 if { ![ $w exists $id ] } {
+                    update
+                    if [ tkLor::taskManager::isTaskStopped getMessageList ] {
+                        return
+                    }
                     insertMessage $id $nick $header $time $msg $parent $parentNick 1
                 }
-                } ] {
-                tk_messageBox -message "Error inserting item $id not found!" -title "$appName warning" -icon warning
+            } err ] {
+                tk_messageBox -message "Error while inserting item $id:\n$err" -title "$appName warning" -icon warning
             }
         } $messageTree
         deflambda finish {messageTree expandNewMessages} {
@@ -633,8 +637,8 @@ proc setTopic {topic} {
             updateWindowTitle
             if { $expandNewMessages == "1" } {
                 nextUnread $messageTree ""
+                focus $messageTree
             }
-            updateStatusText
             taskCompleted getMessageList
         } $messageTree $expandNewMessages
 
@@ -1004,10 +1008,14 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    defMasterLambda processTopic {parent id nick header} {
+    deflambda processTopic {parent id nick header} {
         global configDir threadSubDir
 
         set header [ htmlToText $header ]
+        update
+        if [ tkLor::taskManager::isTaskStopped getTopicList ] {
+            return
+        }
         addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
     } $section
 
@@ -1022,17 +1030,10 @@ proc updateTopicList {{section ""}} {
             }
             $w delete $item
         }
-        updateStatusText
+        taskCompleted getTopicList
     } $section
 
-    set command [ list ::lor::getTopicList $section $processTopic ]
-
-    invokeSlave $backend $command \
-        -oncomplete $onComplete \
-        -onerror    errorProc \
-        -statustext "Loading topics list"
-    updateStatusText
-    update
+    addTask getTopicList [ list lor::getTopicList $section $processTopic errorProc $onComplete ]
 }
 
 proc addTopicFromCache {parent id nick text unread} {
