@@ -66,7 +66,7 @@
 	"Search regexp"		"Регулярное выражение"
 	" \[ %s new \]"		" \[ новых: %s \]"
 	"There are no obsolete topics."		"Устаревших тем нет."
-	"%s obsolete topic(s) will be deleted.\nDo you want to continue?"		"Будет удалено устаревших тем: %s.\nХоите продолжить?"
+	"%s obsolete topic(s) will be deleted.\nDo you want to continue?"		"Будет удалено устаревших тем: %s.\nХотите продолжить?"
 	"Deleting obsolete topics. Please wait..."		"Удаляю. Ждите..."
 	"New category"		"Новая категория"
 	"New category..."		"Новая категория..."

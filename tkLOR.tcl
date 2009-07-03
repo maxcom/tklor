@@ -431,7 +431,7 @@ proc exitProc {} {
     saveTopicToCache $currentTopic
     saveTopicListToCache
     saveOptions
-    catch {send -async $backendId exit}
+    catch {remoting::sendRemote -async $backendId exit}
 
     exit
 }
@@ -670,7 +670,7 @@ proc setTopic {topic} {
             taskCompleted getMessageList
         } $messageTree $expandNewMessages
 
-        addTask getMessageList send -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProcCallback $finish ]
+        addTask getMessageList remoting::sendRemote -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProcCallback $finish ]
     }
 }
 
@@ -1050,7 +1050,7 @@ proc updateTopicList {{section ""}} {
         taskCompleted getTopicList
     } $section
 
-    addTask getTopicList send -async $backendId [ list lor::getTopicList $section $processTopic errorProcCallback $onComplete ]
+    addTask getTopicList remoting::sendRemote -async $backendId [ list lor::getTopicList $section $processTopic errorProcCallback $onComplete ]
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1885,7 +1885,8 @@ proc loadAppLibs {} {
     package require gaa_tileDialogs 1.2
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
-    package require lorParser 1.0
+    package require gaa_remoting 2.0
+    package require lorParser 1.1
     package require tkLor_taskManager 1.0
 
     namespace import ::gaa::lambda::*
@@ -1977,7 +1978,7 @@ proc defCallbackLambda {name params script args} {
     uplevel [ list set $name \
         [ concat \
             [ list ::gaa::lambda::lambdaProc {params script args} {
-                send tkLOR [ concat [ list lambdaProc $params $script ] $args ]
+                remoting::sendRemote tkLOR [ concat [ list lambdaProc $params $script ] $args ]
             } $params $script ] \
             $args \
         ] \
@@ -1992,7 +1993,6 @@ proc initTasksWindow {} {
     wm withdraw $tasksWidget
     wm title $tasksWidget [ mc "%s: running tasks" $appName ]
     wm protocol $tasksWidget WM_DELETE_WINDOW toggleTaskList
-    wm transient $tasksWidget .
 
     bind $tasksWidget <Escape> toggleTaskList
 
@@ -2085,8 +2085,8 @@ initDirs
 loadAppLibs
 loadConfig
 
-if { [ tk appname $appName ] != $appName } {
-    send -async $appName {showWindow}
+if { [ remoting::startServer $appName ] != $appName } {
+    remoting::sendRemote -async $appName {showWindow}
     exit
 }
 

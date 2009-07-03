@@ -1,4 +1,3 @@
-#!/bin/sh
 ############################################################################
 #    Copyright (C) 2008 by Alexander Galanin                               #
 #    gaa.nnov@mail.ru                                                      #
@@ -18,9 +17,6 @@
 #    Free Software Foundation, Inc.,                                       #
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
-
-# \
-exec wish "$0" "$@"
 
 package require Tcl 8.4
 package require cmdline 1.2.5
@@ -83,6 +79,7 @@ proc loadAppLibs {} {
     package require gaa_lambda 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
+    package require gaa_remoting 2.0
 
     namespace import ::gaa::lambda::*
 }
@@ -96,11 +93,6 @@ proc errorProcCallback {err {extInfo ""}} {
 ############################################################################
 
 wm withdraw .
-
-if { [ tk appname $processId ] != $processId } {
-    puts stderr "$processId: Backend process is already running. Exitting."
-    exit
-}
 
 array set param [ ::cmdline::getoptions argv [ list \
     [ list configDir.arg  $configDir    "Config directory" ] \
@@ -117,6 +109,11 @@ if { $param(libDir) != "" } {
 
 loadConfig
 loadAppLibs
+
+if { [ remoting::startServer $processId ] != $processId } {
+    puts stderr "$processId: Backend process is already running. Exitting."
+    exit
+}
 
 gaa::httpTools::init \
     -useragent      $param(appId) \

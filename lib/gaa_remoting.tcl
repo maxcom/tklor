@@ -18,135 +18,32 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_remoting 1.1
+package provide gaa_remoting 2.0
 
 package require Tcl 8.4
-package require cmdline 1.2.5
-package require gaa_lambda 1.0
-package require base64 2.3.2
 
-namespace eval gaa {
 namespace eval remoting {
 
 namespace export \
-    invokeSlave \
-    invokeMaster \
-    killSlave \
-    defMasterLambda \
-    encode \
-    decode \
-    getSlaves \
-    getSlavesCount \
-    enableErrorStub
+    startServer \
+    sendRemote
 
-array set slaves ""
+proc startServer {serverName} {
+    if { [ tk windowingsystem ] == "win32" } {
+        package require dde 1.2
 
-proc invokeSlave {backend command args} {
-    variable slaves
-
-    array set params [ ::cmdline::getoptions args {
-        {oncomplete.arg ""  "Script to execute on background operation completes"}
-        {onerror.arg    ""  "Script to execute on background operation error"}
-        {timeout.arg    "0" "Execution timeout in milliseconds (0 - no timeout)"}
-        {ontimeout.arg  ""  "Script to execute on background operation timeout"}
-        {statustext.arg ""  "Action status text"}
-    } ]
-    if { $params(statustext) == "" } {
-        set params(statustext) $command
-    }
-    set f [ open [ concat "|$backend" [ list "<<" [ encode $command ] ] ] "r" ]
-    array set slaves [ list $f $params(statustext) ]
-    fileevent $f readable [ ::gaa::lambda::lambda {f onComplete onError} {
-        if { ![ eof $f ] } {
-            set count [ gets $f ]
-            if [ string is integer -strict $count ] {
-                set cmd [ decode [ read $f $count ] ]
-                eval $cmd
-            }
-        } else {
-            ::gaa::remoting::removeSlaveFromList $f
-            if [ catch {close $f} err ] {
-                eval [ concat $onError [ list $err ] ]
-            }
-            eval $onComplete
-        }
-    } $f $params(oncomplete) $params(onerror) ]
-    if { $params(timeout) > 0 } {
-        after $params(timeout) $params(ontimeout)
-    }
-    return $f
-}
-
-proc invokeMaster {arg} {
-    set s [ encode $arg ]
-    append s "\n"
-    puts [ string length $s ]
-    puts -nonewline $s
-}
-
-proc killSlave {slave {script ""}} {
-    if { ![ catch {close $slave} ] } {
-        removeSlaveFromList $slave
-        eval $script
+        return [ dde servername $serverName ]
+    } else {
+        return [ tk appname $serverName ]
     }
 }
 
-proc addDollars {arg} {
-    set res ""
-    foreach i $arg {
-        append res " \$$i"
-    }
-    return $res
-}
-
-proc defMasterLambda {id params script args} {
-    uplevel [ concat [ list ::gaa::lambda::deflambda $id $params \
-        "::gaa::remoting::invokeMaster \[ ::gaa::lambda::lambda [ list $params $script ] [ ::gaa::remoting::addDollars $params ] \]" \
-    ] $args ]
-}
-
-proc encode {str} {
-    return [ ::base64::encode [ encoding convertto utf-8 $str ] ]
-}
-
-proc decode {str} {
-    return [ encoding convertfrom utf-8 [ ::base64::decode $str ] ]
-}
-
-proc getSlaves {} {
-    variable slaves
-
-    return [ array get slaves ]
-}
-
-proc getSlavesCount {} {
-    variable slaves
-
-    return [ array size slaves ]
-}
-
-proc removeSlaveFromList {slave} {
-    variable slaves
-
-    set l [ array get slaves ]
-    array unset slaves
-    foreach {id text} $l {
-        if {$id != $slave} {
-            array set slaves [ list $id $text ]
-        }
+proc sendRemote {args} {
+    if { [ tk windowingsystem ] == "win32" } {
+        return [ eval "dde eval $args" ]
+    } else {
+        return [ eval "send $args" ]
     }
 }
 
-proc enableErrorStub {} {
-    rename ::error ::error_orig
-
-    rename ::gaa::remoting::errorStub ::error
-}
-
-proc errorStub {message {unused1 ""} {unused2 ""}} {
-    puts stderr $message
-    exit
-}
-
-}
 }
