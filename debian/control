@@ -8,7 +8,6 @@ Standards-Version: 3.7.3
 Package: tklor
 Architecture: all
 Depends: tcl8.5 | tcl8.4, tk8.5 | tk8.4, tcllib, tk8.5 | tk-tile (>= 0.8)
-Recommends: iwidgets4
 Description: This is a client for reading LOR, written on versatile Tcl/Tk.
  This is a stupid client for reading LOR, written on versatile Tcl/Tk
  .

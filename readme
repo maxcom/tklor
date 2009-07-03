@@ -28,12 +28,10 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 *   Tk
 *   Tile (not in Tk 8.5)
 *   Tcllib
-*   (optional) Iwidgets v4 (will be used to display HTML if present)
 
 ## Hints:
 
-*   Install Iwidgets to get better look of HTML messages.
-*   Install Tk 8.5 to get better look of fonts on X11. So, there are no port of Iwidgets to 8.5 at this moment :(
+*   Install Tk 8.5 to get better look of fonts on X11 :(
 *   You can specify variables in a command-line. For example, command:
 
     # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
@@ -42,7 +40,7 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 ## For Debian GNU/Linux:
 
-# aptitude install tcl8.4 tk8.4 tcllib tk-tile iwidgets4
+# aptitude install tcl8.4 tk8.4 tcllib tk-tile
 or
 # aptitude install tcl8.5 tk8.5 tcllib
 

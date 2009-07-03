@@ -25,6 +25,9 @@ exec wish "$0" "$@"
 package require Tk 8.4
 package require tile 0.8
 package require http 2.0
+package require autoproxy
+package require htmlparse 1.1
+package require struct::stack 1.3
 
 set appName "tkLOR"
 set appVersion "APP_VERSION"
@@ -35,11 +38,6 @@ set configDir [ file join $::env(HOME) ".$appName" ]
 set threadSubDir "threads"
 
 set lorUrl "www.linux.org.ru"
-
-set htmlRenderer "local"
-if { [ info tclversion ] == "8.4" && ! [catch {package require Iwidgets}] } {
-    set htmlRenderer "iwidgets"
-}
 
 ############################################################################
 #                                 VARIABLES                                #
@@ -147,7 +145,7 @@ set options {
     "Ignored font" {
         "font"  fontPart    fontPart(ignored) ""
     }
-    "Message text(!iwidgets)" {
+    "Message text" {
         "font"  font    messageTextFont ""
     }
 }
@@ -317,7 +315,6 @@ proc initAllTopicsTree {} {
 
 proc initTopicText {} {
     global topicTextWidget
-    global htmlRenderer
     global topicNick topicTime
     global messageTextFont
 
@@ -335,21 +332,13 @@ proc initTopicText {} {
     pack $f -fill x
 
     set f [ ttk::frame $mf.textFrame ]
-    switch -exact $htmlRenderer {
-        "local" {
-            set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 10 ]
-            catch {
-                $topicTextWidget configure -font $messageTextFont
-            }
-            ttk::scrollbar $f.scroll -command "$topicTextWidget yview"
-            pack $f.scroll -side right -fill y
-            pack $topicTextWidget -expand yes -fill both
-        }
-        "iwidgets" {
-            set topicTextWidget [ iwidgets::scrolledhtml $f.msg -state disabled -linkcommand openUrl ]
-            pack $topicTextWidget -expand yes -fill both
-        }
+    set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 10 ]
+    catch {
+        $topicTextWidget configure -font $messageTextFont
     }
+    ttk::scrollbar $f.scroll -command "$topicTextWidget yview"
+    pack $f.scroll -side right -fill y
+    pack $topicTextWidget -expand yes -fill both
     pack $f -expand yes -fill both
 
     return $mf
@@ -381,7 +370,6 @@ proc initTopicTree {} {
 
 proc initMessageWidget {} {
     global messageWidget
-    global htmlRenderer
     global currentHeader currentNick currentPrevNick currentTime
     global messageTextFont
 
@@ -405,21 +393,13 @@ proc initMessageWidget {} {
     pack [ ttk::label $f.label -text "Time: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentTime ] -side left
     pack $f -fill x
 
-    switch -exact $htmlRenderer {
-        "local" {
-            set messageWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 10 ]
-            catch {
-                $messageWidget configure -font $messageTextFont
-            }
-            ttk::scrollbar $mf.scroll -command "$messageWidget yview"
-            pack $mf.scroll -side right -fill y
-            pack $messageWidget -expand yes -fill both
-        }
-        "iwidgets" {
-            set messageWidget [ iwidgets::scrolledhtml $mf.msg -state disabled -linkcommand openUrl ]
-            pack $messageWidget -expand yes -fill both
-        }
+    set messageWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 10 ]
+    catch {
+        $messageWidget configure -font $messageTextFont
     }
+    ttk::scrollbar $mf.scroll -command "$messageWidget yview"
+    pack $mf.scroll -side right -fill y
+    pack $messageWidget -expand yes -fill both
 
     return $mf
 }
@@ -469,21 +449,100 @@ proc exitProc {} {
 }
 
 proc renderHtml {w msg} {
-    global htmlRenderer
+    set msg [ string trim $msg ]
+    $w configure -state normal
+    $w delete 0.0 end
 
-    switch $htmlRenderer {
-        "local" {
-            set msg [ htmlToText $msg ]
-            $w configure -state normal
-            $w delete 0.0 end
-            $w insert 0.0 $msg
-            $w yview 0.0
-            $w configure -state disabled
+    foreach tag [ $w tag names ] {
+        $w tag delete $tag
+    }
+
+    $w tag configure br -background white
+    $w tag configure i -font {-slant italic}
+
+    set stackId [ join [ list "stack" [ generateId ] ] "" ]
+    ::struct::stack $stackId
+
+    ::htmlparse::parse -cmd [ list "renderHtmlTag" $w $stackId ] $msg
+
+    $stackId destroy
+
+    $w yview 0.0
+    $w configure -state disabled
+}
+
+proc renderHtmlTag {w stack tag slash param text} {
+    set text [ replaceHtmlEntities $text ]
+    regsub -lineanchor -- {^[\n\r \t]+} $text {} text
+    regsub -lineanchor -- {[\n\r \t]+$} $text { } text
+    set tag [ string tolower $tag ]
+    set pos [ $w index end-1chars ]
+    if { $slash != "/" } {
+        switch -exact -- $tag {
+            hmstart -
+            ul -
+            ol -
+            table -
+            tbody -
+            tr -
+            td {
+                # no action
+            }
+            i {
+                $stack push [ list $tag $pos ]
+            }
+            br {
+                $w insert end "\n"
+            }
+            p {
+                if { $text != "" && [ $w get 0.0 end ] != "\n" } {
+                    $w insert end "\n\n"
+                }
+                $stack push [ list $tag $pos ]
+            }
+            li {
+                $w insert end "\n* "
+            }
+            a {
+                if [ regexp -- {href="{0,1}([^"]+)"{0,1}} $param dummy url ] {
+                    set tagName [ join [ list "link" [ generateId ] ] "" ]
+                    $w tag configure $tagName -underline 1 -foreground blue
+                    $w tag bind $tagName <ButtonPress-1> [ list "openUrl" $url ]
+                    $stack push [ list $tagName $pos ]
+                } else {
+                    $stack push [ list $tag $pos ]
+                }
+            }
+            img {
+                set text {[image]}
+            }
+            default {
+                $w insert end "<$slash$tag"
+                if { $param != "" } {
+                    $w insert " $param"
+                }
+                $w insert ">"
+            }
         }
-        "iwidgets" {
-            $w render $msg
+    } else {
+        switch -exact -- $tag {
+            a -
+            i -
+            p {
+                catch {
+                    set list [ $stack pop ]
+                    $w tag add [ lindex $list 0 ] [ lindex $list 1 ] [ $w index end-1chars ]
+                }
+            }
+            tr {
+                $w insert end "\n"
+            }
+            td {
+                $w insert end " "
+            }
         }
     }
+    $w insert end $text
 }
 
 proc updateTopicText {id header msg nick time} {
@@ -725,7 +784,6 @@ proc initHttp {} {
     global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
     if { $useProxy != "0" } {
-        package require autoproxy
         ::autoproxy::init 
         if { $proxyAutoSelect == "0" } {
             ::autoproxy::configure -proxy_host $proxyHost -proxy_port $proxyPort
@@ -1029,7 +1087,6 @@ proc parseGroup {parent section {group ""}} {
     global lorUrl
     global appName
 
-#    set url "http://$lorUrl/group.jsp?group=$group"
     set url "http://$lorUrl/section-rss.jsp?section=$section"
     if { $group != "" } {
         append url "&group=$group"
@@ -1038,8 +1095,6 @@ proc parseGroup {parent section {group ""}} {
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-#            parseTopicList $parent [ ::http::data $token ]
-
             set w $::allTopicsWidget
             foreach item [ $w children $parent ] {
                 set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
@@ -1059,34 +1114,6 @@ proc parseGroup {parent section {group ""}} {
     }
     if $err {
         tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
-    }
-}
-
-# TODO: delete this function after full testing
-proc parseTopicList {parent data} {
-    upvar #0 allTopicsWidget w
-    global configDir threadSubDir
-
-    foreach item [ $w children $parent ] {
-        set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-        addUnreadChild $w $parent "-$count"
-        $w delete $item
-    }
-    setItemValue $w $parent unreadChild 0
-
-    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
-        if { $id != "" } {
-            catch {
-                $w insert $parent end -id $id -text [ htmlToText $header ]
-                setItemValue $w $id text [ htmlToText $header ]
-                setItemValue $w $id parent $parent
-                setItemValue $w $id nick $nick
-                setItemValue $w $id unread 0
-                setItemValue $w $id unreadChild 0
-                mark $w $id item [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
-                updateItemState $w $id
-            }
-        }
     }
 }
 
@@ -1254,18 +1281,10 @@ proc openUrl {url} {
 }
 
 proc replaceHtmlEntities {text} {
-    foreach {re s} {
-        "&lt;" "<"
-        "&gt;" ">"
-        "&quot;" "\""
-        "&amp;" "\\&" } {
-        regsub -all -nocase -- $re $text $s text
-    }
-    return $text
+    return [ ::htmlparse::mapEscapes $text ]
 }
 
 proc htmlToText {text} {
-    set text [ replaceHtmlEntities $text ]
     foreach {re s} {
         {<img src="/\w+/\w+/votes\.gif"[^>]*>} "\[\\&\]"
         "<img [^>]*?>" "[image]"
@@ -1288,7 +1307,7 @@ proc htmlToText {text} {
         "\n{3,}" "\n\n" } {
         regsub -all -nocase -- $re $text $s text
     }
-    return $text
+    return [ replaceHtmlEntities $text ]
 }
 
 proc addTopicToFavorites {w item category caption} {
@@ -1493,7 +1512,6 @@ proc applyOptions {} {
     global tileTheme
     global topicTextWidget messageWidget
     global messageTextFont
-    global htmlRenderer
 
     initHttp
 
@@ -1501,10 +1519,8 @@ proc applyOptions {} {
     configureTags $topicWidget
     ttk::style theme use $tileTheme
 
-    if { $htmlRenderer == "local" } {
-        $topicTextWidget configure -font $messageTextFont
-        $messageWidget configure -font $messageTextFont
-    }
+    $topicTextWidget configure -font $messageTextFont
+    $messageWidget configure -font $messageTextFont
 
     initBindings
 }
@@ -1743,7 +1759,7 @@ proc ignoreUser {w item} {
     }
 }
 
-proc showFavoritesTree {title name script} {
+proc showFavoritesTree {title name script parent} {
     set f [ join [ list ".favoritesTreeDialog" [ generateId ] ] "" ]
     toplevel $f
     wm title $f $title
@@ -1758,7 +1774,7 @@ proc showFavoritesTree {title name script} {
     $categoryWidget heading #0 -text "Title" -anchor w
     pack $categoryWidget -fill both -expand yes
 
-    fillCategoryWidget $categoryWidget
+    fillCategoryWidget $categoryWidget $parent
 
     set okScript [ join \
         [ list \
@@ -1767,7 +1783,7 @@ proc showFavoritesTree {title name script} {
         ] ";" \
     ]
     set cancelScript "destroy $f"
-    set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" ] ]
+    set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" ] "\[ $categoryWidget focus \]" ]
 
     pack [ buttonBox $f \
         [ list -text "New category..." -command $newCategoryScript ] \
@@ -1802,7 +1818,7 @@ proc addToFavorites {w id} {
     global allTopicsWidget
 
     if { ![ isCategoryFixed $id ] } {
-        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ]
+        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ] [ getItemValue $allTopicsWidget $id parent  ]
     }
 }
 
@@ -1826,12 +1842,14 @@ proc createCategory {categoryWidget parent name} {
     fillCategoryWidget $categoryWidget
 }
 
-proc fillCategoryWidget {categoryWidget} {
+proc fillCategoryWidget {categoryWidget parent} {
     global allTopicsWidget
 
     $categoryWidget insert {} end -id favorites -text Favorites
     processItems $allTopicsWidget "favorites" [ list copyFavoritesCategory $allTopicsWidget $categoryWidget ]
-    setFocusedItem $categoryWidget "favorites"
+    if [ catch {setFocusedItem $categoryWidget $parent} ] {
+        setFocusedItem $categoryWidget "favorites"
+    }
 }
 
 proc clearTreeItemChildrens {w parent} {
