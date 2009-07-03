@@ -1,21 +1,19 @@
 ############################################################################
-#    Copyright (C) 2008 by Alexander Galanin                               #
-#    gaa.nnov@mail.ru                                                      #
+#   Copyright (C) 2008 Alexander Galanin <gaa.nnov@mail.ru>                #
 #                                                                          #
-#    This program is free software; you can redistribute it and/or modify  #
-#    it under the terms of the GNU Library General Public License as       #
-#    published by the Free Software Foundation; either version 3 of the    #
-#    License, or (at your option) any later version.                       #
+#   This program is free software: you can redistribute it and/or modify   #
+#   it under the terms of the GNU Lesser General Public License as         #
+#   published by the Free Software Foundation, either version 3 of the     #
+#   License, or (at your option) any later version.                        #
 #                                                                          #
-#    This program is distributed in the hope that it will be useful,       #
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
-#    GNU General Public License for more details.                          #
+#   This program is distributed in the hope that it will be useful,        #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of         #
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          #
+#   GNU General Public License for more details.                           #
 #                                                                          #
-#    You should have received a copy of the GNU Library General Public     #
-#    License along with this program; if not, write to the                 #
-#    Free Software Foundation, Inc.,                                       #
-#    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
+#   You should have received a copy of the GNU Lesser GNU General Public   #
+#   License along with this program.                                       #
+#   If not, see <http://www.gnu.org/licenses/>.                            #
 ############################################################################
 
 package provide gui_mailEditor 1.0
@@ -65,7 +63,7 @@ proc editMessage {title letter buttons default command} {
     set f [ toplevel .messagePostWindow$id ]
     wm withdraw $f
     wm title $f $title
- 
+
     set w [ ttk::frame $f.headerFrame ]
     grid \
         [ ttk::label $w.labelFrom -text [ mc "From: " ] -anchor w ] \
