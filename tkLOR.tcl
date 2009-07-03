@@ -141,6 +141,8 @@ set rightViewState "UNKNOWN"
 
 set debug 0
 
+set plugins ""
+
 array set fontPart {
     none ""
     item "-family Sans"
@@ -2591,11 +2593,23 @@ proc startDelivery {{noretry ""}} {
 }
 
 proc loadPlugin {name} {
-    set f [ open $name "r" ]
-    fconfigure $f -encoding utf-8
-    set s [ read $f ]
-    close $f
-    uplevel #0 $s
+    lappend ::plugins $name
+}
+
+proc processDelayedPluginsLoad {} {
+    global plugins
+
+    foreach name $plugins {
+        if [ catch {
+            set f [ open $name "r" ]
+            fconfigure $f -encoding utf-8
+            set s [ read $f ]
+            close $f
+            uplevel #0 $s
+        } err ] {
+            errorProc [ mc "Unable to load plugin '%s'" $name ] $err
+        }
+    }
 }
 
 ############################################################################
@@ -2606,6 +2620,7 @@ processArgv
 
 initDirs
 loadAppLibs
+loadConfig
 
 if { [ tk appname $appName ] != $appName } {
     send -async $appName {showWindow}
@@ -2616,13 +2631,10 @@ initMainWindow
 initTasksWindow
 initMenu
 
-update
-
-loadConfig
-
 applyOptions
 ::taskManager::setUpdateHandler updateTaskList
 setPerspective $currentPerspective
+processDelayedPluginsLoad
 
 update
 
