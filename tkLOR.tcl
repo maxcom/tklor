@@ -413,7 +413,7 @@ proc initMainWindow {} {
     wm protocol . WM_DELETE_WINDOW exitProc
     wm title . $appName
 
-    set statusBarWidget [ ttk::label .statusBar -text "" -relief ridge ]
+    set statusBarWidget [ ttk::label .statusBar -text "" -relief sunken ]
     pack $statusBarWidget -side bottom -anchor w -fill x
 
     ttk::panedwindow .horPaned -orient horizontal
@@ -528,9 +528,10 @@ proc setTopic {topic} {
     }
 
     startWait "Loading topic..."
-    setItemValue $topicWidget "" unreadChild 0
-
+    
     if { $topic != $currentTopic } {
+        setItemValue $topicWidget "" unreadChild 0
+
         foreach item [ $topicWidget children "" ] {
             $topicWidget delete $item
         }
@@ -596,7 +597,7 @@ proc parsePage {topic data} {
     upvar #0 topicWidget w
 
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
-        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
+        if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)" *onclick="highLight\(\d+\);">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
             if { ! [ $w exists $id ] } {
                 $w insert $parent end -id $id -text $nick
                 foreach i {nick time msg parent parentNick} {
@@ -1417,7 +1418,6 @@ proc saveOptions {} {
             } else {
                 puts -nonewline $f "set "
                 puts -nonewline $f $var
-                puts -nonewline $f " "
                 puts -nonewline $f " {"
                 puts -nonewline $f [ set ::$var ]
                 puts $f "}\n"
@@ -1573,7 +1573,7 @@ proc updateWindowTitle {} {
 
     set s $appName
     if { $currentTopic != "" } {
-        append s " $topicHeader"
+        append s ": $topicHeader"
         set k [ getItemValue $topicWidget {} unreadChild ]
         if { $k != "0" } {
             append s " \[ $k new \]"
