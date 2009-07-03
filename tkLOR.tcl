@@ -1042,23 +1042,20 @@ proc updateTopicList {{section ""} {recursive ""}} {
     }
 
     switch -glob -- $section {
+        news {
+            foreach {id title} $newsGroups {
+                updateTopicList "news$id" 1
+            }
         news* {
-            if { $section == "news" } {
-                foreach {id title} $newsGroups {
-                    updateTopicList "news$id" 1
-                }
-            } else {
-                parseGroup $section [ string trimleft $section "news" ]
+            parseGroup $section [ string trimleft $section "news" ]
+        }
+        forum {
+            foreach {id title} $forumGroups {
+                updateTopicList "forum$id" 1
             }
         }
         forum* {
-            if { $section == "forum" } {
-                foreach {id title} $forumGroups {
-                    updateTopicList "forum$id" 1
-                }
-            } else {
-                parseGroup $section [ string trimleft $section "forum" ]
-            }
+            parseGroup $section [ string trimleft $section "forum" ]
         }
         default {
             # No action at this moment
