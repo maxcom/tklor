@@ -40,8 +40,9 @@ proc loadAppLibs {libDir} {
 
     lappend auto_path $libDir
 
-    package require lorParser 1.0
+    package require lorParser 1.3
     package require gaa_httpTools 1.0
+    package require gaa_mbox 1.1
 }
 
 proc bgerror {msg} {
@@ -63,6 +64,40 @@ proc parseArgs {stream} {
     return $res
 }
 
+proc printTopic {id nick header date content} {
+    ::mbox::writeToStream stdout [ list \
+        "From"          $nick \
+        "X-LOR-Id"      $id \
+        "X-LOR-Time"    $date \
+        "Subject"       $header \
+        "body"          $content \
+    ]
+}
+
+proc printTopicText {id header msg nick date approver approveTime} {
+    ::mbox::writeToStream stdout [ list \
+        "From"          $nick \
+        "X-LOR-Id"      $id \
+        "X-LOR-Time"    $date \
+        "Subject"       $header \
+        "X-LOR-Approver" $approver \
+        "X-LOR-Approve-Time" $approveTime \
+        "body"          $msg \
+    ]
+}
+
+proc printMessage {parent parentNick id header msg nick date} {
+    ::mbox::writeToStream stdout [ list \
+        "From"          $nick \
+        "To"            $parentNick \
+        "X-LOR-ReplyTo-Id" $parent \
+        "X-LOR-Id"      $id \
+        "X-LOR-Time"    $date \
+        "Subject"       $header \
+        "body"          $msg \
+    ]
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -73,7 +108,8 @@ foreach stream {stdin stdout} {
 
 array set p [ ::cmdline::getoptions argv [ list \
     [ list libDir.arg   $libDir "Library path" ] \
-    {get.arg            ""      "Get messages from thread <id>"} \
+    {get.arg            ""      "Get messages from thread"} \
+    {list.arg           ""      "List threads in category"} \
     {login                      "Log in to LOR"} \
     {useragent.arg      "tkLOR" "HTTP User-Agent"} \
     {useproxy                   "Use proxy"} \
@@ -94,21 +130,23 @@ foreach key {useproxy autoproxy useragent proxyhost proxyport
 }
 eval [ concat gaa::httpTools::init $httpParams ]
 
-if { $p(get) != "" } {
-    #TODO
-    exit 0
-}
-
-if $p(login) {
-    array set arg [ parseArgs stdin ]
-    if [ catch {
-        puts -nonewline [ ::lor::login $arg(login) $arg(password) ]
-    } err ] {
-        puts stderr $err
-        exit 1
-    } else {
+if [ catch {
+    if { $p(get) != "" } {
+        ::lor::parseTopic $p(get) [ list printTopicText $p(get) ] printMessage
         exit 0
     }
+    if { $p(list) != "" } {
+        ::lor::getTopicList $p(list) printTopic
+        exit 0
+    }
+    if $p(login) {
+        array set arg [ parseArgs stdin ]
+        puts -nonewline [ ::lor::login $arg(login) $arg(password) ]
+        exit 0
+    }
+} err ] {
+    puts stderr $err
+    exit 1
 }
 
 puts stderr "No actions given"

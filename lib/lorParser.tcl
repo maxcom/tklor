@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide lorParser 1.2
+package provide lorParser 1.3
 
 package require Tcl 8.4
 package require http 2.0
@@ -54,28 +54,25 @@ variable forumGroups {
 
 variable lorUrl "http://www.linux.org.ru"
 
-proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
+proc parseTopic {topic topicTextCommand messageCommand} {
     variable lorUrl
 
     set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
-    if [ catch {::http::geturl $url -command [ ::gaa::lambda::lambda {topicTextCommand messageCommand onError onComplete token} {
-            if [ catch {
-                if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-                    ::lor::parseTopicText [ ::http::data $token ] $topicTextCommand
-                    ::lor::parsePage [ ::http::data $token ] $messageCommand
-                } else {
-                    error [ ::http::code $token ]
-                }
-            } err ] {
-                eval [ concat $onError [ list $err $::errorInfo ] ]
-            }
-            catch {::http::cleanup $token}
-            eval $onComplete
-        } $topicTextCommand $messageCommand $onError $onComplete ]
+    if [ catch {
+        set token [ ::http::geturl $url ]
+        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+            set data [ ::http::data $token ]
+            ::lor::parseTopicText $data $topicTextCommand
+            ::lor::parsePage $data $messageCommand
+        } else {
+            set err [ ::http::code $token ]
+            ::http::cleanup $token
+            error $err
+        }
+        ::http::cleanup $token
     } err ] {
-        eval [ concat $onError [ list $err $::errorInfo ] ]
-        eval $onComplete
+        error $err $::errorInfo
     }
 }
 
@@ -86,7 +83,7 @@ proc parseTopicText {data command} {
     set time ""
     set approver ""
     set approveTime ""
-    regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime
+    regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime
     eval [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
 }
 
@@ -98,34 +95,33 @@ proc parsePage {data command} {
     }
 }
 
-proc getTopicList {section command onError onComplete} {
+proc getTopicList {section command} {
     switch -regexp $section {
         {^news$} {
-            parseGroup $command 1 "" $onError $onComplete
+            parseGroup $command 1
         }
         {^news\d+$} {
-            parseGroup $command 1 [ string trimleft $section "news" ] $onError $onComplete
+            parseGroup $command 1 [ string trimleft $section "news" ]
         }
         {^gallery$} {
-            parseGroup $command 3 "" $onError $onComplete
+            parseGroup $command 3
         }
         {^votes$} {
-            parseGroup $command 5 "" $onError $onComplete
+            parseGroup $command 5
         }
         {^forum$} {
-            parseGroup $command 2 "" $onError $onComplete
+            parseGroup $command 2
         }
         {^forum\d+$} {
-            parseGroup $command 2 [ string trimleft $section "forum" ] $onError $onComplete
+            parseGroup $command 2 [ string trimleft $section "forum" ]
         }
         default {
-            # simply ignore it
-            eval $onComplete
+            error "Unknown section ID: $section"
         }
     }
 }
 
-proc parseGroup {command section group onError onComplete} {
+proc parseGroup {command section {group ""}} {
     variable lorUrl
 
     set url "$lorUrl/section-rss.jsp?section=$section"
@@ -147,29 +143,29 @@ proc parseGroup {command section group onError onComplete} {
         }
         set header $v(title)
         set msg $v(description)
+        set date $v(pubDate)
         # at this moment nick field are not present in RSS feed
         set nick ""
-        eval [ concat $command [ list $id $nick $header ] ]
+        uplevel #0 [ concat $command [ list $id $nick $header $date $msg ] ]
     } $command
 
-    if { [ catch { ::http::geturl $url -command [ ::gaa::lambda::lambda {processRssItem onError onComplete token} {
-            if [ catch {
-                if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-                    #decoding binary data
-                    set data [ encoding convertfrom "utf-8" [ ::http::data $token ] ]
-                    ::lor::parseRss $data $processRssItem
-                } else {
-                    error [ ::http::code $token ]
-                }
-            } err ] {
-                eval [ concat $onError [ list $err $::errorInfo ] ]
+    if [ catch {
+            set token [ ::http::geturl $url ]
+            if { [ ::http::status $token ] == "ok" &&
+                    [ ::http::ncode $token ] == 200 } {
+                #decoding binary data
+                set data \
+                    [ encoding convertfrom "utf-8" [ ::http::data $token ] \
+                ]
+                ::lor::parseRss $data $processRssItem
+            } else {
+                set err [ ::http::code $token ]
+                ::http::cleanup $token
+                error $err
             }
-            catch {::http::cleanup $token}
-            eval $onComplete
-        } $processRssItem $onError $onComplete ]
-    } err ] } {
-        eval [ concat $onError [ list $err $::errorInfo ] ]
-        eval $onComplete
+            ::http::cleanup $token
+    } err ] {
+        error $err $::errorInfo
     }
 }
 

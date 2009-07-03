@@ -448,17 +448,16 @@ proc exitProc {} {
     global appName
     global currentTopic
 
-    set total 0
-    foreach category [ getQueues ] {
-        incr total [ getTasksCount $category ]
-    }
+    set total [ expr [ llength [ ::taskManager::getTasks ] ] / 2 ]
     if { $total != 0 } {
         if { [ messageBox \
             -message [ mc "There are %s running tasks" $total ] \
             -detail  [ mc "Are you want to exit and stop it?" ] \
             -type yesno \
             -icon question \
-        ] == "no" } {
+        ] == "yes" } {
+            stopAllTasks
+        } else {
             return
         }
     }
@@ -2041,14 +2040,9 @@ proc initTasksWindow {} {
             ::taskManager::stopTask $item
         }
     } $w
-    deflambda stopAllScript {w} {
-        foreach item [ $w children {} ] {
-            ::taskManager::stopTask $item
-        }
-    } $w
     grid [ buttonBox $tasksWidget \
         [ list -text [ mc "Stop" ] -command $stopScript ] \
-        [ list -text [ mc "Stop all" ] -command $stopAllScript ] \
+        [ list -text [ mc "Stop all" ] -command stopAllTasks ] \
     ] -sticky nswe
     grid columnconfigure $tasksWidget 0 -weight 1
     grid rowconfigure $tasksWidget 0 -weight 1
@@ -2339,7 +2333,7 @@ proc callPlugin {action arg args} {
     global proxyUser proxyPassword
 
     set command [ concat \
-        [ list "$libDir/lorBackend.tcl" "-$action" ] \
+        [ list [ auto_execok "tclsh" ] "$libDir/lorBackend.tcl" "-$action" ] \
         $arg \
     ]
     foreach {var key} {
@@ -2359,6 +2353,12 @@ proc callPlugin {action arg args} {
         }
     }
     return [ eval [ concat [ list taskManager::addTask $command ] $args ] ]
+}
+
+proc stopAllTasks {} {
+    foreach {id title} [ ::taskManager::getTasks ] {
+        ::taskManager::stopTask $id
+    }
 }
 
 ############################################################################
