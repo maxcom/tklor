@@ -95,6 +95,10 @@ set findPos ""
 
 set waitDeep 0
 
+set backend ""
+set topicProcess ""
+set messageSlave ""
+
 set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
 
@@ -574,6 +578,8 @@ proc setTopic {topic} {
     global currentHeader currentNick
     global autonomousMode
     global expandNewMessages
+    global backend
+    global messageSlave
 
     focus $messageTree
     if { $currentTopic != "" } {
@@ -626,9 +632,8 @@ proc setTopic {topic} {
 
         set command [ list lor::parseTopic $topic $processText $processMessage ]
 
-        global configDir libDir
-
-        invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] $finish errorProc $command
+        killSlave $messageSlave
+        set messageSlave [ invokeSlave $backend $finish errorProc $command ]
     }
 }
 
@@ -959,7 +964,8 @@ proc updateTopicList {{section ""}} {
     global autonomousMode
     global appName
     global topicTree
-    global threadListSize
+    global backend
+    global topicSlave
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -998,20 +1004,24 @@ proc updateTopicList {{section ""}} {
         addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
     } $section
 
-    global configDir libDir
-    invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] stopWait errorProc [ list ::lor::getTopicList $section $processTopic ]
+    deflambda onComplete {section} {
+        upvar #0 topicTree w
+        global threadListSize
 
-
-    set w $topicTree
-    foreach item [ lrange [ $w children $section ] $threadListSize end ] {
-        set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-        if { $count != "0" } {
-            addUnreadChild $w $section "-$count"
+        foreach item [ lrange [ $w children $section ] $threadListSize end ] {
+            set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
+            if { $count != "0" } {
+                addUnreadChild $w $section "-$count"
+            }
+            $w delete $item
         }
-        $w delete $item
-    }
+        stopWait
+    } $section
 
-    stopWait
+    set command [ list ::lor::getTopicList $section $processTopic ]
+
+    killSlave $topicSlave
+    set topicSlave [ invokeSlave $backend $onComplete errorProc $command ]
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1862,6 +1872,8 @@ if { [ tk appname $appName ] != $appName } {
 
 initDirs
 loadAppLibs
+
+set backend [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ]
 
 initMainWindow
 initMenu

@@ -61,7 +61,7 @@ proc invokeMaster {arg} {
 }
 
 proc killSlave {slave} {
-    close $f
+    catch {close $slave}
 }
 
 proc addDollars {arg} {
