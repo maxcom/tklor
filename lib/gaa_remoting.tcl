@@ -18,7 +18,7 @@
 #    51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA               #
 ############################################################################
 
-package provide gaa_remoting 1.0
+package provide gaa_remoting 1.1
 
 package require Tcl 8.4
 package require cmdline 1.2.5
@@ -34,16 +34,28 @@ namespace export \
     killSlave \
     defMasterLambda \
     encode \
-    decode
+    decode \
+    getSlaves \
+    getSlavesCount \
+    enableErrorStub
+
+array set slaves ""
 
 proc invokeSlave {backend command args} {
+    variable slaves
+
     array set params [ ::cmdline::getoptions args {
         {oncomplete.arg ""  "Script to execute on background operation completes"}
         {onerror.arg    ""  "Script to execute on background operation error"}
         {timeout.arg    "0" "Execution timeout in milliseconds (0 - no timeout)"}
         {ontimeout.arg  ""  "Script to execute on background operation timeout"}
+        {statustext.arg ""  "Action status text"}
     } ]
+    if { $params(statustext) == "" } {
+        set params(statustext) $command
+    }
     set f [ open [ concat "|$backend" [ list "<<" [ encode $command ] ] ] "r" ]
+    array set slaves [ list $f $params(statustext) ]
     fileevent $f readable [ ::gaa::lambda::lambda {f onComplete onError} {
         if { ![ eof $f ] } {
             set count [ gets $f ]
@@ -52,6 +64,7 @@ proc invokeSlave {backend command args} {
                 eval $cmd
             }
         } else {
+            ::gaa::remoting::removeSlaveFromList $f
             if [ catch {close $f} err ] {
                 eval [ concat $onError [ list $err ] ]
             }
@@ -73,6 +86,7 @@ proc invokeMaster {arg} {
 
 proc killSlave {slave {script ""}} {
     if { ![ catch {close $slave} ] } {
+        removeSlaveFromList $slave
         eval $script
     }
 }
@@ -97,6 +111,41 @@ proc encode {str} {
 
 proc decode {str} {
     return [ encoding convertfrom utf-8 [ ::base64::decode $str ] ]
+}
+
+proc getSlaves {} {
+    variable slaves
+
+    return [ array get slaves ]
+}
+
+proc getSlavesCount {} {
+    variable slaves
+
+    return [ array size slaves ]
+}
+
+proc removeSlaveFromList {slave} {
+    variable slaves
+
+    set l [ array get slaves ]
+    array unset slaves
+    foreach {id text} $l {
+        if {$id != $slave} {
+            array set slaves [ list $id $text ]
+        }
+    }
+}
+
+proc enableErrorStub {} {
+    rename ::error ::error_orig
+
+    rename ::gaa::remoting::errorStub ::error
+}
+
+proc errorStub {message {unused1 ""} {unused2 ""}} {
+    puts stderr $message
+    exit
 }
 
 }

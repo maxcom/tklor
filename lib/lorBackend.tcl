@@ -82,7 +82,7 @@ proc loadAppLibs {} {
     package require gaa_lambda 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
-    package require gaa_remoting 1.0
+    package require gaa_remoting 1.1
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::remoting::*
@@ -119,4 +119,8 @@ gaa::httpTools::init \
     -proxypassword  $proxyPassword \
     -charset        "utf-8"
 
+enableErrorStub
+
 eval [ ::gaa::remoting::decode [ read stdin ] ]
+
+exit

@@ -95,11 +95,8 @@ set tileTheme "default"
 set findString ""
 set findPos ""
 
-set waitDeep 0
-
 set backend ""
 set messageSlave ""
-set topicSlavesCount 0
 
 set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
@@ -581,8 +578,6 @@ proc setTopic {topic} {
         saveTopicToCache $currentTopic
     }
 
-    startWait "Loading topic"
-
     if { $topic != $currentTopic } {
         setItemValue $messageTree "" unreadChild 0
 
@@ -621,16 +616,18 @@ proc setTopic {topic} {
             if { $expandNewMessages == "1" } {
                 nextUnread $messageTree ""
             }
-            stopWait
+            updateStatusText
         } $messageTree $expandNewMessages
 
         set command [ list lor::parseTopic $topic $processText $processMessage ]
 
-        killSlave $messageSlave stopWait
+        killSlave $messageSlave updateStatusText
         set messageSlave [ invokeSlave $backend $command \
             -oncomplete $finish \
             -onerror    errorProc \
+            -statustext "Loading messages" \
         ]
+        updateStatusText
     }
 }
 
@@ -894,12 +891,10 @@ proc saveTopicRecursive {topic item} {
 proc saveTopicToCache {topic} {
     global messageTree
 
-    startWait "Saving topic to cache"
     if { $topic != "" && [ $messageTree exists "topic" ] } {
         clearDiskCache $topic
         saveTopicRecursive $topic "topic"
     }
-    stopWait
 }
 
 proc processArgv {} {
@@ -912,28 +907,19 @@ proc processArgv {} {
     }
 }
 
-proc startWait {{text ""}} {
+proc updateStatusText {} {
     global statusBarWidget
-    global waitDeep
 
-    if { $text == "" } {
-        set text "Please, wait..."
+    set count [ getSlavesCount ]
+    if { $count == 0 } {
+        set text ""
+    } elseif { $count == 1 } {
+        set a [ getSlaves ]
+        set text [ lindex $a 1 ]
+    } else {
+        set text "$count background operation(s) running"
     }
-
-    if { $waitDeep == "0" } {
-        $statusBarWidget configure -text "$text..."
-    }
-    incr waitDeep
-}
-
-proc stopWait {} {
-    global statusBarWidget
-    global waitDeep
-
-    incr waitDeep -1
-    if { $waitDeep == "0" } {
-        $statusBarWidget configure -text ""
-    }
+    $statusBarWidget configure -text $text
 }
 
 proc loadConfigFile {fileName} {
@@ -970,7 +956,6 @@ proc updateTopicList {{section ""}} {
     global appName
     global topicTree
     global backend
-    global topicSlavesCount
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -984,21 +969,18 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    startWait "Updating topics list"
     if {$section == "" } {
         updateTopicList news
         updateTopicList gallery
         updateTopicList votes
         updateTopicList forum
 
-        stopWait
         return
     }
     if { $section == "forum" } {
         foreach {id title} $::lor::forumGroups {
             updateTopicList "forum$id"
         }
-        stopWait
         return
     }
 
@@ -1012,7 +994,6 @@ proc updateTopicList {{section ""}} {
     deflambda onComplete {section} {
         upvar #0 topicTree w
         global threadListSize
-        global topicSlavesCount
 
         foreach item [ lrange [ $w children $section ] $threadListSize end ] {
             set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
@@ -1021,24 +1002,16 @@ proc updateTopicList {{section ""}} {
             }
             $w delete $item
         }
-        stopWait
-
-        incr topicSlavesCount -1
-        if { $topicSlavesCount == "0" } {
-            set count 0
-            foreach item [ $w children "forum" ] {
-                incr count [ getItemValue $w $item unreadChild ]
-            }
-            setItemValue $w "forum" unreadChild $count
-        }
+        updateStatusText
     } $section
 
     set command [ list ::lor::getTopicList $section $processTopic ]
 
-    incr topicSlavesCount
     invokeSlave $backend $command \
         -oncomplete $onComplete \
-        -onerror    errorProc
+        -onerror    errorProc \
+        -statustext "Loading topics list"
+    updateStatusText
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1172,6 +1145,8 @@ proc openMessage {w item} {
 proc openUrl {url} {
     global tcl_platform browser
 
+    update
+
     if { [ string first Windows $tcl_platform(os) ] != -1 && $browser == "" } {
         catch {exec $::env(COMSPEC) /c "start $url" &}
         return
@@ -1211,7 +1186,10 @@ proc htmlToText {text} {
 }
 
 proc addTopicToFavorites {w item category caption} {
-    if { $category != "" && $item != $category } {
+    if { $category == "" } {
+        set category "favorites"
+    }
+    if { $item != $category } {
         set parentSave [ getItemValue $w $item parent ]
         set fromChildsSave [ $w children $parentSave ]
         $w detach $item
@@ -1492,10 +1470,10 @@ proc updateWindowTitle {} {
 proc clearOldTopics {} {
     global configDir threadSubDir appName
     upvar #0 topicTree w
+    global backend
 
     set topics ""
 
-    startWait "Searching for obsolete topics"
     if [ catch {
         foreach fname [ glob -directory [ file join $configDir $threadSubDir ] -types f {{*,*.topic}} ] {
             regsub -lineanchor -nocase {^.*?(\d+)(?:\.topic){0,1}$} $fname {\1} fname
@@ -1506,7 +1484,6 @@ proc clearOldTopics {} {
     } ] {
         set topics ""
     }
-    stopWait
 
     set count [ llength $topics ]
 
@@ -1517,16 +1494,21 @@ proc clearOldTopics {} {
         return
     }
 
-    startWait "Deleting obsolete topics"
-    foreach id $topics {
-        catch {
-            file delete [ file join $configDir $threadSubDir $id ]
+    deflambda command {dir topics} {
+        foreach id $topics {
+            catch {
+                file delete [ file join $dir $id ]
+            }
+            catch {
+                file delete [ file join $dir "$id.topic" ]
+            }
         }
-        catch {
-            file delete [ file join $configDir $threadSubDir "$id.topic" ]
-        }
-    }
-    stopWait
+    } [ file join $configDir $threadSubDir ] $topics
+    invokeSlave $backend $command \
+        -oncomplete updateStatusText \
+        -onerror    errorProc \
+        -statustext "Deleting obsolete topics"
+    updateStatusText
 }
 
 proc ignoreUser {w item} {
@@ -1833,7 +1815,7 @@ proc loadAppLibs {} {
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require lorParser 1.0
-    package require gaa_remoting 1.0
+    package require gaa_remoting 1.1
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
@@ -1871,7 +1853,8 @@ proc showWindow {} {
 proc errorProc {err} {
     global appName
 
-    tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$err" -parent . -type ok -icon error
+    tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
+    updateStatusText
 }
 
 ############################################################################
@@ -1889,7 +1872,7 @@ if { [ tk appname $appName ] != $appName } {
     exit
 }
 
-set backend [ list [ auto_execok tclsh ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir ]
+set backend [ list [ auto_execok tclsh ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId ]
 
 initMainWindow
 initMenu
