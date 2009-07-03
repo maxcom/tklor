@@ -1318,8 +1318,6 @@ proc applyOptions {{nosave ""}} {
     global color
     global colorList
     global colorCount
-    global appId
-    global useProxy proxyAutoSelect proxyHost proxyPort proxyAuthorization proxyUser proxyPassword
 
     configureTags $topicTree
     configureTags $messageTree
