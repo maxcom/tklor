@@ -175,6 +175,9 @@ set options {
 ############################################################################
 
 proc initMenu {} {
+    global allTopicsWidget topicWidget
+    global messageMenu topicMenu messageTextMenu
+
     menu .menu -type menubar
     .menu add cascade -label "LOR" -menu .menu.lor
     .menu add cascade -label "Topic" -menu .menu.topic
@@ -192,48 +195,58 @@ proc initMenu {} {
     $m add separator
     $m add command -label "Exit" -accelerator "Alt-F4" -command exitProc
 
-    set m [ menu .menu.topic -tearoff 0 ]
-    $m add command -label "Refresh sub-tree" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
-    $m add separator
-    $m add command -label "Reply" -command {invokeMenuCommand $allTopicsWidget topicReply}
-    $m add cascade -label "Mark" -menu $m.mark
+    set menuTopic [ menu .menu.topic -tearoff 0 ]
+    set topicMenu [ menu .topicMenu -tearoff 0 ]
+    set menuMessage [ menu .menu.message -tearoff 0 ]
+    set messageMenu [ menu .messageMenu -tearoff 0 ]
 
-    set mm [ menu $m.mark -tearoff 0 ]
-    $mm add command -label "Mark as read" -command {invokeMenuCommand $allTopicsWidget mark message 0}
-    $mm add command -label "Mark as unread" -command {invokeMenuCommand $allTopicsWidget mark message 1}
-    $mm add command -label "Mark thread as read" -command {invokeMenuCommand $allTopicsWidget mark thread 0}
-    $mm add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
-
-    $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget userInfo}
-    $m add command -label "Ignore user" -command {invokeMenuCommand $allTopicsWidget ignoreUser}
-    $m add command -label "Tag user..." -command {invokeMenuCommand $allTopicsWidget tagUser}
-    $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
-    $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $allTopicsWidget nextUnread}
-    $m add separator
-    $m add command -label "Move to favorites..." -command {invokeMenuCommand $allTopicsWidget addToFavorites}
-    $m add command -label "Clear cache" -command {invokeMenuCommand $allTopicsWidget clearTopicCache}
-    $m add command -label "Delete" -command {invokeMenuCommand $allTopicsWidget deleteTopic}
-
-    set m [ menu .menu.message -tearoff 0 ]
+    set m $menuMessage
     $m add command -label "Refresh tree" -accelerator "F5" -command refreshTopic
     $m add separator
-    $m add command -label "Reply" -accelerator "Ctrl-R" -command {invokeMenuCommand $topicWidget reply}
-    $m add cascade -label "Mark" -menu $m.mark
 
-    set mm [ menu $m.mark -tearoff 0 ]
-    $mm add command -label "Mark as read" -command {invokeMenuCommand $topicWidget mark message 0}
-    $mm add command -label "Mark as unread" -command {invokeMenuCommand $topicWidget mark message 1}
-    $mm add command -label "Mark thread as read" -command {invokeMenuCommand $topicWidget mark thread 0}
-    $mm add command -label "Mark thread as unread" -command {invokeMenuCommand $topicWidget mark thread 1}
-    $mm add command -label "Mark all as read" -command "markAllMessages 0"
-    $mm add command -label "Mark all as unread" -command "markAllMessages 1"
+    foreach {m invoke} [ list \
+        $menuTopic invokeMenuCommand \
+        $topicMenu invokeItemCommand ] {
 
-    $m add command -label "User info" -accelerator "Ctrl-I" -command {invokeMenuCommand $topicWidget userInfo}
-    $m add command -label "Ignore user" -command {invokeMenuCommand $topicWidget ignoreUser}
-    $m add command -label "Tag user..." -command {invokeMenuCommand $topicWidget tagUser}
-    $m add command -label "Open in browser" -accelerator "Ctrl-O" -command {invokeMenuCommand $topicWidget openMessage}
-    $m add separator
-    $m add command -label "Go to next unread" -accelerator n -command {invokeMenuCommand $topicWidget nextUnread}
+        $m add command -label "Refresh sub-tree" -command [ list $invoke $allTopicsWidget refreshTopicList ]
+        $m add separator
+    }
+    foreach {m w invoke} [ list \
+        $menuTopic $allTopicsWidget invokeMenuCommand \
+        $topicMenu $allTopicsWidget invokeItemCommand \
+        $menuMessage $topicWidget invokeMenuCommand \
+        $messageMenu $topicWidget invokeItemCommand ] {
+
+        $m add command -label "Reply" -accelerator "Ctrl-R" -command [ list $invoke $w reply ]
+        $m add command -label "Open in browser" -accelerator "Ctrl-O" -command [ list $invoke $w openMessage ]
+        $m add command -label "Go to next unread" -accelerator n -command [ list $invoke $w nextUnread ]
+        $m add cascade -label "Mark" -menu $m.mark
+
+        set mm [ menu $m.mark -tearoff 0 ]
+        $mm add command -label "Mark as read" -command [ list $invoke $w mark message 0 ]
+        $mm add command -label "Mark as unread" -command [ list $invoke $w mark message 1 ]
+        $mm add command -label "Mark thread as read" -command [ list $invoke $w mark thread 0 ]
+        $mm add command -label "Mark thread as unread" -command [ list $invoke $w mark thread 1 ]
+
+        $mm add command -label "Mark all as read" -command [ list markAllMessages $w 0 ]
+        $mm add command -label "Mark all as unread" -command [ list markAllMessages $w 1 ]
+
+        $m add cascade -label "User" -menu $m.user
+
+        set mm [ menu $m.user -tearoff 0 ]
+        $mm add command -label "User info" -accelerator "Ctrl-I" -command [ list $invoke $w userInfo ]
+        $mm add command -label "Ignore user" -command [ list $invoke $w ignoreUser ]
+        $mm add command -label "Tag user..." -command [ list $invoke $w tagUser ]
+    }
+    foreach {m invoke} [ list \
+        $menuTopic invokeMenuCommand \
+        $topicMenu invokeItemCommand ] {
+
+        $m add separator
+        $m add command -label "Move to favorites..." -command [ list $invoke $allTopicsWidget addToFavorites ]
+        $m add command -label "Clear cache" -command [ list $invoke $allTopicsWidget clearTopicCache ]
+        $m add command -label "Delete" -command [ list $invoke $allTopicsWidget deleteTopic ]
+    }
 
     set m [ menu .menu.search -tearoff 0 ]
     $m add command -label "Find..." -accelerator "Ctrl-F" -command find
@@ -246,47 +259,6 @@ proc initMenu {} {
     $m add command -label "About" -command helpAbout -accelerator "F1"
 
     .  configure -menu .menu
-}
-
-proc initPopups {} {
-    global messageMenu topicMenu messageTextMenu
-
-    set topicMenu [ menu .topicMenu -tearoff 0 ]
-    $topicMenu add command -label "Refresh sub-tree" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
-    $topicMenu add command -label "Reply" -command {invokeItemCommand $allTopicsWidget topicReply}
-    $topicMenu add cascade -label "Mark" -menu $topicMenu.mark
-
-    set mm [ menu $topicMenu.mark -tearoff 0 ]
-    $mm add command -label "Mark as read" -command {invokeItemCommand $allTopicsWidget mark message 0}
-    $mm add command -label "Mark as unread" -command {invokeItemCommand $allTopicsWidget mark message 1}
-    $mm add command -label "Mark thread as read" -command {invokeItemCommand $allTopicsWidget mark thread 0}
-    $mm add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
-
-    $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget userInfo}
-    $topicMenu add command -label "Ignore user" -command {invokeItemCommand $allTopicsWidget ignoreUser}
-    $topicMenu add command -label "Tag user..." -command {invokeItemCommand $allTopicsWidget tagUser}
-    $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
-    $topicMenu add separator
-    $topicMenu add command -label "Move to favorites..." -command {invokeItemCommand $allTopicsWidget addToFavorites}
-    $topicMenu add command -label "Clear cache" -command {invokeItemCommand $allTopicsWidget clearTopicCache}
-    $topicMenu add command -label "Delete" -command {invokeItemCommand $allTopicsWidget deleteTopic}
-
-    set messageMenu [ menu .messageMenu -tearoff 0 ]
-    $messageMenu add command -label "Reply" -command {invokeItemCommand $topicWidget reply}
-    $messageMenu add cascade -label "Mark" -menu $messageMenu.mark
-
-    set mm [ menu $messageMenu.mark -tearoff 0 ]
-    $mm add command -label "Mark as read" -command {invokeItemCommand $topicWidget mark message 0}
-    $mm add command -label "Mark as unread" -command {invokeItemCommand $topicWidget mark message 1}
-    $mm add command -label "Mark thread as read" -command {invokeItemCommand $topicWidget mark thread 0}
-    $mm add command -label "Mark thread as unread" -command {invokeItemCommand $topicWidget mark thread 1}
-    $mm add command -label "Mark all as read" -command "markAllMessages 0"
-    $mm add command -label "Mark all as unread" -command "markAllMessages 1"
-
-    $messageMenu add command -label "User info" -command {invokeItemCommand $topicWidget userInfo}
-    $messageMenu add command -label "Ignore user" -command {invokeItemCommand $topicWidget ignoreUser}
-    $messageMenu add command -label "Tag user..." -command {invokeItemCommand $topicWidget tagUser}
-    $messageMenu add command -label "Open in browser" -command {invokeItemCommand $topicWidget openMessage}
 
     set m [ menu .messageTextMenu -tearoff 0 ]
     set messageTextMenu $m
@@ -669,7 +641,7 @@ proc insertMessage {id nick header time msg parent parentNick unread {force ""}}
         if { $force == ""} {
             return
         }
-        set unread [ expr {$msg != [ getItemValue $w $id msg ]} ]
+        set unread 0
     } else {
         $w insert $parent end -id $id -text $nick
         setItemValue $w $id unreadChild 0
@@ -920,13 +892,11 @@ proc loadTopicTextFromCache {topic} {
     global configDir threadSubDir
 
     updateTopicText "" "" ""
-    if [ catch {
+    catch {
         array set res [ lindex [ parseMbox [ file join $configDir $threadSubDir [ join [ list $topic ".topic" ] "" ] ] ] 0 ]
         updateTopicText $topic $res(Subject) $res(From)
         # cached topic text always assumed read :)
         insertMessage "topic" $res(From) $res(Subject) $res(X-LOR-Time) $res(body) "" "" 0
-    } ] {
-        insertMessage "topic" "" "Unable to load subject :(" "" "Unable to load text :(" "" "" 0
     }
 }
 
@@ -1249,9 +1219,7 @@ proc refreshTopicList {w item} {
     }
 }
 
-proc markAllMessages {unread} {
-    upvar #0 topicWidget w
-
+proc markAllMessages {w unread} {
     foreach item [ $w children "" ] {
         mark $w $item thread $unread
     }
@@ -1259,11 +1227,36 @@ proc markAllMessages {unread} {
 }
 
 proc reply {w item} {
+    global allTopicsWidget
     global lorUrl currentTopic
-    if { $item != "topic" } {
-        openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
+
+    if { $w == $allTopicsWidget } {
+        switch -regexp $item {
+            {^news$} {
+                openUrl "http://$lorUrl/add-section.jsp?section=1"
+            }
+            {^forum$} {
+                openUrl "http://$lorUrl/add-section.jsp?section=2"
+            }
+            {^forum\d+$} {
+                openUrl "http://$lorUrl/add.jsp?group=[ string trim $item forum ]"
+            }
+            {^gallery$} {
+                openUrl "http://$lorUrl/add.jsp?group=4962"
+            }
+            {^votes$} {
+                openUrl "http://$lorUrl/add-poll.jsp"
+            }
+            {^\d+$} {
+                openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
+            }
+        }
     } else {
-        openUrl "http://$lorUrl/comment-message.jsp?msgid=$currentTopic"
+        if { $item != "topic" } {
+            openUrl "http://$lorUrl/add_comment.jsp?topic=$currentTopic&replyto=$item"
+        } else {
+            openUrl "http://$lorUrl/comment-message.jsp?msgid=$currentTopic"
+        }
     }
 }
 
@@ -1273,57 +1266,32 @@ proc userInfo {w item} {
 }
 
 proc openMessage {w item} {
+    global allTopicsWidget
     global lorUrl currentTopic
-    openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
-}
 
-proc topicReply {w item} {
-    global lorUrl
-
-    switch -regexp $item {
-        {^news$} {
-            openUrl "http://$lorUrl/add-section.jsp?section=1"
+    if { $w == $allTopicsWidget } {
+        switch -regexp $item {
+            {^news$} {
+                openUrl "http://$lorUrl/view-news.jsp?section=1"
+            }
+            {^forum$} {
+                openUrl "http://$lorUrl/view-section.jsp?section=2"
+            }
+            {^forum\d+$} {
+                openUrl "http://$lorUrl/group.jsp?group=[ string trim $item forum ]"
+            }
+            {^gallery$} {
+                openUrl "http://$lorUrl/view-news.jsp?section=3"
+            }
+            {^votes$} {
+                openUrl "http://$lorUrl/group.jsp?group=19387"
+            }
+            {^\d+$} {
+                openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
+            }
         }
-        {^forum$} {
-            openUrl "http://$lorUrl/add-section.jsp?section=2"
-        }
-        {^forum\d+$} {
-            openUrl "http://$lorUrl/add.jsp?group=[ string trim $item forum ]"
-        }
-        {^gallery$} {
-            openUrl "http://$lorUrl/add.jsp?group=4962"
-        }
-        {^votes$} {
-            openUrl "http://$lorUrl/add-poll.jsp"
-        }
-        {^\d+$} {
-            openUrl "http://$lorUrl/comment-message.jsp?msgid=$item"
-        }
-    }
-}
-
-proc topicOpenMessage {w item} {
-    global lorUrl
-
-    switch -regexp $item {
-        {^news$} {
-            openUrl "http://$lorUrl/view-news.jsp?section=1"
-        }
-        {^forum$} {
-            openUrl "http://$lorUrl/view-section.jsp?section=2"
-        }
-        {^forum\d+$} {
-            openUrl "http://$lorUrl/group.jsp?group=[ string trim $item forum ]"
-        }
-        {^gallery$} {
-            openUrl "http://$lorUrl/view-news.jsp?section=3"
-        }
-        {^votes$} {
-            openUrl "http://$lorUrl/group.jsp?group=19387"
-        }
-        {^\d+$} {
-            openUrl "http://$lorUrl/jump-message.jsp?msgid=$item"
-        }
+    } else {
+        openUrl "http://$lorUrl/jump-message.jsp?msgid=$currentTopic&cid=$item"
     }
 }
 
@@ -1394,6 +1362,10 @@ proc addTopicToFavorites {w item category caption} {
 
 proc deleteTopic {w item} {
     if { ![ isCategoryFixed $item ] } {
+        set s [ expr [ getItemValue $w $item unreadChild ]+[ getItemValue $w $item unread ] ]
+        if {$s > 0} {
+            addUnreadChild $w [ getItemValue $w $item parent ] -$s
+        }
         $w delete $item
     }
 }
@@ -1869,6 +1841,13 @@ proc initBindings {} {
 
         bind $w n [ list invokeMenuCommand $w nextUnread ]
         bind $w N [ list invokeMenuCommand $w nextUnread ]
+
+        bind . <Control-r> {invokeMenuCommand $w reply}
+        bind . <Control-R> {invokeMenuCommand $w reply}
+        bind . <Control-i> {invokeMenuCommand $w userInfo}
+        bind . <Control-I> {invokeMenuCommand $w userInfo}
+        bind . <Control-o> {invokeMenuCommand $w openMessage}
+        bind . <Control-O> {invokeMenuCommand $w openMessage}
     }
 
     bind . <F1> helpAbout
@@ -1876,12 +1855,6 @@ proc initBindings {} {
     bind . <F3> findNext
     bind . <F5> refreshTopic
 
-    bind . <Control-r> {invokeMenuCommand $topicWidget reply}
-    bind . <Control-R> {invokeMenuCommand $topicWidget reply}
-    bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
-    bind . <Control-I> {invokeMenuCommand $topicWidget userInfo}
-    bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
-    bind . <Control-O> {invokeMenuCommand $topicWidget openMessage}
     bind . <Control-f> find
     bind . <Control-F> find
 }
@@ -2021,9 +1994,8 @@ loadConfig
 initDirs
 loadAppLibs
 
-initMenu
-initPopups
 initMainWindow
+initMenu
 
 applyOptions
 
