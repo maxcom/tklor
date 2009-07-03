@@ -104,21 +104,6 @@ set topicSlavesCount 0
 set messageTextFont [ font actual system ]
 set messageTextMonospaceFont "-family Courier"
 
-set forumGroups {
-    126     General
-    1339    Desktop
-    1340    Admin
-    1342    Linux-install
-    4066    Development
-    4068    Linux-org-ru
-    7300    Security
-    8403    Linux-hardware
-    8404    Talks
-    9326    Job
-    10161   Games
-    19109   Web-development
-}
-
 array set fontPart {
     none ""
     item "-family Sans"
@@ -189,7 +174,7 @@ proc initMenu {} {
     global messageMenu topicMenu messageTextMenu
 
     menu .menu -type menubar
-    .menu add cascade -label "LOR" -menu .menu.lor -underline 0
+    .menu add cascade -label "LOR" -menu .menu.lor
     .menu add cascade -label "View" -menu .menu.view
     .menu add cascade -label "Topic" -menu .menu.topic
     .menu add cascade -label "Message" -menu .menu.message
@@ -285,7 +270,6 @@ proc initMenu {} {
 
 proc initTopicTree {} {
     upvar #0 topicTree w
-    global forumGroups
 
     set f [ ttk::frame .topicTreeFrame -width 250 ]
     set w [ ttk::treeview $f.w -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
@@ -306,7 +290,7 @@ proc initTopicTree {} {
     updateItemState $w "votes"
 
     $w insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
-    foreach {id title} $forumGroups {
+    foreach {id title} $::lor::forumGroups {
         $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
         updateItemState $w "forum$id"
     }
@@ -967,7 +951,6 @@ proc loadConfig {} {
 }
 
 proc updateTopicList {{section ""}} {
-    global forumGroups
     global autonomousMode
     global appName
     global topicTree
@@ -997,7 +980,7 @@ proc updateTopicList {{section ""}} {
         return
     }
     if { $section == "forum" } {
-        foreach {id title} $forumGroups {
+        foreach {id title} $::lor::forumGroups {
             updateTopicList "forum$id"
         }
         stopWait
@@ -1068,7 +1051,6 @@ proc loadTopicListFromCache {} {
 
 proc saveTopicListToCache {} {
     upvar #0 topicTree w
-    global forumGroups
     global configDir
 
     catch {
@@ -1882,15 +1864,15 @@ proc errorProc {err} {
 ############################################################################
 
 processArgv
+
+initDirs
+loadAppLibs
 loadConfig
 
 if { [ tk appname $appName ] != $appName } {
     send -async $appName {showWindow}
     exit
 }
-
-initDirs
-loadAppLibs
 
 set backend [ list [ auto_execok tclsh ] [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir ]
 

@@ -2,3 +2,12 @@ userConfig usr/share/doc/tklor/examples
 config usr/share/doc/tklor/examples
 tklor.xpm usr/share/pixmaps
 tklor.desktop usr/share/applications
+lib/gaa_httpTools.tcl usr/lib/tkLOR
+lib/gaa_lambda.tcl usr/lib/tkLOR
+lib/gaa_mbox.tcl usr/lib/tkLOR
+lib/gaa_remoting.tcl usr/lib/tkLOR
+lib/gaa_tileDialogs.tcl usr/lib/tkLOR
+lib/gaa_tools.tcl usr/lib/tkLOR
+lib/lorParser.tcl usr/lib/tkLOR
+lib/lorBackend.tcl usr/lib/tkLOR
+lib/pkgIndex.tcl usr/lib/tkLOR

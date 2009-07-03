@@ -29,8 +29,17 @@ src_install() {
 	insinto /usr/share/pixmaps
 	doins tklor.xpm
 	insinto /usr/share/applications
-	doins tklor.desktop	
-
+	doins tklor.desktop
+	insinto usr/lib/tkLOR
+	lib/gaa_lambda.tcl
+	lib/gaa_mbox.tcl
+	lib/gaa_remoting.tcl
+	lib/gaa_tileDialogs.tcl
+	lib/gaa_tools.tcl
+	lib/lorParser.tcl
+	lib/lorBackend.tcl
+	lib/pkgIndex.tcl
+	
 	chmod +x tkLOR
 	dobin tkLOR
 	dosym ../share/tklor/tkLOR /usr/bin/tklor

@@ -36,6 +36,21 @@ namespace export \
     getTopicUrl \
     getMessageUrl
 
+variable forumGroups {
+    126     General
+    1339    Desktop
+    1340    Admin
+    1342    Linux-install
+    4066    Development
+    4068    Linux-org-ru
+    7300    Security
+    8403    Linux-hardware
+    8404    Talks
+    9326    Job
+    10161   Games
+    19109   Web-development
+}
+
 variable lorUrl "http://www.linux.org.ru"
 
 proc parseTopic {topic topicTextCommand messageCommand} {
