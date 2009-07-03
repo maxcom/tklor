@@ -92,6 +92,34 @@ set forumGroups {
     19109   Web-development
 }
 
+set newsGroups {
+    2       "Linux.org.ru server"
+    3       Документация
+    4       "Linux General"
+    6       OpenSource
+    7       Mozilla
+    13      RedHat
+    26      Java
+    37      GNOME
+    44      KDE
+    196     "GNU's Not Unix"
+    213     Security
+    2121    "Linux в России"
+    4228    "Коммерческое ПО"
+    6204    "Linux kernel"
+    6205    "Hardware and Drivers"
+    9406    BSD
+    10794   Debian
+    10980   "OpenOffice (StarOffice)"
+    19103   PDA
+    19104   Игры
+    19105   SCO
+    19106   Кластеры
+    19107   "Ubuntu Linux"
+    19108   Slackware
+    19110   Apple
+}
+
 ############################################################################
 #                                 FUNCTIONS                                #
 ############################################################################
@@ -145,7 +173,7 @@ proc initPopups {} {
 
 proc initAllTopicsTree {} {
     global allTopicsWidget
-    global forumGroups
+    global forumGroups newsGroups
 
     set f [ frame .allTopicsFrame ]
     set allTopicsWidget [ ttk::treeview $f.allTopicsTree -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
@@ -157,6 +185,9 @@ proc initAllTopicsTree {} {
     $allTopicsWidget column unreadChild -width 30
 
     $allTopicsWidget insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
+    foreach {id title} $newsGroups {
+        $allTopicsWidget insert news end -id "news$id" -text $title -values [ list "" 0 0 "news" $title ]
+    }
 
     $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
     foreach {id title} $forumGroups {
@@ -751,22 +782,32 @@ proc loadConfig {} {
 }
 
 proc updateTopicList {{section ""}} {
-    global forumGroups
+    global forumGroups newsGroups
 
     if {$section == "" } {
         updateTopicList news
-        foreach {id title} $forumGroups {
-            updateTopicList "forum$id"
-        }
+        updateTopicList forum
         return
     }
 
     switch -glob -- $section {
-        news {
-            parseNews
+        news* {
+            if { $section == "news" } {
+                foreach {id title} $newsGroups {
+                    updateTopicList "news$id"
+                }
+            } else {
+                parseNews [ string trimleft $section "news" ]
+            }
         }
         forum* {
-            parseForum [ string trimleft $section "forum" ]
+            if { $section == "forum" } {
+                foreach {id title} $forumGroups {
+                    updateTopicList "forum$id"
+                }
+            } else {
+                parseForum [ string trimleft $section "forum" ]
+            }
         }
         default {
             #TODO
@@ -855,7 +896,7 @@ proc loadTopicListFromCache {} {
 
 proc saveTopicListToCache {} {
     upvar #0 allTopicsWidget w
-    global forumGroups
+    global forumGroups newsGroups
     global configDir
 
     catch {
@@ -868,10 +909,12 @@ proc saveTopicListToCache {} {
                 puts $f " [ getItemValue $w $id unread ]"
             }
         }
-        foreach id [ $w children "news" ] {
-            puts -nonewline $f "addTopicFromCache news $id [ getItemValue $w $id nick ] "
-            puts -nonewline $f [ list [ getItemValue $w $id text ] ]
-            puts $f " [ getItemValue $w $id unread ]"
+        foreach {group title} $newsGroups {
+            foreach id [ $w children "news$group" ] {
+                puts -nonewline $f "addTopicFromCache news$group $id [ getItemValue $w $id nick ] "
+                puts -nonewline $f [ list [ getItemValue $w $id text ] ]
+                puts $f " [ getItemValue $w $id unread ]"
+            }
         }
         close $f
     }
@@ -1008,24 +1051,24 @@ proc openUrl {url} {
     catch {exec $prog $url &}
 }
 
-proc parseNews {} {
+proc parseNews {group} {
     global lorUrl
     upvar #0 allTopicsWidget w
 
     startWait
 
-    foreach item [ $w children "news" ] {
+    foreach item [ $w children "news$group" ] {
         set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
-        addUnreadChild $w "news" "-$count"
+        addUnreadChild $w "news$group" "-$count"
         $w delete $item
     }
 
-    set url "http://$lorUrl/view-news.jsp?section=1"
+    set url "http://$lorUrl/group.jsp?group=$group"
     set err 0
 
     if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseNewsPage [ ::http::data $token ]
+            parseNewsPage $group [ ::http::data $token ]
             set err 0
         } else {
             set errStr [ ::http::code $token ]
@@ -1039,23 +1082,21 @@ proc parseNews {} {
     stopWait
 }
 
-proc parseNewsPage {data} {
+proc parseNewsPage {group data} {
     upvar #0 allTopicsWidget w
     global configDir threadSubDir
 
-# <div class="entry-userpic"><a [^>]*><img [^>]*></a></div><div class="entry-body"><div class=msg>(.*?)</div><div class=sign>([\w-]+) *(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div><div class="nav">
-
-    foreach {dummy id header body nick time} [ regexp -all -inline -- {<div class=news><h2><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}">([^<]*)</a></h2><div class="entry-userpic"><a [^>]*><img [^>]*></a></div><div class="entry-body"><div class=msg>} $data ] {
+    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\([^<]*(?: *<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}&amp;page=\d+">\d+</a> *)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
-                $w insert "news" end -id $id -text [ replaceHtmlEntities $header ]
+                $w insert "news$group" end -id $id -text [ replaceHtmlEntities $header ]
                 setItemValue $w $id text [ replaceHtmlEntities $header ]
-                setItemValue $w $id parent "news"
+                setItemValue $w $id parent "news$group"
                 setItemValue $w $id nick $nick
                 setItemValue $w $id unreadChild 0
                 if {! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] } {
                     setItemValue $w $id unread 1
-                    addUnreadChild $w "news"
+                    addUnreadChild $w "news$group"
                 } else {
                     setItemValue $w $id unread 0
                 }
@@ -1063,15 +1104,17 @@ proc parseNewsPage {data} {
             }
         }
     }
-    $w see "news"
+    $w see "news$group"
 }
 
 proc replaceHtmlEntities {text} {
     foreach {re s} {
+        "<img [^>]*>" "[image]"
+        "<!--.*?-->" ""
         "<br>" "\n"
         "<p>" "\n"
         "</p>" ""
-        "<a[^>]*>" ""
+        "<a [^>]*>" ""
         "</a>" ""
         "</{0,1}i>" ""
         "&lt;" "<"
