@@ -131,16 +131,41 @@ proc initMenu {} {
     menu .menu -type menubar
     .menu add cascade -label "LOR" -menu .menu.lor
     .menu add cascade -label "Topic" -menu .menu.topic
+    .menu add cascade -label "Message" -menu .menu.message
     .menu add cascade -label "Help" -menu .menu.help
 
     menu .menu.lor -tearoff 0
-    .menu.lor add command -label "Update topics" -command updateTopicList
+    .menu.lor add command -label "Search new topics" -command updateTopicList
     .menu.lor add separator
     .menu.lor add command -label "Exit" -command exitProc
 
-    menu .menu.topic -tearoff 0
-    .menu.topic add command -label "Add..." -command addTopic
-    .menu.topic add command -label "Refresh" -command refreshTopic
+    set m [ menu .menu.topic -tearoff 0 ]
+    $m add command -label "Refresh sub-list" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
+    $m add command -label "Reply" -command {invokeMenuCommand $allTopicsWidget topicReply}
+    $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
+    $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
+    $m add separator
+    $m add command -label "Mark as read" -command {invokeMenuCommand $allTopicsWidget mark message 0}
+    $m add command -label "Mark as unread" -command {invokeMenuCommand $allTopicsWidget mark message 1}
+    $m add command -label "Mark thread as read" -command {invokeMenuCommand $allTopicsWidget mark thread 0}
+    $m add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
+    $m add separator
+    $m add command -label "Move to favorites" -command {invokeMenuCommand $allTopicsWidget addToFavorites}
+    $m add command -label "Delete" -command {invokeMenuCommand $allTopicsWidget deleteTopic}
+
+    set m [ menu .menu.message -tearoff 0 ]
+    $m add command -label "Refresh tree" -command refreshTopic
+    $m add separator
+    $m add command -label "Reply" -command {invokeMenuCommand $topicWidget reply}
+    $m add command -label "User info" -command {invokeMenuCommand $topicWidget userInfo}
+    $m add command -label "Open in browser" -command {invokeMenuCommand $topicWidget openMessage}
+    $m add separator
+    $m add command -label "Mark as read" -command {invokeMenuCommand $topicWidget mark message 0}
+    $m add command -label "Mark as unread" -command {invokeMenuCommand $topicWidget mark message 1}
+    $m add command -label "Mark thread as read" -command {invokeMenuCommand $topicWidget mark thread 0}
+    $m add command -label "Mark thread as unread" -command {invokeMenuCommand $topicWidget mark thread 1}
+    $m add command -label "Mark all as read" -command "markAllMessages 0"
+    $m add command -label "Mark all as unread" -command "markAllMessages 1"
 
     menu .menu.help -tearoff 0
     .menu.help add command -label "About" -command helpAbout
@@ -164,7 +189,7 @@ proc initPopups {} {
     $messageMenu add command -label "Mark all as unread" -command "markAllMessages 1"
 
     set topicMenu [ menu .topicMenu -tearoff 0 ]
-    $topicMenu add command -label "Refresh list" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
+    $topicMenu add command -label "Refresh sub-list" -command {invokeItemCommand $allTopicsWidget refreshTopicList}
     $topicMenu add command -label "Reply" -command {invokeItemCommand $allTopicsWidget topicReply}
     $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
@@ -792,12 +817,14 @@ proc stopWait {} {
 }
 
 proc loadConfigFile {fileName} {
-    catch {
+    if [ catch {
         set f [ open $fileName "r" ]
         set data [ read $f ]
         close $f
 
         uplevel #0 $data
+    } err ] {
+        tk_messageBox -title "$appName error" -message "Error loading $fileName\n$err" -parent . -type ok -icon error
     }
 }
 
@@ -837,7 +864,7 @@ proc updateTopicList {{section ""}} {
             }
         }
         default {
-            #TODO
+            # No action at this moment
         }
     }
 }
@@ -1154,13 +1181,23 @@ proc addToFavorites {w item} {
 
 proc deleteTopic {w item} {
     global allTopicsWidget
-    $w delete $item
+
+    if [ regexp -lineanchor {^\d+$} $item ] {
+        $w delete $item
+    }
 }
 
 proc invokeItemCommand {w command args} {
     global mouseX mouseY
 
     set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        eval "$command $w $item $args"
+    }
+}
+
+proc invokeMenuCommand {w command args} {
+    set item [ $w focus ]
     if { $item != "" } {
         eval "$command $w $item $args"
     }
