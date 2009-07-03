@@ -1342,7 +1342,7 @@ proc addIgnoreListItem {w parent} {
 
 proc modifyIgnoreListItem {w parent} {
     if { [ $w focus ] == "" } {
-        addIgnoreListItem $w
+        addIgnoreListItem $w $parent
     } else {
         inputStringDialog \
             -title "Ignore list" \
@@ -1795,7 +1795,7 @@ proc addColorListItem {w parent} {
 proc modifyColorListItem {w parent} {
     set id [ $w focus ]
     if { $id == "" } {
-        addColorListItem $w
+        addColorListItem $w $parent
     } else {
         onePageOptionsDialog \
             -title "Modify color regexp" \

@@ -66,7 +66,7 @@ proc packOptionsItem {w name item type val opt} {
             pack $v -anchor w -fill both
             pack $ff -anchor w -fill both
             pack $f -anchor w -fill both
-            bind $v <Double-Button-1> [ concat $modifyScript [ list $v ] ]
+            bind $v <Double-Button-1> [ concat $modifyScript [ list $v $w ] ]
             pack [ buttonBox $name \
                 [ list -text "Add..." -command [ concat $addScript [ list $v $w ] ] ] \
                 [ list -text "Modify..." -command [ concat $modifyScript [ list $v $w ] ] ] \
