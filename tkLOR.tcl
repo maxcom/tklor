@@ -1241,8 +1241,8 @@ proc replaceHtmlEntities {text} {
         "</{0,1}i>" ""
         "&lt;" "<"
         "&gt;" ">"
-        "&amp;" "&"
         "&quot;" "\""
+        "&amp;" "\\&"
         "\n{3,}" "\n\n" } {
         regsub -all $re $text $s text
     }
