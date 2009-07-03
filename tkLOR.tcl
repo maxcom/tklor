@@ -37,7 +37,7 @@ set threadSubDir "threads"
 set lorUrl "www.linux.org.ru"
 
 set htmlRenderer "local"
-if { [ string equal -length 3 $tk_patchLevel "8.4" ] && ! [catch {package require Iwidgets}] } {
+if { [ info tclversion ] == "8.4" && ! [catch {package require Iwidgets}] } {
     set htmlRenderer "iwidgets"
 }
 
@@ -79,6 +79,9 @@ set autonomousMode 0
 set expandNewMessages 1
 
 set tileTheme "default"
+
+set findString ""
+set findPos ""
 
 set forumGroups {
     126     General
@@ -173,6 +176,7 @@ proc initMenu {} {
     .menu add cascade -label "LOR" -menu .menu.lor
     .menu add cascade -label "Topic" -menu .menu.topic
     .menu add cascade -label "Message" -menu .menu.message
+    .menu add cascade -label "Search" -menu .menu.search
     .menu add cascade -label "Help" -menu .menu.help
 
     set m [ menu .menu.lor -tearoff 0 ]
@@ -217,6 +221,10 @@ proc initMenu {} {
     $m add command -label "Mark thread as unread" -command {invokeMenuCommand $topicWidget mark thread 1}
     $m add command -label "Mark all as read" -command "markAllMessages 0"
     $m add command -label "Mark all as unread" -command "markAllMessages 1"
+
+    set m [ menu .menu.search -tearoff 0 ]
+    $m add command -label "Find..." -accelerator "Ctrl-F" -command find
+    $m add command -label "Find next" -accelerator "F3" -command findNext
 
     set m [ menu .menu.help -tearoff 0 ]
     $m add command -label "Project home" -command {openUrl $appHome}
@@ -422,11 +430,13 @@ proc initMainWindow {} {
 
     bind . <F1> helpAbout
     bind . <F2> updateTopicList
+    bind . <F3> findNext
     bind . <F5> refreshTopic
 
     bind . <Control-r> {invokeMenuCommand $topicWidget reply}
     bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
     bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
+    bind . <Control-f> find
 
     ttk::style theme use $tileTheme
 }
@@ -1507,17 +1517,9 @@ proc centerToParent {window parent} {
 proc addListItem {w} {
     global nickToIgnore
 
-    set f .addListItemDialog
-    toplevel $f
-
     set nickToIgnore ""
-    pack [ ttk::label $f.label -text "Enter nick:" ] -fill x
-    pack [ ttk::entry $f.entry -textvariable nickToIgnore ] -fill x
-    pack [ ttk::button $f.ok -text "OK" -command "$w insert end \$nickToIgnore;destroy $f" ] [ ttk::button $f.cancel -text "Cancel" -command "destroy $f" ] -side left
 
-    update
-    centerToParent $f .
-    grab $f
+    inputStringDialog "Ignore list" "Enter nick:" nickToIgnore "$w insert end \$nickToIgnore"
 }
 
 proc removeListItem {w} {
@@ -1572,6 +1574,80 @@ proc openContextMenu {w menu} {
         incr x [ expr [ lindex $bbox 2 ] / 2 ]
         incr y [ expr [ lindex $bbox 3 ] / 2 ]
         popupMenu $menu $xx $yy $x $y
+    }
+}
+
+proc inputStringDialog {title label var script} {
+    set f .inputStringDialog
+    set okScript [ join [ list "destroy $f" $script ] ";" ]
+    set cancelScript "destroy $f"
+
+    toplevel $f
+    wm title $f $title
+    pack [ ttk::label $f.label -text $label ] -fill x
+    pack [ ttk::entry $f.entry -textvariable $var ] -fill x
+    pack [ ttk::button $f.ok -text "OK" -command $okScript ] [ ttk::button $f.cancel -text "Cancel" -command $cancelScript ] -side left
+    update
+    centerToParent $f .
+    grab $f
+    focus $f.entry
+    bind $f <Escape> $cancelScript
+}
+
+proc find {} {
+    global findPos
+
+    set findPos ""
+
+    inputStringDialog "Search" "Search for:" findString {findNext}
+}
+
+proc findNext {} {
+    upvar #0 topicWidget w
+    global appName
+    global findString findPos
+
+    set cur [ processItems $w $findPos [ list matchItemText $w $findString ] ]
+    set findPos $cur
+
+    if { $cur != "" } {
+        $w see $cur
+        $w focus $cur
+        $w selection set $cur
+        click $w $cur
+    } else {
+        tk_messageBox -title $appName -message "Message not found!" -icon info
+    }
+}
+
+proc matchItemText {w sub item} {
+    return [ expr [ string first $sub [ getItemValue $w $item msg ] ] == -1 ]
+}
+
+proc processItems {w item script} {
+    set fromChild 0
+    for {set cur $item} 1 {set cur $next} {
+        if { !$fromChild } {
+            set next [ lindex [ $w children $cur ] 0 ]
+        } else {
+            set next ""
+        }
+        set fromChild 0
+        if { $next == "" } {
+            set next [ $w next $cur ]
+            if { $next == "" } {
+                set next [ $w parent $cur ]
+                set fromChild 1
+            }
+        }
+        if { $next != "" && !$fromChild } {
+            if { ![ eval "$script $next" ] } {
+                return $next
+            }
+        }
+        if { $next == "" } {
+            return ""
+        }
     }
 }
 
