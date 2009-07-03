@@ -189,7 +189,7 @@ proc initMenu {} {
     $m add separator
     $m add command -label "Clear old topics..." -command clearOldTopics
     $m add separator
-    $m add command -label "Exit" -command exitProc
+    $m add command -label "Exit" -accelerator "Alt-F4" -command exitProc
 
     set m [ menu .menu.topic -tearoff 0 ]
     $m add command -label "Refresh sub-tree" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
@@ -1768,6 +1768,9 @@ proc findNext {} {
     global appName
     global findString findPos
 
+    if { ![$w exists $findPos] } {
+        set findPos ""
+    }
     set cur [ processItems $w $findPos [ list matchItemText $w $findString ] ]
     set findPos $cur
 
