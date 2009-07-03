@@ -214,7 +214,7 @@ proc initMainWindow {} {
 proc helpAbout {} {
     global appName appVersion
 
-    tk_messageBox -title "About $appName" -message "$appName $appVersion" -detail "Client for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)" -parent . -type ok
+    tk_messageBox -title "About $appName" -message "$appName $appVersion\nClient for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3" -parent . -type ok
 }
 
 proc exitProc {} {
@@ -302,7 +302,7 @@ proc setTopic {topic} {
         ::http::cleanup $token
     }
     if $err {
-        tk_messageBox -title "$appName error" -message "Unable to contact LOR" -detail $errStr -parent . -type ok -icon error
+        tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
     }
 }
 
@@ -463,7 +463,7 @@ proc parseMbox {fileName} {
             if [ regexp -lineanchor -- {^From ([\w-]+)$} $s dummy nick ] {
                 break
             } else {
-                if [ string equal -length 6 $line ">From " ] {
+                if [ string equal -length 6 $s ">From " ] {
                     set s [ string trimleft $s ">" ]
                 }
                 append body "$s\n"
