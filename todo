@@ -44,3 +44,5 @@
 русификация (msgcat)
 
 унаследовать класс treewidget и засунуть в него все функции работы с деревом
+
+get interpreter path more tricky

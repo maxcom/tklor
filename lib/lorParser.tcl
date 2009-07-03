@@ -82,8 +82,8 @@ proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
 
 proc parseTopicText {data command} {
     set nick ""
-    set header "Unable to parse"
-    set msg "Unable to parse topic text :("
+    set header "Unable to parse topic header"
+    set msg "Oops, something goes wrong :("
     set time ""
     set approver ""
     set approveTime ""

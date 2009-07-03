@@ -68,15 +68,15 @@ proc packOptionsItem {w name item type val opt} {
             pack $f -anchor w -fill both
             bind $v <Double-Button-1> [ concat $modifyScript [ list $v $w ] ]
             pack [ buttonBox $name \
-                [ list -text "Add..." -command [ concat $addScript [ list $v $w ] ] ] \
-                [ list -text "Modify..." -command [ concat $modifyScript [ list $v $w ] ] ] \
-                [ list -text "Remove" -command [ ::gaa::lambda::lambda {w} {
+                [ list -text [ mc "Add..." ] -command [ concat $addScript [ list $v $w ] ] ] \
+                [ list -text [ mc "Modify..." ] -command [ concat $modifyScript [ list $v $w ] ] ] \
+                [ list -text [ mc "Remove" ] -command [ ::gaa::lambda::lambda {w} {
                         foreach item [ $w selection ] {
                             $w delete $item
                         }
                     } $v ] \
                 ] \
-                [ list -text "Move up" -command [ ::gaa::lambda::lambda {w} {
+                [ list -text [ mc "Move up" ] -command [ ::gaa::lambda::lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -89,7 +89,7 @@ proc packOptionsItem {w name item type val opt} {
                         }
                     } $v ] \
                 ] \
-                [ list -text "Move down" -command [ ::gaa::lambda::lambda {w} {
+                [ list -text [ mc "Move down" ] -command [ ::gaa::lambda::lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -157,14 +157,14 @@ proc packOptionsItem {w name item type val opt} {
                     }
                 }
                 onePageOptionsDialog \
-                    -title "Choose font" \
+                    -title [ mc "Choose font" ] \
                     -options [ list \
-                        "Family" editableCombo family $ff(-family) { lsort [ font families ] } \
-                        "Size" string size $ff(-size) "" \
-                        "Weight" readOnlyCombo weight $ff(-weight) { list "" normal bold } \
-                        "Slant" readOnlyCombo slant $ff(-slant) { list "" roman italic } \
-                        "Underline" check underline $ff(-underline) "" \
-                        "Overstrike" check overstrike $ff(-overstrike) "" \
+                        [ mc "Family" ] editableCombo family $ff(-family) { lsort [ font families ] } \
+                        [ mc "Size" ] string size $ff(-size) "" \
+                        [ mc "Weight" ] readOnlyCombo weight $ff(-weight) { list "" normal bold } \
+                        [ mc "Slant" ] readOnlyCombo slant $ff(-slant) { list "" roman italic } \
+                        [ mc "Underline" ] check underline $ff(-underline) "" \
+                        [ mc "Overstrike" ] check overstrike $ff(-overstrike) "" \
                     ] \
                     -script [ lambda {w vals} {
                         set s ""
@@ -411,8 +411,8 @@ proc modalDialogConfigure {f script} {
     ] ";" ]
 
     grid [ buttonBox $f \
-        [ list -text "OK" -command $okScript ] \
-        [ list -text "Cancel" -command $cancelScript ] \
+        [ list -text [ mc "OK" ] -command $okScript ] \
+        [ list -text [ mc "Cancel" ] -command $cancelScript ] \
     ] -sticky nswe
 
     grid rowconfigure $f 0 -weight 1

@@ -27,6 +27,9 @@ package require Tk 8.4
 package require tile 0.8
 package require htmlparse 1.1
 package require struct::stack 1.3
+package require msgcat 1.3
+
+namespace import ::msgcat::*
 
 set appName "tkLOR"
 set backendId "tkLOR-backend"
@@ -178,28 +181,28 @@ proc initMenu {} {
     global messageMenu topicMenu messageTextMenu
 
     menu .menu -tearoff 0
-    .menu add cascade -label "LOR" -menu .menu.lor -underline 0
-    .menu add cascade -label "View" -menu .menu.view -underline 0
-    .menu add cascade -label "Topic" -menu .menu.topic -underline 0
-    .menu add cascade -label "Message" -menu .menu.message -underline 0
-    .menu add cascade -label "Search" -menu .menu.search -underline 0
-    .menu add cascade -label "Help" -menu .menu.help -underline 0
+    .menu add cascade -label [ mc "LOR" ] -menu .menu.lor -underline 0
+    .menu add cascade -label [ mc "View" ] -menu .menu.view -underline 0
+    .menu add cascade -label [ mc "Topic" ] -menu .menu.topic -underline 0
+    .menu add cascade -label [ mc "Message" ] -menu .menu.message -underline 0
+    .menu add cascade -label [ mc "Search" ] -menu .menu.search -underline 0
+    .menu add cascade -label [ mc "Help" ] -menu .menu.help -underline 0
 
     set m [ menu .menu.lor -tearoff 0 ]
-    $m add command -label "Search new topics" -accelerator "F2" -command updateTopicList
+    $m add command -label [ mc "Search new topics" ] -accelerator "F2" -command updateTopicList
     $m add separator
-    $m add checkbutton -label "Autonomous mode" -onvalue 1 -offvalue 0 -variable autonomousMode
-    $m add command -label "Options..." -command showOptionsDialog
+    $m add checkbutton -label [ mc "Autonomous mode" ] -onvalue 1 -offvalue 0 -variable autonomousMode
+    $m add command -label [ mc "Options..." ] -command showOptionsDialog
     $m add separator
-    $m add command -label "Clear old topics..." -command clearOldTopics
+    $m add command -label [ mc "Clear old topics..." ] -command clearOldTopics
     $m add separator
-    $m add command -label "Exit" -accelerator "Alt-F4" -command exitProc
+    $m add command -label [ mc "Exit" ] -accelerator "Alt-F4" -command exitProc
 
     set m [ menu .menu.view -tearoff 0 ]
-    $m add radiobutton -label "Navigation perspective" -accelerator "Ctrl-Z" -command {setPerspective navigation -force} -value navigation -variable currentPerspective
-    $m add radiobutton -label "Reading perspective" -accelerator "Ctrl-X" -command {setPerspective reading -force} -value reading -variable currentPerspective
+    $m add radiobutton -label [ mc "Navigation perspective" ] -accelerator "Ctrl-Z" -command {setPerspective navigation -force} -value navigation -variable currentPerspective
+    $m add radiobutton -label [ mc "Reading perspective" ] -accelerator "Ctrl-X" -command {setPerspective reading -force} -value reading -variable currentPerspective
     $m add separator
-    $m add checkbutton -label "Auto switch" -onvalue 1 -offvalue 0 -variable perspectiveAutoSwitch
+    $m add checkbutton -label [ mc "Auto switch" ] -onvalue 1 -offvalue 0 -variable perspectiveAutoSwitch
 
     set menuTopic [ menu .menu.topic -tearoff 0 ]
     set topicMenu [ menu .topicMenu -tearoff 0 ]
@@ -207,19 +210,19 @@ proc initMenu {} {
     set messageMenu [ menu .messageMenu -tearoff 0 ]
 
     set m $menuMessage
-    $m add command -label "Refresh tree" -accelerator "F5" -command refreshTopic
+    $m add command -label [ mc "Refresh messages" ] -accelerator "F5" -command refreshTopic
     $m add separator
 
     foreach {m invoke} [ list \
         $menuTopic invokeMenuCommand \
         $topicMenu invokeItemCommand ] {
 
-        $m add command -label "Refresh sub-tree" -command [ list $invoke $topicTree refreshTopicSubList ] -accelerator "F4"
+        $m add command -label [ mc "Refresh sub-tree" ] -command [ list $invoke $topicTree refreshTopicSubList ] -accelerator "F4"
         $m add separator
     }
 
     set m $menuTopic
-    $m add command -label "Add topic..." -command addTopic
+    $m add command -label [ mc "Add topic..." ] -command addTopic
     $m add separator
 
     foreach {m w invoke} [ list \
@@ -228,53 +231,53 @@ proc initMenu {} {
         $menuMessage $messageTree invokeMenuCommand \
         $messageMenu $messageTree invokeItemCommand ] {
 
-        $m add command -label "Reply" -accelerator "Ctrl-R" -command [ list $invoke $w reply ]
-        $m add command -label "Open in browser" -accelerator "Ctrl-O" -command [ list $invoke $w openMessage ]
-        $m add command -label "Go to next unread" -accelerator n -command [ list $invoke $w nextUnread ]
-        $m add cascade -label "Mark" -menu $m.mark
+        $m add command -label [ mc "Reply" ] -accelerator "Ctrl-R" -command [ list $invoke $w reply ]
+        $m add command -label [ mc "Open in browser" ] -accelerator "Ctrl-O" -command [ list $invoke $w openMessage ]
+        $m add command -label [ mc "Go to next unread" ] -accelerator n -command [ list $invoke $w nextUnread ]
+        $m add cascade -label [ mc "Mark" ] -menu $m.mark
 
         set mm [ menu $m.mark -tearoff 0 ]
-        $mm add command -label "Mark as read" -command [ list $invoke $w mark message 0 ] -accelerator "M"
-        $mm add command -label "Mark as unread" -command [ list $invoke $w mark message 1 ] -accelerator "U"
-        $mm add command -label "Mark thread as read" -command [ list $invoke $w mark thread 0 ] -accelerator "Ctrl-M"
-        $mm add command -label "Mark thread as unread" -command [ list $invoke $w mark thread 1 ] -accelerator "Ctrl-U"
+        $mm add command -label [ mc "Mark as read" ] -command [ list $invoke $w mark message 0 ] -accelerator "M"
+        $mm add command -label [ mc "Mark as unread" ] -command [ list $invoke $w mark message 1 ] -accelerator "U"
+        $mm add command -label [ mc "Mark thread as read" ] -command [ list $invoke $w mark thread 0 ] -accelerator "Ctrl-M"
+        $mm add command -label [ mc "Mark thread as unread" ] -command [ list $invoke $w mark thread 1 ] -accelerator "Ctrl-U"
 
-        $mm add command -label "Mark all as read" -command [ list markAllMessages $w 0 ] -accelerator "Ctrl-Alt-M"
-        $mm add command -label "Mark all as unread" -command [ list markAllMessages $w 1 ] -accelerator "Ctrl-Alt-U"
+        $mm add command -label [ mc "Mark all as read" ] -command [ list markAllMessages $w 0 ] -accelerator "Ctrl-Alt-M"
+        $mm add command -label [ mc "Mark all as unread" ] -command [ list markAllMessages $w 1 ] -accelerator "Ctrl-Alt-U"
 
-        $m add cascade -label "User" -menu $m.user
+        $m add cascade -label [ mc "User" ] -menu $m.user
 
         set mm [ menu $m.user -tearoff 0 ]
-        $mm add command -label "User info" -accelerator "Ctrl-I" -command [ list $invoke $w userInfo ]
-        $mm add command -label "Ignore user" -command [ list $invoke $w ignoreUser ]
-        $mm add command -label "Tag user..." -command [ list $invoke $w tagUser . ]
+        $mm add command -label [ mc "User info" ] -accelerator "Ctrl-I" -command [ list $invoke $w userInfo ]
+        $mm add command -label [ mc "Ignore user" ] -command [ list $invoke $w ignoreUser ]
+        $mm add command -label [ mc "Tag user..." ] -command [ list $invoke $w tagUser . ]
     }
     foreach {m invoke} [ list \
         $menuTopic invokeMenuCommand \
         $topicMenu invokeItemCommand ] {
 
         $m add separator
-        $m add command -label "Move to favorites..." -command [ list $invoke $topicTree addToFavorites ]
-        $m add command -label "Clear cache" -command [ list $invoke $topicTree clearTopicCache ]
-        $m add command -label "Delete" -command [ list $invoke $topicTree deleteTopic ]
+        $m add command -label [ mc "Move to favorites..." ] -command [ list $invoke $topicTree addToFavorites ]
+        $m add command -label [ mc "Clear cache" ] -command [ list $invoke $topicTree clearTopicCache ]
+        $m add command -label [ mc "Delete" ] -command [ list $invoke $topicTree deleteTopic ]
     }
 
     set m [ menu .menu.search -tearoff 0 ]
-    $m add command -label "Find..." -accelerator "Ctrl-F" -command find
-    $m add command -label "Find next" -accelerator "F3" -command findNext
+    $m add command -label [ mc "Find..." ] -accelerator "Ctrl-F" -command find
+    $m add command -label [ mc "Find next" ] -accelerator "F3" -command findNext
 
     set m [ menu .menu.help -tearoff 0 ]
-    $m add command -label "Project home" -command {openUrl $appHome}
-    $m add command -label "About LOR" -command {openUrl "$::lor::lorUrl/server.jsp"}
+    $m add command -label [ mc "Project home" ] -command {openUrl $appHome}
+    $m add command -label [ mc "About LOR" ] -command {openUrl "$::lor::lorUrl/server.jsp"}
     $m add separator
-    $m add command -label "About" -command helpAbout -accelerator "F1"
+    $m add command -label [ mc "About" ] -command helpAbout -accelerator "F1"
 
     .  configure -menu .menu
 
     set m [ menu .messageTextMenu -tearoff 0 ]
     set messageTextMenu $m
-    $m add command -label "Copy selection" -command {tk_textCopy $messageTextWidget}
-    $m add command -label "Open selection in browser" -command {tk_textCopy $messageTextWidget;openUrl [ clipboard get ]}
+    $m add command -label [ mc "Copy selection" ] -command {tk_textCopy $messageTextWidget}
+    $m add command -label [ mc "Open selection in browser" ] -command {tk_textCopy $messageTextWidget;openUrl [ clipboard get ]}
 }
 
 proc initTopicTree {} {
@@ -285,21 +288,21 @@ proc initTopicTree {} {
     set w [ ttk::treeview $f.w -columns {nick unread unreadChild parent text} -displaycolumns {unreadChild} -yscrollcommand "$f.scroll set" ]
 
     configureTags $w
-    $w heading #0 -text "Title" -anchor w
-    $w heading unreadChild -text "Threads" -anchor w
+    $w heading #0 -text [ mc "Title" ] -anchor w
+    $w heading unreadChild -text [ mc "Threads" ] -anchor w
     $w column #0 -width 220
     $w column unreadChild -width 30 -stretch 0
 
-    $w insert "" end -id news -text "News" -values [ list "" 0 0 "" "News" ]
+    $w insert "" end -id news -text [ mc "News" ] -values [ list "" 0 0 "" [ mc "News" ] ]
     updateItemState $w "news"
 
-    $w insert "" end -id gallery -text "Gallery" -values [ list "" 0 0 "" "Gallery" ]
+    $w insert "" end -id gallery -text [ mc "Gallery" ] -values [ list "" 0 0 "" [ mc "Gallery" ] ]
     updateItemState $w "gallery"
 
-    $w insert "" end -id votes -text "Votes" -values [ list "" 0 0 "" "Votes" ]
+    $w insert "" end -id votes -text [ mc "Votes" ] -values [ list "" 0 0 "" [ mc "Votes" ] ]
     updateItemState $w "votes"
 
-    $w insert "" end -id forum -text "Forum" -values [ list "" 0 0 "" "Forum" ]
+    $w insert "" end -id forum -text [ mc "Forum" ] -values [ list "" 0 0 "" [ mc "Forum" ] ]
     foreach {id title} $::lor::forumGroups {
         if { [ lsearch $forumVisibleGroups $id ] != -1 } {
             $w insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
@@ -309,7 +312,7 @@ proc initTopicTree {} {
     sortChildrens $w "forum"
     updateItemState $w "forum"
 
-    $w insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
+    $w insert "" end -id favorites -text [ mc "Favorites" ] -values [ list "" 0 0 "" [ mc "Favorites" ] ]
     updateItemState $w "favorites"
 
     ttk::scrollbar $f.scroll -command "$w yview"
@@ -323,9 +326,9 @@ proc initMessageTree {} {
 
     set f [ ttk::frame .messageTreeFrame -relief sunken ]
     set w [ ttk::treeview $f.w -columns {nick header time msg unread unreadChild parent parentNick text} -displaycolumns {header time} -xscrollcommand "$f.scrollx set" -yscrollcommand "$f.scrolly set" ]
-    $w heading #0 -text "Nick" -anchor w
-    $w heading header -text "Title" -anchor w
-    $w heading time -text "Time" -anchor w
+    $w heading #0 -text [ mc "Nick" ] -anchor w
+    $w heading header -text [ mc "Header" ] -anchor w
+    $w heading time -text [ mc "Time" ] -anchor w
 
     $w column header -width 1
     $w column time -width 1
@@ -352,19 +355,19 @@ proc initMessageWidget {} {
     set width 10
 
     set f [ ttk::frame $mf.header ]
-    pack [ ttk::label $f.label -text "Header: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentHeader ] -side left
+    pack [ ttk::label $f.label -text [ mc "Header: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentHeader ] -side left
     pack $f -fill x
 
     set f [ ttk::frame $mf.nick ]
-    pack [ ttk::label $f.label -text "From: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentNick ] -side left
+    pack [ ttk::label $f.label -text [ mc "From: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentNick ] -side left
     pack $f -fill x
 
     set f [ ttk::frame $mf.prevNick ]
-    pack [ ttk::label $f.label -text "To: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentPrevNick ] -side left
+    pack [ ttk::label $f.label -text [ mc "To: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentPrevNick ] -side left
     pack $f -fill x
 
     set f [ ttk::frame $mf.time ]
-    pack [ ttk::label $f.label -text "Time: " -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentTime ] -side left
+    pack [ ttk::label $f.label -text [ mc "Time: " ] -width $width -anchor w ] [ ttk::label $f.entry -textvariable currentTime ] -side left
     pack $f -fill x
 
     set messageTextWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 10 ]
@@ -413,7 +416,11 @@ proc initMainWindow {} {
 proc helpAbout {} {
     global appName appVersion
 
-    tk_messageBox -title "About $appName" -message "$appName $appVersion\nClient for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3" -parent . -type ok
+    tk_messageBox \
+        -title [ mc "About %s" $appName ] \
+        -message [ mc "%s %s\nClient for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3" $appName $appVersion ] \
+        -parent . \
+        -type ok
 }
 
 proc exitProc {} {
@@ -645,7 +652,7 @@ proc setTopic {topic} {
                     insertMessage $id $nick $header $time $msg $parent $parentNick 1
                 }
             } err ] {
-                errorProc "Error while inserting item $id:\n$err" $::errorInfo
+                errorProc [ mc "Error while inserting item %s:\n%s" $id $err ] $::errorInfo
             }
         } $messageTree
         defCallbackLambda finish {messageTree expandNewMessages} {
@@ -806,16 +813,17 @@ proc addTopic {} {
         if { $id != "" } {
             if { ![ $topicTree exists $id ] } {
                 addTopicFromCache "favorites" $id "" $str 1
-                showFavoritesTree {Select category and topic text} $str [ list addTopicToFavorites $topicTree $id ] "favorites" .
+                showFavoritesTree [ mc "Select category and topic text" ] $str [ list addTopicToFavorites $topicTree $id ] "favorites" .
             } else {
                 setFocusedItem $topicTree $id
             }
         }
     }
     inputStringDialog \
-        -title "Add topic" \
-        -label "Enter topic ID or URL" \
-        -script $processTopicAddition
+        -title [ mc "Add topic" ] \
+        -label [ mc "Enter topic ID or URL" ] \
+        -script $processTopicAddition \
+        -parent .
 }
 
 proc refreshTopic {} {
@@ -961,12 +969,13 @@ proc loadConfigFile {fileName} {
 
         uplevel #0 $data
     } err ] {
-        errorProc "Error loading $fileName\n$err" $::errorInfo
+        errorProc [ mc "Error loading file %s\n%s" $fileName $err ] $::errorInfo
     }
 }
 
 proc loadConfig {} {
     global configDir
+    global libDir
     global colorList
     global colorCount
 
@@ -974,6 +983,8 @@ proc loadConfig {} {
     loadConfigFile [ file join $configDir "userConfig" ]
 
     set colorCount [ llength $colorList ]
+
+    ::msgcat::mcload [ file join $libDir msgs ]
 }
 
 proc updateTopicList {{section ""}} {
@@ -984,7 +995,7 @@ proc updateTopicList {{section ""}} {
     global backendId
 
     if { $autonomousMode } {
-        if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
+        if { [ tk_messageBox -title $appName -message [ mc "Are you want to go to online mode?" ] -type yesno -icon question -default yes ] == yes } {
             set autonomousMode 0
         } else {
             return
@@ -1300,14 +1311,15 @@ proc showOptionsDialog {} {
     }
 
     tabbedOptionsDialog \
-        -title "$appName options" \
+        -title [ mc "%s options" $appName ] \
         -options $opts \
         -pageScript [ lambda {opts} {
             foreach {var val} $opts {
                 set ::$var $val
             }
         } ] \
-        -script {applyOptions;saveOptions}
+        -script {applyOptions;saveOptions} \
+        -parent .
 }
 
 proc applyOptions {} {
@@ -1357,8 +1369,8 @@ proc saveOptions {} {
 
 proc addIgnoreListItem {w parent} {
     inputStringDialog \
-        -title "Ignore list" \
-        -label "Enter nick" \
+        -title [ mc "Ignore list" ] \
+        -label [ mc "Enter nick" ] \
         -script [ list $w "insert" "" "end" "-text" ] \
         -parent $parent
 }
@@ -1368,8 +1380,8 @@ proc modifyIgnoreListItem {w parent} {
         addIgnoreListItem $w $parent
     } else {
         inputStringDialog \
-            -title "Ignore list" \
-            -label "Enter nick" \
+            -title [ mc "Ignore list" ] \
+            -label [ mc "Enter nick" ] \
             -script [ lambda {w text} {
                 $w item [ $w focus ] -text $text
             } $w ] \
@@ -1413,14 +1425,15 @@ proc find {} {
     set findPos [ $messageTree focus ]
 
     inputStringDialog \
-        -title "Search" \
-        -label "Search regexp" \
+        -title [ mc "Search" ] \
+        -label [ mc "Search regexp" ] \
         -script [ lambda {str} {
                 global findString
                 set findString $str
                 findNext
             } ] \
-        -default $findString
+        -default $findString \
+        -parent .
 }
 
 proc findNext {} {
@@ -1488,7 +1501,7 @@ proc updateWindowTitle {} {
         append s ": $topicHeader"
         set k [ getItemValue $messageTree {} unreadChild ]
         if { $k != "0" } {
-            append s " \[ $k new \]"
+            append s [ mc " \[ %s new \]" $k ]
         }
     }
     wm title . $s
@@ -1514,9 +1527,9 @@ proc clearOldTopics {} {
     set count [ llength $topics ]
 
     if { $count == "0" } {
-        tk_messageBox -type ok -icon info -message "There are no obsolete topics." -title $appName
+        tk_messageBox -type ok -icon info -message [ mc "There are no obsolete topics." ] -title $appName
         return
-    } elseif { [ tk_messageBox -type yesno -default no -icon question -message "$count obsolete topic(s) will be deleted.\nDo you want to continue?" -title $appName ] != yes } {
+    } elseif { [ tk_messageBox -type yesno -default no -icon question -message [ mc "%s obsolete topic(s) will be deleted.\nDo you want to continue?" $count ] -title $appName ] != yes } {
         return
     }
 
@@ -1528,7 +1541,7 @@ proc clearOldTopics {} {
     wm resizable $f 1 0
     wm protocol $f WM_DELETE_WINDOW { }
     wm transient $f .
-    pack [ ttk::label $f.label -text "Deleting obsolete topics. Please wait..." ] -fill x -expand yes
+    pack [ ttk::label $f.label -text [ mc "Deleting obsolete topics. Please wait..." ] ] -fill x -expand yes
     pack [ ttk::progressbar $f.p -maximum [ llength $topics ] -value 0 -orient horizontal -mode determinate -length 400 ] -fill x -expand yes
     wm deiconify $f
 
@@ -1564,14 +1577,14 @@ proc showFavoritesTree {title name script parent parentWindow} {
     toplevel $f -class Dialog
     wm title $f $title
 
-    pack [ ttk::label $f.label -text "Item name: " ] -fill x
+    pack [ ttk::label $f.label -text [ mc "Item name: " ] ] -fill x
     set nameWidget [ ttk::entry $f.itemName ]
     pack $nameWidget -fill x
     $nameWidget insert end $name
 
-    pack [ ttk::label $f.categoryLabel -text "Category: " ] -fill x
+    pack [ ttk::label $f.categoryLabel -text [ mc "Category: " ] ] -fill x
     set categoryWidget [ ttk::treeview $f.category ]
-    $categoryWidget heading #0 -text "Title" -anchor w
+    $categoryWidget heading #0 -text [ mc "Title" ] -anchor w
     pack $categoryWidget -fill both -expand yes
 
     fillCategoryWidget $categoryWidget $parent
@@ -1592,14 +1605,14 @@ proc showFavoritesTree {title name script parent parentWindow} {
     ]
     set cancelScript "destroy $f"
     set newCategoryScript [ lambda {f categoryWidget parent} {
-            showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ] $parent
+            showFavoritesTree [ mc "Select new category name and location" ] [ mc "New category" ] [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ] $parent
         } $f $categoryWidget $parentWindow \
     ]
 
     pack [ buttonBox $f \
-        [ list -text "New category..." -command $newCategoryScript ] \
-        [ list -text "OK" -command $okScript ] \
-        [ list -text "Cancel" -command $cancelScript ] \
+        [ list -text [ mc "New category..." ] -command $newCategoryScript ] \
+        [ list -text [ mc "OK" ] -command $okScript ] \
+        [ list -text [ mc "Cancel" ] -command $cancelScript ] \
     ] -side bottom -fill x
 
     update
@@ -1751,10 +1764,10 @@ proc tagUser {w item parent} {
         set item [ lindex $userTagList $i ]
         if { [ lindex $item 0 ] == $nick } {
             onePageOptionsDialog \
-                -title "Modify user tag" \
+                -title [ mc "Modify user tag" ] \
                 -options [ list \
-                    "Nick"  string nick $nick "" \
-                    "Tag"   string tag  [ lindex $item 1 ] "" \
+                    [ mc "Nick" ] string nick $nick "" \
+                    [ mc "Tag"  ] string tag  [ lindex $item 1 ] "" \
                 ] \
                 -script [ lambda {w pos vals} {
                     global userTagList
@@ -1767,10 +1780,10 @@ proc tagUser {w item parent} {
         }
     }
     onePageOptionsDialog \
-        -title "Add user tag" \
+        -title [ mc "Add user tag" ] \
         -options [ list \
-            "Nick"  string nick $nick "" \
-            "Tag"   string tag  "" "" \
+            [ mc "Nick" ] string nick $nick "" \
+            [ mc "Tag"  ] string tag  "" "" \
         ] \
         -script [ lambda {w vals} {
             global userTagList
@@ -1783,11 +1796,11 @@ proc tagUser {w item parent} {
 
 proc addUserTagListItem {w parent} {
     onePageOptionsDialog \
-        -title "Add user tag" \
-        -options {
-            "Nick"  string nick "" ""
-            "Tag"   string tag  "" ""
-        } \
+        -title [ mc "Add user tag" ] \
+        -options [ list \
+            [ mc "Nick" ] string nick "" "" \
+            [ mc "Tag"  ] string tag  "" "" \
+        ] \
         -script [ lambda {w vals} {
             array set arr $vals
             $w insert {} end -text $arr(nick) -values [ list $arr(tag) ]
@@ -1802,10 +1815,10 @@ proc modifyUserTagListItem {w parent} {
         addUserTagListItem $w $parent
     } else {
         onePageOptionsDialog \
-            -title "Modify user tag" \
+            -title [ mc "Modify user tag" ] \
             -options [ list \
-                "Nick"  string nick [ $w item $id -text ] "" \
-                "Tag"   string tag  [ lindex [ $w item $id -values ] 0 ] "" \
+                [ mc "Nick" ] string nick [ $w item $id -text ] "" \
+                [ mc "Tag"  ] string tag  [ lindex [ $w item $id -values ] 0 ] "" \
             ] \
             -script [ lambda {w id vals} {
                 array set arr $vals
@@ -1824,12 +1837,12 @@ proc isUserIgnored {nick} {
 
 proc addColorListItem {w parent} {
     onePageOptionsDialog \
-        -title "Add color regexp" \
-        -options {
-            "Regexp" string regexp  "" ""
-            "Color"  color color    "red" ""
-            "Element" readOnlyCombo element "foreground" { list foreground background }
-        } \
+        -title [ mc "Add color regexp" ] \
+        -options [ list \
+            [ mc "Regexp" ] string regexp  "" "" \
+            [ mc "Color" ] color color    "red" "" \
+            [ mc "Element" ] readOnlyCombo element "foreground" { list foreground background } \
+        ] \
         -script [ lambda {w vals} {
             array set arr $vals
             $w insert {} end -text $arr(regexp) -values [ list $arr(color) $arr(element) ]
@@ -1844,11 +1857,11 @@ proc modifyColorListItem {w parent} {
         addColorListItem $w $parent
     } else {
         onePageOptionsDialog \
-            -title "Modify color regexp" \
+            -title [ mc "Modify color regexp" ] \
             -options [ list \
-                "Regexp" string regexp  [ $w item $id -text ] "" \
-                "Color"  color color    [ lindex [ $w item $id -values ] 0 ] "" \
-                "Element" readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
+                [ mc "Regexp" ] string regexp  [ $w item $id -text ] "" \
+                [ mc "Color" ] color color    [ lindex [ $w item $id -values ] 0 ] "" \
+                [ mc "Element" ] readOnlyCombo element [ lindex [ $w item $id -values ] 1 ] { list foreground background } \
             ] \
             -script [ lambda {w id vals} {
                 array set arr $vals
@@ -1916,7 +1929,7 @@ proc errorProc {err {extInfo ""}} {
     if {$extInfo != ""} {
         puts stderr "$appName: $extInfo"
     }
-    tk_messageBox -title "$appName error" -message $err -parent . -type ok -icon error
+    tk_messageBox -title [ mc "%s error" $appName ] -message $err -parent . -type ok -icon error
 }
 
 proc sortChildrens {w parent} {
@@ -1974,15 +1987,15 @@ proc initTasksWindow {} {
 
     set tasksWidget [ toplevel .tasksWidget -class Dialog ]
     wm withdraw $tasksWidget
-    wm title $tasksWidget "$appName: running tasks"
+    wm title $tasksWidget [ mc "%s: running tasks" $appName ]
     wm protocol $tasksWidget WM_DELETE_WINDOW toggleTaskList
     wm transient $tasksWidget .
 
     bind $tasksWidget <Escape> toggleTaskList
 
     set w [ ttk::treeview $tasksWidget.list -columns {count} ]
-    $w heading #0 -text "Category" -anchor w
-    $w heading count -text "Count" -anchor w
+    $w heading #0 -text [ mc "Category" ] -anchor w
+    $w heading count -text [ mc "Count" ] -anchor w
     $w column count -width 30
     pack $w -fill both -expand 1
 
@@ -1997,8 +2010,8 @@ proc initTasksWindow {} {
         }
     } $w
     pack [ buttonBox $tasksWidget \
-        [ list -text "Stop" -command $stopScript ] \
-        [ list -text "Stop all" -command $stopAllScript ] \
+        [ list -text [ mc "Stop" ] -command $stopScript ] \
+        [ list -text [ mc "Stop all" ] -command $stopAllScript ] \
     ] -fill x -side bottom -expand 1
 }
 
@@ -2020,11 +2033,11 @@ proc updateTaskList {} {
     global statusBarWidget
     set w $tasksWidget.list
 
-    array set categoriesMap {
-        getMessageList  "Getting messages"
-        getTopicList    "Getting topics list"
-        postMessage     "Message posting"
-    }
+    array set categoriesMap [ list \
+        getMessageList [ mc "Getting messages" ] \
+        getTopicList   [ mc "Getting topics list" ] \
+        postMessage    [ mc "Message posting" ] \
+    ]
     set total 0
     set nonEmptyCategory ""
     foreach category {getMessageList getTopicList postMessage} {
@@ -2047,7 +2060,7 @@ proc updateTaskList {} {
         if { $total == 1 } {
             $statusBarWidget.text configure -text $categoriesMap($nonEmptyCategory)
         } else {
-            $statusBarWidget.text configure -text "$total operations running"
+            $statusBarWidget.text configure -text [ mc "%s operations running" $total ]
         }
         $statusBarWidget.progress state !disabled
         $statusBarWidget.progress start
