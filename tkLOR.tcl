@@ -2555,6 +2555,14 @@ proc startDelivery {{noretry ""}} {
     ::mbox::writeToStream $deliverTaskId {From stub body ""}
 }
 
+proc loadPlugin {name} {
+    set f [ open $name "r" ]
+    fconfigure $f -encoding utf-8
+    set s [ read $f ]
+    close $f
+    uplevel #0 $s
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
