@@ -205,7 +205,7 @@ proc initMenu {} {
     $mm add command -label "Mark thread as read" -command {invokeMenuCommand $allTopicsWidget mark thread 0}
     $mm add command -label "Mark thread as unread" -command {invokeMenuCommand $allTopicsWidget mark thread 1}
 
-    $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget topicUserInfo}
+    $m add command -label "User info" -command {invokeMenuCommand $allTopicsWidget userInfo}
     $m add command -label "Ignore user" -command {invokeMenuCommand $allTopicsWidget ignoreUser}
     $m add command -label "Tag user..." -command {invokeMenuCommand $allTopicsWidget tagUser}
     $m add command -label "Open in browser" -command {invokeMenuCommand $allTopicsWidget topicOpenMessage}
@@ -263,7 +263,7 @@ proc initPopups {} {
     $mm add command -label "Mark thread as read" -command {invokeItemCommand $allTopicsWidget mark thread 0}
     $mm add command -label "Mark thread as unread" -command {invokeItemCommand $allTopicsWidget mark thread 1}
 
-    $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget topicUserInfo}
+    $topicMenu add command -label "User info" -command {invokeItemCommand $allTopicsWidget userInfo}
     $topicMenu add command -label "Ignore user" -command {invokeItemCommand $allTopicsWidget ignoreUser}
     $topicMenu add command -label "Tag user..." -command {invokeItemCommand $allTopicsWidget tagUser}
     $topicMenu add command -label "Open in browser" -command {invokeItemCommand $allTopicsWidget topicOpenMessage}
@@ -498,7 +498,7 @@ proc renderHtml {w msg} {
 proc renderHtmlTag {w stack tag slash param text} {
     global lorUrl
 
-    set text [ replaceHtmlEntities $text ]
+    set text [ ::htmlparse::mapEscapes $text ]
     regsub -lineanchor -- {^[\n\r \t]+} $text {} text
     regsub -lineanchor -- {[\n\r \t]+$} $text { } text
     set tag [ string tolower $tag ]
@@ -1323,11 +1323,6 @@ proc topicReply {w item} {
     }
 }
 
-proc topicUserInfo {w item} {
-    global lorUrl
-    openUrl "http://$lorUrl/whois.jsp?nick=[ getItemValue $w $item nick ]"
-}
-
 proc topicOpenMessage {w item} {
     global lorUrl
 
@@ -1368,10 +1363,6 @@ proc openUrl {url} {
     catch {exec $prog $url &}
 }
 
-proc replaceHtmlEntities {text} {
-    return [ ::htmlparse::mapEscapes $text ]
-}
-
 proc htmlToText {text} {
     foreach {re s} {
         {<img src="/\w+/\w+/votes\.gif"[^>]*>} "\[\\&\]"
@@ -1395,7 +1386,7 @@ proc htmlToText {text} {
         "\n{3,}" "\n\n" } {
         regsub -all -nocase -- $re $text $s text
     }
-    return [ replaceHtmlEntities $text ]
+    return [ ::htmlparse::mapEscapes $text ]
 }
 
 proc addTopicToFavorites {w item category caption} {
@@ -1494,8 +1485,11 @@ proc packOptionsItem {w name item type val opt} {
             pack [ buttonBox $name \
                 [ list -text "Add..." -command [ concat $addScript [ list $v ] ] ] \
                 [ list -text "Modify..." -command [ concat $modifyScript [ list $v ] ] ] \
-                [ list -text "Remove" -command "removeListItem $v" ]
-            ] -fill x -side bottom
+                [ list -text "Remove" -command [ list lambda {w} {
+                    foreach item [ $w selection ] {
+                        $w delete $item
+                    } } $v ] ] \
+                ] -fill x -side bottom
         }
         editableCombo {
             pack [ ttk::combobox $name -values $opt ] -anchor w -fill x
@@ -1510,7 +1504,14 @@ proc packOptionsItem {w name item type val opt} {
             $name insert end $val
         }
         color {
-            pack [ ttk::button $name -text $val -command [ list chooseColor $w $name ] ] -anchor w -fill x
+            pack [ ttk::button $name -text $val -command [ list lambda {parent w} {
+                if [ catch {set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]} ] {
+                    set color [ tk_chooseColor -parent $parent ]
+                }
+                if { $color != "" } {
+                    $w configure -text $color
+                }
+            } $w $name ] ] -anchor w -fill x
         }
         string -
         default {
@@ -1576,7 +1577,6 @@ proc showOptionsDialog {} {
                     set var [ lindex $optList [ expr $i*4+2 ] ]
                     set ::$var [ lindex $vals $i ]
                 }
-                applyOptions
             } $optList $page [ generateOptionsFrame $d $o $page ] \
         ]
 
@@ -1584,6 +1584,7 @@ proc showOptionsDialog {} {
         incr n
     }
     lappend okList [ list "destroy" $d ]
+    lappend okList "applyOptions"
     set okScript [ join $okList ";" ]
     set cancelScript [ list "destroy" $d ]
 
@@ -1655,13 +1656,6 @@ proc saveOptions {} {
     close $f
 }
 
-proc discardOptions {} {
-    global options optionsTmp
-
-    catch {destroy .optionsDialog}
-    array unset optionsTmp
-}
-
 proc centerToParent {window parent} {
     catch {
         regexp -lineanchor {^(\d+)x(\d+)((?:\+|-)\d+)((?:\+|-)\d+)$} [ winfo geometry $parent ] md mw mh mx my
@@ -1686,12 +1680,6 @@ proc modifyIgnoreListItem {w} {
     }
 }
 
-proc removeListItem {w} {
-    foreach item [ $w selection ] {
-        $w delete $item
-    }
-}
-
 proc nextUnread {w item} {
     set cur [ processItems $w $item [ list matchUnreadItem $w ] ]
     if { $cur != "" } {
@@ -1710,10 +1698,14 @@ proc openContextMenu {w menu} {
         set bbox [ $w bbox $item ]
         set x [ lindex $bbox 0 ]
         set y [ lindex $bbox 1 ]
-        set xx [ expr [ winfo rootx $w ] + $x ]
-        set yy [ expr [ winfo rooty $w ] + $y ]
-        incr x [ expr [ lindex $bbox 2 ] / 2 ]
-        incr y [ expr [ lindex $bbox 3 ] / 2 ]
+        set xx 0
+        set yy 0
+        catch {
+            set xx [ expr [ winfo rootx $w ] + $x ]
+            set yy [ expr [ winfo rooty $w ] + $y ]
+            incr x [ expr [ lindex $bbox 2 ] / 2 ]
+            incr y [ expr [ lindex $bbox 3 ] / 2 ]
+        }
         popupMenu $menu $xx $yy $x $y
     }
 }
@@ -1730,7 +1722,7 @@ proc inputStringDialog {title label script {val ""}} {
 
     set okScript [ join \
         [ list \
-            [ list "eval" [ join [ concat $script [ list "\[ $f.entry get \]" ] ] ] ] \
+            [ list "eval" [ concat $script [ list "\[ $f.entry get \]" ] ] ] \
             [ list "destroy" "$f" ] \
         ] ";" \
     ]
@@ -1757,13 +1749,11 @@ proc find {} {
 
     set findPos [ $topicWidget focus ]
 
-    inputStringDialog "Search" "Search regexp:" "findFirst" $findString
-}
-
-proc findFirst {str} {
-    global findString
-    set findString $str
-    findNext
+    inputStringDialog "Search" "Search regexp:" [ list lambda {str} {
+        global findString
+        set findString $str
+        findNext
+    } ] $findString
 }
 
 proc findNext {} {
@@ -1804,7 +1794,7 @@ proc processItems {w item script} {
             }
         }
         if { $next != "" && !$fromChild } {
-            if { ![ eval [ join [ list [ concat $script [ list $next ] ] ] ] ] } {
+            if { ![ eval [ concat $script [ list $next ] ] ] } {
                 return $next
             }
         }
@@ -1905,12 +1895,24 @@ proc showFavoritesTree {title name script parent} {
 
     set okScript [ join \
         [ list \
-            [ list "eval" [ join [ concat $script [ list "\[ $categoryWidget focus \]" "\[ $nameWidget get \]" ] ] ] ] \
+            [ list lambda {script categoryWidget nameWidget} {
+                eval [ concat \
+                    $script \
+                    [ list \
+                        [ $categoryWidget focus ] \
+                        [ $nameWidget get ]
+                    ] \
+                ]
+            } $script $categoryWidget $nameWidget ] \
             [ list "destroy" "$f" ] \
         ] ";" \
     ]
     set cancelScript "destroy $f"
-    set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" $f ] "\[ $categoryWidget focus \]" ]
+    set newCategoryScript [ list \
+        lambda {f categoryWidget} {
+            showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ]
+        } $f $categoryWidget \
+    ]
 
     pack [ buttonBox $f \
         [ list -text "New category..." -command $newCategoryScript ] \
@@ -1946,7 +1948,7 @@ proc addToFavorites {w id} {
     global allTopicsWidget
 
     if { ![ isCategoryFixed $id ] } {
-        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ] [ getItemValue $allTopicsWidget $id parent  ]
+        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ] [ getItemValue $allTopicsWidget $id parent ]
     }
 }
 
@@ -2031,11 +2033,11 @@ proc parseRss {data script} {
             puts $dummy3
             continue
         }
-        set header [ htmlToText [ replaceHtmlEntities $v(title) ] ]
+        set header [ htmlToText [ ::htmlparse::mapEscapes $v(title) ] ]
         set msg $v(description)
         # at this moment nick field are not present in RSS feed
         set nick ""
-        set msg [ string trim [ replaceHtmlEntities $msg ] ]
+        set msg [ string trim [ ::htmlparse::mapEscapes $msg ] ]
         eval [ concat $script [ list $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ] ] ]
     }
 }
@@ -2087,15 +2089,6 @@ proc initBindings {} {
     bind . <Control-O> {invokeMenuCommand $topicWidget openMessage}
     bind . <Control-f> find
     bind . <Control-F> find
-}
-
-proc chooseColor {parent w} {
-    if [ catch {set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]} ] {
-        set color [ tk_chooseColor -parent $parent ]
-    }
-    if { $color != "" } {
-        $w configure -text $color
-    }
 }
 
 proc tagUser {w item} {
