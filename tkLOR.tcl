@@ -27,7 +27,7 @@ package require tile
 package require http 2.0
 
 set appName "tkLOR"
-set appVersion "0.1.0"
+set appVersion "0.1.1"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
 
 set configDir [ file join $::env(HOME) ".$appName" ]
@@ -95,7 +95,7 @@ set forumGroups {
 
 set newsGroups {
     2       "Linux.org.ru server"
-    3       Документация
+    3       Documentation
     4       "Linux General"
     6       OpenSource
     7       Mozilla
@@ -105,17 +105,17 @@ set newsGroups {
     44      KDE
     196     "GNU's Not Unix"
     213     Security
-    2121    "Linux в России"
-    4228    "Коммерческое ПО"
+    2121    "Linux in Russia"
+    4228    "Proprietary software"
     6204    "Linux kernel"
     6205    "Hardware and Drivers"
     9406    BSD
     10794   Debian
     10980   "OpenOffice (StarOffice)"
     19103   PDA
-    19104   Игры
+    19104   Games
     19105   SCO
-    19106   Кластеры
+    19106   Clusters
     19107   "Ubuntu Linux"
     19108   Slackware
     19110   Apple
@@ -791,7 +791,13 @@ proc stopWait {} {
 }
 
 proc loadConfigFile {fileName} {
-    catch {uplevel #0 "source {$fileName}"}
+    catch {
+        set f [ open $fileName "r" ]
+        set data [ read $f ]
+        close $f
+
+        uplevel #0 $data
+    }
 }
 
 proc loadConfig {} {
@@ -910,7 +916,7 @@ proc addTopicFromCache {parent id nick text unread} {
 proc loadTopicListFromCache {} {
     global configDir
 
-    catch {source [ file join $configDir "topics" ]}
+    loadConfigFile [ file join $configDir "topics" ]
 }
 
 proc saveTopicListToCache {} {
