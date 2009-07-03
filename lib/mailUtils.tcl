@@ -108,15 +108,16 @@ proc htmlToText {text} {
 proc makeReplyToMessage {letter from {headers ""}} {
     set res ""
     array set tmp {
-        From        ""
-        Message-ID  ""
-        Subject     ""
-        body        ""
+        From            ""
+        To              ""
+        In-Reply-To     ""
+        Message-ID      ""
+        Subject         ""
+        Content-Type    "text/html"
+        body            ""
     }
     foreach {h v} [ concat $letter $headers ] {
-        if { [ lsearch \
-            {From To Message-ID Subject In-Reply-To body} $h \
-        ] >= 0 } {
+        if { [ lsearch [ array names tmp ] $h ] >= 0 } {
             set tmp($h) $v
         } else {
             lappend res $h $v
@@ -125,13 +126,47 @@ proc makeReplyToMessage {letter from {headers ""}} {
     lappend res From $from
     lappend res To $tmp(From)
     lappend res In-Reply-To $tmp(Message-ID)
-    lappend res Subject [ makeReplyHeader [ htmlToText $tmp(Subject) ] ]
-    lappend res body [ quoteText [ htmlToText $tmp(body) ] ]
+    if { $tmp(Content-Type) == "text/html" } {
+        set subj [ htmlToText $tmp(Subject) ]
+        set body [ htmlToText $tmp(body) ]
+    } else {
+        set subj $tmp(Subject)
+        set body $tmp(body)
+    }
+    #TODO: will be removed in v1.2
+    lappend res Subject [ makeReplyHeader $subj ]
+    lappend res Content-Type "text/plain"
+    lappend res body [ quoteText $body ]
     array unset tmp
 
     return $res
 }
 
+#
+# getMailHeaders    -   Get specified headers from letter as list.
+#                       If header does not present in text, it will be 
+#                       substituded as ""
+#
+#   letter  -   message to process
+#   headers -   list of headers
+#
+proc getMailHeaders {letter headers} {
+    array set arr ""
+    foreach h $headers {
+        set arr($h) ""
+    }
+    foreach {h v} $letter {
+        if { [ lsearch $headers $h ] } {
+            set arr($h) $v
+        }
+    }
+    set res ""
+    foreach h $headers {
+        lappend res $arr($h)
+    }
+    array unset arr
+    return $res
+}
 
 }
 

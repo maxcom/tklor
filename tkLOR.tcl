@@ -662,18 +662,23 @@ proc showMessageInMainWindow {msg} {
     global messageTextWidget
     global currentSubject currentNick currentPrevNick currentTime
 
-    array set letter $msg
-    set currentSubject [ ::htmlparse::mapEscapes $letter(Subject) ]
-    set currentNick $letter(From)
-    if [ info exists letter(To) ] {
-    	set currentPrevNick $letter(To)
-    } else {
-	set currentPrevNick ""
+    foreach {subj currentNick currentPrevNick currentTime type body} \
+        [ ::mailUtils::getMailHeaders $msg \
+            {Subject From To X-LOR-Time Content-Type body} ] \
+    {
+        break
     }
-    set currentTime $letter(X-LOR-Time)
+    set currentSubject [ ::htmlparse::mapEscapes $subj ]
 
-    renderHtml $messageTextWidget $letter(body)
-    array unset letter
+    if { $type == "" || $type == "text/html" } {
+        renderHtml $messageTextWidget $body
+    } else {
+        set w $messageTextWidget
+        $w configure -state normal
+        $w delete 0.0 end
+        $w insert 0.0 $body
+        $w configure -state disabled
+    }
 }
 
 proc configureTags {w} {
