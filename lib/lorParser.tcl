@@ -24,6 +24,7 @@ package require Tcl 8.4
 package require http 2.0
 package require gaa_lambda 1.2
 package require htmlparse 1.1
+package require struct::tree 2.0
 
 namespace eval lor {
 
@@ -56,44 +57,20 @@ variable forumGroups {
 variable lorUrl "http://www.linux.org.ru"
 variable id 0
 
-proc parseTopic {topic topicTextCommand messageCommand} {
+proc parseTopic {topic topicTextCommand messageCommand lastId} {
     variable lorUrl
     variable id
 
-    set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
+    set url "$lorUrl/view-message.jsp?msgid=$topic&page="
 
-#    ::lambda::defclosure handler {datavar statevar topicTextCommand messageCommand} {socket token} {
-#        upvar #0 $datavar data $statevar state
-#        upvar #0 $token httpState
-#
-#        if { $state == "FIRST" } {
-#            fconfigure $socket -encoding "utf-8" -buffering line -blocking 0
-#            set state TOPIC
-#        }
-#        set nbytes [ gets $socket httpData ]
-#        if { $nbytes <= 0 } {
-#            return 0
-#        }
-#
-#        append data $httpData
-#        if { $state == "TOPIC" } {
-#            if { ! [ catch {
-#                set data [ ::lor::parseTopicText $data $topicTextCommand ]
-#            } ] } {
-#                set state MESSAGES
-#            }
-#        } else {
-#            catch {
-#                set data [ ::lor::parsePage $data $messageCommand ]
-#            }
-#        }
-#        return $nbytes
-#    }
+    set page 10000
+    set maxPage ""
     if [ catch {
-        set token [ ::http::geturl $url ]
+        set token [ ::http::geturl "$url$page" ]
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseTopicText [ ::http::data $token ] $topicTextCommand
-            parsePage [ ::http::data $token ] $messageCommand
+            set data [ ::http::data $token ]
+            parseTopicText $data $topicTextCommand
+            set maxPage [ parseMaxPageNumber $data ]
         } else {
             set err [ ::http::code $token ]
             ::http::cleanup $token
@@ -102,6 +79,65 @@ proc parseTopic {topic topicTextCommand messageCommand} {
         ::http::cleanup $token
     } err ] {
         error $err $::errorInfo
+    }
+
+    set tree [ struct::tree ]
+    if [ catch {
+        for {set page $maxPage} {$page >= 0} {incr page -1} {
+            set token [ ::http::geturl "$url$page" ]
+            if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+                set minId [ parsePage [ ::http::data $token ] [ lambda::closure {tree lastId} {id nick header time msg parent parentNick} {
+                    if { $id <= $lastId } {
+                        return
+                    }
+                    if { $parent == "" } {
+                        set p root
+                    } else {
+                        set p $parent
+                    }
+                    if { ![ $tree exists $p ] } {
+                        $tree insert root end $p
+                        $tree set $p valid 0
+                    }
+                    eval [ concat [ list $tree insert $p end ] [ lsort -increasing -integer [ concat [ list $id ] [ $tree children $p ] ] ] ]
+                    $tree set $id valid 1
+                    $tree set $id args [ list $id $nick $header $time $msg $parent $parentNick ]
+                } ] ]
+                if { $minId <= $lastId} {
+                    break
+                }
+            } else {
+                set err [ ::http::code $token ]
+                ::http::cleanup $token
+                error $err
+            }
+            ::http::cleanup $token
+        }
+    } err ] {
+        set errInfo $::errorInfo
+        $tree destroy
+        error $err $errInfo
+    }
+
+    $tree walk root item {
+        if { $item != "root" } {
+            if { [ $tree get $item valid ] } {
+                uplevel #0 [ concat $messageCommand [ $tree get $item args ] ]
+            } elseif { $item > $lastId } {
+                foreach c [ $tree children $item ] {
+                    $tree set $c valid 0
+                }
+            }
+        }
+    }
+    $tree destroy
+}
+
+proc parseMaxPageNumber {data} {
+    if [ regexp -- {<div class="pageinfo">.*page=(\d+).>\d+</a>\].*</div>} $data dummy page ] {
+        return $page
+    } else {
+        return 0
     }
 }
 
@@ -114,13 +150,18 @@ proc parseTopicText {data command} {
 }
 
 proc parsePage {data command} {
+    set minId 99999999
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- \
 {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)"[^>]*>[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} \
 $message dummy2 parent parentNick id header msg nick time ] {
+            if { $id < $minId} {
+                set minId $id
+            }
             uplevel #0 [ concat $command [ list $id $nick $header $time $msg $parent $parentNick ] ]
         }
     }
+    return $minId
 }
 
 proc getTopicList {section command} {

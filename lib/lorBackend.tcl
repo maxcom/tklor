@@ -114,6 +114,7 @@ foreach stream {stdin stdout} {
 array set p [ ::cmdline::getoptions argv [ list \
     [ list libDir.arg   $libDir "Library path" ] \
     {get.arg            ""      "Get messages from thread"} \
+    {last.arg           "0"     "Specifies ID of last received message"} \
     {list.arg           ""      "List threads in category"} \
     {login                      "Log in to LOR"} \
     {useragent.arg      "tkLOR" "HTTP User-Agent"} \
@@ -138,7 +139,7 @@ eval [ concat ::httpTools::init $httpParams ]
 
 if [ catch {
     if { $p(get) != "" } {
-        ::lor::parseTopic $p(get) [ list printTopicText $p(get) ] printMessage
+        ::lor::parseTopic $p(get) [ list printTopicText $p(get) ] printMessage $p(last)
         exit 0
     }
     if { $p(list) != "" } {

@@ -74,6 +74,7 @@ set currentSubject ""
 set currentNick ""
 set currentTopic ""
 set currentMessage ""
+set lastId 0
 
 set topicHeader ""
 
@@ -636,6 +637,7 @@ proc setTopic {topic} {
     global autonomousMode
     global expandNewMessages
     global loadTaskId
+    global lastId
 
     if { $loadTaskId != "" } {
         catch {
@@ -661,6 +663,7 @@ proc setTopic {topic} {
         renderHtml $messageTextWidget ""
 
         set currentTopic $topic
+        set lastId 0
 
         set loadTaskId [ loadTopicFromCache $topic [ closure {topic} {} {
             set loadTaskId ""
@@ -673,6 +676,7 @@ proc setTopic {topic} {
 
 proc getNewMessages {topic} {
     global autonomousMode
+    global lastId
     if { $autonomousMode } {
         return
     }
@@ -697,7 +701,7 @@ proc getNewMessages {topic} {
         }
     }
 
-    set loadTaskId [ callPlugin get [ list $topic ] \
+    set loadTaskId [ callPlugin get [ list $topic -last $lastId ] \
         -title [ mc "Getting new messages" ] \
         -onoutput [ list ::mbox::parseLine $parser ] \
         -oncomplete $oncomplete \
@@ -708,6 +712,7 @@ proc getNewMessages {topic} {
 proc insertMessage {replace letter} {
     upvar #0 messageTree w
     global markIgnoredMessagesAsRead
+    global lastId
 
     array set res $letter
     set nick $res(From)
@@ -752,6 +757,9 @@ proc insertMessage {replace letter} {
         $w item $id -open 1
 #TODO: найти более удачное место
         saveTopicTextToCache $::currentTopic $letter
+    }
+    if { [ string is integer $id ] && $id > $lastId } {
+        set lastId $id
     }
 }
 
@@ -963,6 +971,7 @@ proc loadMessagesFromFile {fileName topic oncomplete args} {
         -onoutput [ list ::mbox::parseLine $id ] \
         -oncomplete [ join [ list \
             [ list ::mbox::closeParser $id ] \
+            update \
             $oncomplete \
         ] ";" ] \
     ]
@@ -971,11 +980,24 @@ proc loadMessagesFromFile {fileName topic oncomplete args} {
     ]
 }
 
+proc saveMessage {id stream} {
+    upvar #0 messageTree w
+
+    set newLetter ""
+    foreach {key val} [ getItemValue $w $id msg ] {
+        if { $key != "X-LOR-Unread" } {
+            lappend newLetter $key $val
+        }
+    }
+    lappend newLetter "X-LOR-Unread" [ getItemValue $w $id unread ]
+    ::mbox::writeToStream $stream $newLetter
+}
+
 proc saveTopicRecursive {stream item} {
     upvar #0 messageTree w
 
     foreach id [ $w children $item ] {
-        ::mbox::writeToStream $stream [ getItemValue $w $id msg ]
+        saveMessage $id $stream
         saveTopicRecursive $stream $id
     }
 }
@@ -2133,11 +2155,9 @@ proc updateTaskList {} {
 }
 
 proc bgerror {msg} {
-    puts stderr "bgerror: $msg"
-    puts stderr "bgerror extended info: $::errorInfo"
+    global appName
 
-#TODO: normalize and beautifulize
-    errorProc "bgerror" $msg
+    errorProc [ mc "%s error" $appName ] $msg $::errorInfo
 }
 
 proc loginCallback {str} {
