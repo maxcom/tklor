@@ -1193,6 +1193,8 @@ proc replaceHtmlEntities {text} {
     foreach {re s} {
         "<img [^>]*>" "[image]"
         "<!--.*?-->" ""
+        "</{0,1}pre>" ""
+        "<br>\n" "\n"
         "<br>" "\n"
         "<p>" "\n"
         "</p>" ""
