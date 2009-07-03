@@ -493,6 +493,32 @@ proc initMainWindow {} {
 
     wm protocol . WM_DELETE_WINDOW exitProc
     wm title . $appName
+    image create photo appIcon -data {
+        R0lGODlhIAAgAOfbAAMCBAQDBQwCBAUEBgYEBQYFBgYFBwgGBwgHCRcDBQoJCgoJCwsKCwsKDAwL
+        DQ4NDg8OEBAPEBEQERIQEhIREhISExMSFBQTFRUUFRcWFxgWFhkYGRkYGkcOEHIDBRwbHR0cHh4c
+        Hh0dHh4dHx4eH4oCBCAfICAfISEfISEgIiIhI5UCBCMiIiMiIyUkJCUkJaYCBKkCBKoCBCgnKLgC
+        BJ8JC7oCBCsqK8ACBCsrK8MCBLYGCMUCBMgCBKMOENACBC8uLl4kJt0CBNoDBeACBDIyMucCBDQz
+        NJ8XGTk4ODs6Oz49ProdHj8/P0c9Pm44OZ4rLUVERIk2OHZERZ4+PlZWVldWV1hXWFhYWFlZWVlZ
+        WrNBQmJiYmxiUX9kMmhnaGhoaLZTVIZoH6hdXW1tbXFxcZVxDnJycnlzXrtgYHV1dHV1dbZpaYl6
+        RrtoaHt6ent6e3x8fH9/f4B/gMlwcIWGhrSGJLmMKqKKireQFZmOja6RPLyQNK2NjaqZYMCQkc2Z
+        G86ZKsqeMdqhFdugIaSkpN2iFKWlpNqkILKkpN6mFdqkN9OnM9ymJNylL+CoFcSio+CoFt+mLuWn
+        F+CpFdyoK9qpNd2qKeaoI+GrFcmko+aqJ+eqJeCsJuKtH+atFNuwMOKxFN6vObCxsOivIeOyFM+q
+        quezI7O0s9Gsquu4FOu6FOy5Mry9vPLAFL/Av/PCFMDBwPXDFO25uNnEic3OzOjMk+fLydLU0tja
+        2Ori4OPl4+/k4+rs6uzu7PPu7O/x7/Dy8PDy8fDz8fHz8fLz7/L08vX39Pb49fb49vf49fn48vf5
+        9/n59vj69/j6+Pn6+Pr6+Pj7+fn7+Pn7+fr9+vr9+/v9+vv9+/v++/v+/P//////////////////
+        ////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////yH+EUNyZWF0ZWQgd2l0aCBH
+        SU1QACH5BAEKAP8ALAAAAAAgACAAAAj+AP8JHEiQ4AgDAz4UXMiw4b8TLoAEGKDAoUWGEEyQYBAA
+        wIaLIAWeKcIih5aJIUGqQdOm0CETAFJe3BOqVB4/GmLKbAjKlSpYslaZQbCzoSg7gzIZEtQFRdGG
+        cGidslXs1ZKnDFFhW4YN264JWAkesWKt2rRq2GopmRNWoJJX2px1xZaLBIUQbZsIi9u1GrEsFnRi
+        LcMM2zFqXY1ViQKgBVYwuLRpw1YNLbY4WAJUwLpGmrZnc7u24pLhwlMneGZFA90Xm68qXyg8neJD
+        Bx3ElbteI3OlwFMpPIzs4NW12a1UVJ44WPAUSQ8hTKBRTgOjRJ8xCWZgrUHDzbNsmjyN2JABJVGH
+        F1j1QNKFDJupGER+rAgiQEnYYdqUYZu2BceQMEkI9tQoknX1Cxt/vIGACG39U0cwwCTTSyxySBBA
+        g//cAEEDHGAQwQMApIDhPwcQAIIIKgAwwIj/8HHHQGJ4waIjkgxkSSANAoJIJ59MMhAhizQYySOe
+        XDJQI4pQwgiLArHCCSakbFKJRQEBADs=
+    }
+    wm iconphoto . -default appIcon
+    image delete appIcon
 
     set horPane [ ttk::panedwindow .horPaned -orient horizontal ]
     grid .horPaned -sticky nwse

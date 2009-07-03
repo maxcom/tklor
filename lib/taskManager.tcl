@@ -34,6 +34,7 @@ set updateScript ""
 array set tasks ""
 
 proc readableHandler {f onoutput onerror oncomplete} {
+    variable tasks
     if { [ gets $f str ] < 0 } {
         if [ eof $f ] {
             if [ catch {
@@ -49,7 +50,9 @@ proc readableHandler {f onoutput onerror oncomplete} {
         if { $onoutput != "" } {
             lappend onoutput $str
             if [ catch {
-                uplevel #0 $onoutput
+                if [ info exists tasks($f) ] {
+                    uplevel #0 $onoutput
+                }
             } err ] {
                 catch {closeChannel $f}
                 lappend onerror $err
@@ -100,6 +103,7 @@ proc closeChannel {id} {
     variable updateScript
     variable tasks
 
+    fileevent $id readable {}
     unset tasks($id)
     uplevel #0 $updateScript
     fconfigure $id -blocking 1
@@ -110,6 +114,7 @@ proc stopTask {id} {
     variable updateScript
     variable tasks
 
+    fileevent $id readable {}
     unset tasks($id)
     uplevel #0 $updateScript
     fconfigure $id -blocking 0
