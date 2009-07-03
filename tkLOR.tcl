@@ -136,7 +136,7 @@ set options {
     }
     "Reading" {
         "Expand new messages"   check   expandNewMessages   ""
-        "Ignore list"   list    ignoreList ""
+        "Ignore list"   ignoreList    ignoreList { list "Nick" }
     }
     "Normal font" {
         "font"  fontPart    fontPart(item) ""
@@ -1373,13 +1373,27 @@ proc packOptionsItem {w name item type var opt} {
         list {
             set f [ ttk::frame $name ]
             set ff [ ttk::frame $f.f ]
-            set v [ listbox "$ff.list" -listvariable $var -selectmode extended -yscrollcommand "$ff.scroll set" ]
+            set addScript [ lindex $opt 1 ]
+            set modifyScript [ lindex $opt 2 ]
+            set opt [ lindex $opt 0 ]
+
+            set v [ ttk::treeview $ff.list -yscrollcommand "$ff.scroll set" -columns [ lrange $opt 1 end ] -displaycolumns [ lrange $opt 1 end ] ]
+            $v heading #0 -text [ lindex $opt 0 ] -anchor w
+            foreach col [ lrange $opt 1 end ] {
+                $v heading $col -text $col -anchor w
+            }
+            foreach item [ set ::$var ] {
+                $v insert "" end -text [ lindex $item 0 ] -values [ lrange $item 1 end ]
+            }
+            set ::$var $v
+
             pack [ ttk::scrollbar "$ff.scroll" -command "$v yview" ] -side right -fill y
             pack $v -anchor w -fill x
             pack $ff -anchor w -fill both
             pack $f -anchor w -fill both
             pack [ buttonBox $name \
-                [ list -text "Add" -command "addListItem $v" ] \
+                [ list -text "Add..." -command [ concat $addScript [ list $v ] ] ] \
+                [ list -text "Modify..." -command [ concat $modifyScript [ list $v ] ] ] \
                 [ list -text "Remove" -command "removeListItem $v" ]
             ] -fill x -side bottom
         }
@@ -1424,27 +1438,35 @@ proc showOptionsDialog {} {
         foreach {item type var opt} $optList {
             set f [ ttk::frame "$page.item$i" -padding 1 ]
 
-            if { $type != "font" && $type != "fontPart" } {
-                array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
-            } else {
-                array set ff [ set ::$var ]
-                set names [ array names ff ]
-                foreach param {family size weight slant underline overstrike} {
-                    if { [ lsearch -exact $names "-$param" ] == -1 } {
-                        array set optionsTmp [ list "$n.$i.$param" "" ]
-                    } else {
-                        array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
+            switch -exact -- $type {
+                font -
+                fontPart {
+                    array set ff [ set ::$var ]
+                    set names [ array names ff ]
+                    foreach param {family size weight slant underline overstrike} {
+                        if { [ lsearch -exact $names "-$param" ] == -1 } {
+                            array set optionsTmp [ list "$n.$i.$param" "" ]
+                        } else {
+                            array set optionsTmp [ list "$n.$i.$param" [ set "ff(-$param)" ] ]
+                        }
                     }
-                }
-                array unset ff
+                    array unset ff
 
-                packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
-                packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
-                packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
-                packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
-                packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
-                packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
+                    packOptionsItem $d $f.family "Family" editableCombo "optionsTmp($n.$i.family)" [ font families ]
+                    packOptionsItem $d $f.size "Size" string "optionsTmp($n.$i.size)" ""
+                    packOptionsItem $d $f.weight "Weight" readOnlyCombo "optionsTmp($n.$i.weight)" { "" normal bold }
+                    packOptionsItem $d $f.slant "Slant" readOnlyCombo "optionsTmp($n.$i.slant)" { "" roman italic }
+                    packOptionsItem $d $f.underline "Underline" check "optionsTmp($n.$i.underline)" ""
+                    packOptionsItem $d $f.overstrike "Overstrike" check "optionsTmp($n.$i.overstrike)" ""
+                }
+                ignoreList {
+                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                    packOptionsItem $d $f.value $item "list" "optionsTmp($n.$i)" [ list [ eval $opt ] "addIgnoreListItem" "modifyIgnoreListItem" ]
+                }
+                default {
+                    array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
+                    packOptionsItem $d $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
+                }
             }
 
             pack $f -anchor w -fill x
@@ -1462,6 +1484,7 @@ proc showOptionsDialog {} {
     update
 
     wm resizable $d 0 0
+    wm protocol $d WM_DELETE_WINDOW $discardOptions
     centerToParent $d .
     grab $d
 }
@@ -1469,34 +1492,44 @@ proc showOptionsDialog {} {
 proc acceptOptions {} {
     global options optionsTmp
 
-    catch {destroy .optionsDialog}
-
     set n 0
     foreach {category optList} $options {
         set i 0
         foreach {item type var opt} $optList {
-            if { $type != "font" && $type != "fontPart" } {
-                set ::$var [ set "optionsTmp($n.$i)" ]
-            } else {
-                set s ""
-                foreach param {family size weight slant underline overstrike} {
-                    set v [ set "optionsTmp($n.$i.$param)" ]
-                    if {$v != ""} {
-                        lappend s [ list "-$param" $v ]
+            switch -exact -- $type {
+                font -
+                fontPart {
+                    set s ""
+                    foreach param {family size weight slant underline overstrike} {
+                        set v [ set "optionsTmp($n.$i.$param)" ]
+                        if {$v != ""} {
+                            lappend s [ list "-$param" $v ]
+                        }
+                    }
+                    set res [ join $s ]
+                    if { $type == "font" && $res == "" } {
+                        set res [ font actual system ]
+                    }
+                    set ::$var $res
+                }
+                ignoreList {
+                    set v [ set "optionsTmp($n.$i)" ]
+                    set ::$var ""
+                    foreach item [ $v children "" ] {
+                        set l [ concat [ list [ $v item $item -text ] ] [ $v item $item -values ] ]
+                        lappend ::$var $l
                     }
                 }
-                set res [ join $s ]
-                if { $type == "font" && $res == "" } {
-                    set res [ font actual system ]
+                default {
+                    set ::$var [ set "optionsTmp($n.$i)" ]
                 }
-                set ::$var $res
             }
             incr i
         }
         incr n
     }
     array unset optionsTmp
-
+    catch {destroy .optionsDialog}
     applyOptions
 }
 
@@ -1568,16 +1601,26 @@ proc centerToParent {window parent} {
     }
 }
 
-proc addListItem {w} {
+proc addIgnoreListItem {w} {
     global nickToIgnore
 
     set nickToIgnore ""
+    inputStringDialog "Ignore list" "Enter nick:" nickToIgnore "$w insert {} end -text \$nickToIgnore"
+}
 
-    inputStringDialog "Ignore list" "Enter nick:" nickToIgnore "$w insert end \$nickToIgnore"
+proc modifyIgnoreListItem {w} {
+    global nickToIgnore
+
+    if { [ $w focus ] == "" } {
+        addIgnoreListItem $w
+    } else {
+        set nickToIgnore [ $w item [ $w focus ] -text ]
+        inputStringDialog "Ignore list" "Enter nick:" nickToIgnore "$w item \[ $w focus \] -text \$nickToIgnore"
+    }
 }
 
 proc removeListItem {w} {
-    foreach item [ lsort -integer -decreasing [ $w curselection ] ] {
+    foreach item [ $w selection ] {
         $w delete $item
     }
 }
@@ -1626,6 +1669,7 @@ proc inputStringDialog {title label var script} {
     centerToParent $f .
     grab $f
     focus $f.entry
+    wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f.entry <Return> $okScript
     bind $f <Escape> $cancelScript
 }
@@ -1794,6 +1838,7 @@ proc showFavoritesTree {title name script parent} {
     centerToParent $f .
     grab $f
     focus $nameWidget
+    wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f.itemName <Return> $okScript
     bind $f.category <Return> $okScript
     bind $f <Escape> $cancelScript
