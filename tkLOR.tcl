@@ -967,6 +967,7 @@ proc updateTopicList {{section ""}} {
     global appName
     global topicTree
     global backend
+    global forumVisibleGroups
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -989,7 +990,7 @@ proc updateTopicList {{section ""}} {
         return
     }
     if { $section == "forum" } {
-        foreach {id title} $::lor::forumGroups {
+        foreach {id title} $forumVisibleGroups {
             updateTopicList "forum$id"
         }
         return
