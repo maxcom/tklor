@@ -91,6 +91,8 @@ set proxyPassword ""
 
 set browser ""
 
+set signature {// Posted using $appId}
+
 set ignoreList ""
 set userTagList {{maxcom "project coordinator"} {anonymous "spirit of LOR"}}
 
@@ -112,7 +114,10 @@ set readingSashPos 20
 set colorList {{tklor blue foreground}}
 set colorCount [ llength $colorList ]
 
-set tileTheme "default"
+# dirty hack: at current moment tile does not provide interface to get current theme
+if [ catch {set tileTheme $::ttk::currentTheme} ] {
+    set tileTheme "default"
+}
 
 set findString ""
 set findPos ""
@@ -156,6 +161,7 @@ set options {
         "Current perspective"   hidden  currentPerspective ""
         "Sash position(navigation), %" string navigationSashPos ""
         "Sash position(reading), %" string readingSashPos ""
+        "Message signature" string  signature ""
     }
     "Connection" {
         "LOR login" string  lorLogin ""
@@ -2173,11 +2179,12 @@ proc goOnline {} {
 }
 
 proc postMessage {topic {item ""}} {
+    global signature appName
+
     goOnline
     if { $::autonomousMode } {
         return
     }
-    login
 
     global currentMessage
     if { $item == "" } {
@@ -2188,6 +2195,12 @@ proc postMessage {topic {item ""}} {
         set currentMessage $item
         updateMessage $item
         set text [ $::messageTextWidget get 0.0 end ]
+    }
+    set text [ quoteText $text ]
+    if { $signature != "" } {
+        if [ catch {append text [ join [ list "\n\n" [ uplevel #0 [ list subst $signature ] ] ] "" ]} err ] {
+            tk_messageBox -title $appName -message [ mc "Error while substituting signature:\n%s" $err ] -parent . -icon error
+        }
     }
 
     set f [ toplevel .messagePostWindow -class Dialog ]
@@ -2215,10 +2228,13 @@ proc postMessage {topic {item ""}} {
 
     set ww [ ttk::frame $w.textContainer ]
     grid \
-        [ text $ww.text -yscrollcommand "$ww.scroll set" ] \
+        [ text $ww.text -yscrollcommand "$ww.scroll set" -height 10 ] \
         [ ttk::scrollbar $ww.scroll -command "$ww.text yview" ] \
         -sticky nswe
-    $ww.text insert 0.0 [ quoteText $text ]
+    $ww.text insert 0.0 $text
+    catch {$ww.text configure -font $::messageTextFont}
+    catch {$ww.text configure -foreground $::color(htmlFg) -background $::color(htmlBg)}
+
     grid columnconfigure $ww 0 -weight 1
     grid rowconfigure $ww 0 -weight 1
     grid $ww -sticky nwse
@@ -2253,6 +2269,9 @@ proc postMessage {topic {item ""}} {
     wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f <Escape> $cancelScript
     bind $f <Control-Return> $sendScript
+
+    focus $f.textFrame.textContainer.text
+    login
 }
 
 proc makeReplyHeader {header} {

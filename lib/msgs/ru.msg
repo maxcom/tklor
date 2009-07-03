@@ -152,4 +152,5 @@
         "Send"                  "Отправить"
         "Compose message"       "Новое сообщение"
         "Auto URL"              "Автораспознавание гиперссылок"
+        "Error while substituting signature:\n%s"      "Ошибка при подстановке переменных в подписи:\n%s"
 }
