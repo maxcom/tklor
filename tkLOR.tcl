@@ -86,6 +86,8 @@ set tileTheme "default"
 set findString ""
 set findPos ""
 
+set lastId -1
+
 set messageTextFont [ font actual system ]
 
 set forumGroups {
@@ -588,13 +590,11 @@ proc setTopic {topic} {
     }
 
     startWait "Loading topic..."
-    
+
     if { $topic != $currentTopic } {
         setItemValue $topicWidget "" unreadChild 0
 
-        foreach item [ $topicWidget children "" ] {
-            $topicWidget delete $item
-        }
+        clearTreeItemChildrens $topicWidget ""
         set currentHeader ""
         set currentNick ""
         set currentPrevNick ""
@@ -1279,21 +1279,26 @@ proc replaceHtmlEntities {text} {
     return $text
 }
 
-proc addToFavorites {w item} {
-    $w detach $item
-    set childs [ $w children "favorites" ]
-    lappend childs $item
-    set childs [ lsort -decreasing $childs ]
-    $w children "favorites" $childs
-    if [ getItemValue $w $item unread ] {
-        addUnreadChild $w [ getItemValue $w $item parent ] -1
-        addUnreadChild $w "favorites"
+proc addTopicToFavorites {w item category caption} {
+    if { $category != "" && $item != $category } {
+        $w detach $item
+        set childs [ $w children $category ]
+        lappend childs $item
+        set childs [ lsort -decreasing $childs ]
+        $w children $category $childs
+        if [ getItemValue $w $item unread ] {
+            addUnreadChild $w [ getItemValue $w $item parent ] -1
+            addUnreadChild $w $category
+        }
+        setItemValue $w $item parent $category
     }
-    setItemValue $w $item parent "favorites"
+    setItemValue $w $item text $caption
+    updateItemState $w $item
 }
 
 proc deleteTopic {w item} {
-    if [ regexp -lineanchor {^\d+$} $item ] {
+    set parent [ getItemValue $w $item parent ]
+    if { $parent != "" && $parent != "news" && $parent != "forum" } {
         $w delete $item
     }
 }
@@ -1303,7 +1308,7 @@ proc invokeItemCommand {w command args} {
 
     set item [ $w identify row $mouseX $mouseY ]
     if { $item != "" } {
-        eval "$command $w $item $args"
+        eval [ join [ list [ list $command $w $item ] $args ] ]
         updateWindowTitle
     }
 }
@@ -1311,7 +1316,7 @@ proc invokeItemCommand {w command args} {
 proc invokeMenuCommand {w command args} {
     set item [ $w focus ]
     if { $item != "" } {
-        eval "$command $w $item $args"
+        eval [ join [ list [ list $command $w $item ] $args ] ]
         updateWindowTitle
     }
 }
@@ -1490,18 +1495,11 @@ proc saveOptions {} {
         foreach {item type var opt} $optList {
             puts $f "# $category :: $item"
             if [ array exists ::$var ] {
-                puts -nonewline $f "array set "
-                puts -nonewline $f $var
-                puts -nonewline $f " {"
-                puts -nonewline $f [ array get ::$var ]
-                puts $f "}\n"
+                puts $f [ list "array" "set" $var [ array get ::$var ] ]
             } else {
-                puts -nonewline $f "set "
-                puts -nonewline $f $var
-                puts -nonewline $f " {"
-                puts -nonewline $f [ set ::$var ]
-                puts $f "}\n"
+                puts $f [ list "set" $var [ set ::$var ] ]
             }
+            puts $f ""
         }
     }
     close $f
@@ -1580,6 +1578,7 @@ proc inputStringDialog {title label var script} {
     centerToParent $f .
     grab $f
     focus $f.entry
+    bind $f.entry <Return> $okScript
     bind $f <Escape> $cancelScript
 }
 
@@ -1629,7 +1628,7 @@ proc processItems {w item script} {
             }
         }
         if { $next != "" && !$fromChild } {
-            if { ![ eval "$script $next" ] } {
+            if { ![ eval [ join [ list $script $next ] ] ] } {
                 return $next
             }
         }
@@ -1708,6 +1707,100 @@ proc ignoreUser {w item} {
     set nick [ getItemValue $w $item nick ]
     if { [ lsearch -exact $ignoreList [ getItemValue $w $item nick ] ] == -1 } {
         lappend ignoreList $nick
+    }
+}
+
+proc showFavoritesTree {title name script} {
+    set f [ join [ list ".favoritesTreeDialog" [ generateId ] ] "" ]
+    toplevel $f
+    wm title $f $title
+
+    pack [ ttk::label $f.label -text "Item name: " ] -fill x
+    set nameWidget [ ttk::entry $f.itemName ]
+    pack $nameWidget -fill x
+    $nameWidget insert end $name
+
+    pack [ ttk::label $f.categoryLabel -text "Category: " ] -fill x
+    set categoryWidget [ ttk::treeview $f.category ]
+    $categoryWidget heading #0 -text "Title" -anchor w
+    pack $categoryWidget -fill both
+
+    fillCategoryWidget $categoryWidget
+
+    set okScript [ join \
+        [ list \
+            [ list "eval" [ join [ list $script "\[ $categoryWidget focus \]" "\[ $nameWidget get \]" ] ] ] \
+            [ list "destroy" "$f" ] \
+        ] ";" \
+    ]
+    set cancelScript "destroy $f"
+    set newCategoryScript [ list showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" "$categoryWidget" ] ]
+
+    pack [ ttk::button $f.newCategory -text "New category..." -command $newCategoryScript ] [ ttk::button $f.ok -text "OK" -command $okScript ] [ ttk::button $f.cancel -text "Cancel" -command $cancelScript ] -side left
+
+    update
+    centerToParent $f .
+    grab $f
+    focus $nameWidget
+    bind $f.itemName <Return> $okScript
+    bind $f.category <Return> $okScript
+    bind $f <Escape> $cancelScript
+}
+
+proc generateId {} {
+    global lastId
+
+    incr lastId
+    return $lastId
+}
+
+proc copyFavoritesCategory {from to item} {
+    if { [ getItemValue $from $item nick ] == "" } {
+        $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
+    }
+    return 1
+}
+
+proc addToFavorites {w id} {
+    global allTopicsWidget
+
+    showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ]
+}
+
+proc createCategory {categoryWidget parent name} {
+    upvar #0 allTopicsWidget w
+
+    set id "category"
+    while { [ $w exists $id ] } {
+        set id [ join [ list "category" [ generateId ] ] "" ]
+    }
+
+    $w insert $parent end -id $id -text $name
+    setItemValue $w $id text $name
+    setItemValue $w $id parent $parent
+    setItemValue $w $id nick ""
+    setItemValue $w $id unread 0
+    setItemValue $w $id unreadChild 0
+    updateItemState $w $id
+
+    clearTreeItemChildrens $categoryWidget ""
+    fillCategoryWidget $categoryWidget
+}
+
+proc fillCategoryWidget {categoryWidget} {
+    global allTopicsWidget
+
+    $categoryWidget insert {} end -id favorites -text Favorites
+    foreach item [ $allTopicsWidget children "favorites" ] {
+        puts "$item [getItemValue $allTopicsWidget $item text]"
+    }
+    processItems $allTopicsWidget "favorites" [ list copyFavoritesCategory $allTopicsWidget $categoryWidget ]
+    setFocusedItem $categoryWidget "favorites"
+}
+
+proc clearTreeItemChildrens {w parent} {
+    foreach item [ $w children $parent ] {
+        $w delete $item
     }
 }
 
