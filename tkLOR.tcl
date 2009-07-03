@@ -606,6 +606,7 @@ proc parsePage {topic data} {
     }
     if { $first != "" } {
         focus $w
+        $w see $first
         $w focus $first
         $w selection set $first
     }
