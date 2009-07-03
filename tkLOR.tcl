@@ -398,9 +398,13 @@ proc initMessageWidget {} {
 proc initMainWindow {} {
     global appName
     global tileTheme
+    global statusBarWidget
 
     wm protocol . WM_DELETE_WINDOW exitProc
     wm title . $appName
+
+    set statusBarWidget [ ttk::label .statusBar -text "" -relief ridge ]
+    pack $statusBarWidget -side bottom -anchor w -fill x
 
     ttk::panedwindow .horPaned -orient horizontal
     pack .horPaned -fill both -expand 1
@@ -506,11 +510,11 @@ proc setTopic {topic} {
     global currentHeader currentNick currentPrevNick currentTime topicNick topicTime
     global autonomousMode
 
-    startWait
-
     if { $currentTopic != "" } {
         saveTopicToCache $currentTopic
     }
+
+    startWait "Loading topic..."
 
     if { $topic != $currentTopic } {
         foreach item [ $topicWidget children "" ] {
@@ -888,7 +892,7 @@ proc saveTopicRecursive {topic item} {
 }
 
 proc saveTopicToCache {topic} {
-    startWait
+    startWait "Saving topic to cache"
     if { $topic != "" } {
         clearDiskCache $topic
         saveTopicRecursive $topic ""
@@ -906,16 +910,24 @@ proc processArgv {} {
     }
 }
 
-proc startWait {} {
-    catch {destroy .waitWindow}
-    set f [ ttk::label .waitWindow -text "Please, wait..." ]
-    place $f -x 100 -y 100 -width 200 -height 20
-    update
-    grab $f
+proc startWait {{text ""}} {
+    global statusBarWidget
+
+    if { $text == "" } {
+        set text "Please, wait"
+    }
+
+    . configure -cursor clock
+    grab $statusBarWidget
+    $statusBarWidget configure -text $text
 }
 
 proc stopWait {} {
-    catch {destroy .waitWindow}
+    global statusBarWidget
+
+    grab release $statusBarWidget
+    $statusBarWidget configure -text ""
+    . configure -cursor ""
 }
 
 proc loadConfigFile {fileName} {
@@ -956,7 +968,9 @@ proc updateTopicList {{section ""} {recursive ""}} {
         }
     }
 
-    if {$recursive == ""} startWait
+    if {$recursive == ""} {
+        startWait "Updating topics list..."
+    }
     if {$section == "" } {
         updateTopicList news 1
         updateTopicList forum 1
