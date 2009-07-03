@@ -717,6 +717,8 @@ proc initHttp {} {
             ::autoproxy::configure -basic -username $proxyUser -password $proxyPassword
         }
         ::http::config -proxyfilter ::autoproxy::filter
+    } else {
+        ::http::config -proxyfilter ""
     }
 
     ::http::config -useragent "$appId"
@@ -1393,6 +1395,7 @@ proc acceptOptions {} {
     configureTags $allTopicsWidget
     configureTags $topicWidget
     ttk::style theme use $tileTheme
+    initHttp
 }
 
 proc saveOptions {} {
