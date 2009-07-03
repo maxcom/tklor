@@ -1,0 +1,5 @@
+userConfig usr/share/doc/tklor/examples
+config usr/share/doc/tklor/examples
+tkLOR usr/X11R6/bin
+debian/tklor.xpm usr/share/pixmaps
+debian/tklor.desktop usr/share/applications

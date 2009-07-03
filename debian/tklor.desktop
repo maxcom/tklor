@@ -1,0 +1,19 @@
+[Desktop Entry]
+Comment=
+Comment[ru]=
+Encoding=UTF-8
+Exec=tkLOR
+GenericName=Клиент для чтения ЛОР
+GenericName[ru]=Клиент для чтения ЛОР
+Icon=tklor.xpm
+MimeType=
+Name=tkLOR
+Name[ru]=tkLOR
+Path=
+StartupNotify=false
+Terminal=false
+Type=Application
+X-DCOP-ServiceType=
+X-KDE-SubstituteUID=false
+X-KDE-Username=
+Categories=Network
