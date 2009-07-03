@@ -111,7 +111,11 @@ proc setUpdateHandler {script} {
 proc getTasksCount {queue} {
     variable stopped
 
-    return [ expr [ $queue size ] - $stopped($queue) ]
+    if { [ $queue size ] != 0 } {
+        return [ expr [ $queue size ] - $stopped($queue) ]
+    } else {
+        return 0
+    }
 }
 
 }
