@@ -70,9 +70,11 @@ proc parseTopic {topic topicTextCommand messageCommand} {
         upvar #0 $datavar data $statevar state
         upvar #0 $token httpState
 
-        fconfigure $socket -encoding "utf-8"
-        set httpData [ read $socket 4096 ]
-        set nbytes [ string length $data ]
+        fconfigure $socket -encoding "utf-8" -buffering line -blocking 0
+        set nbytes [ gets $socket httpData ]
+        if { $nbytes <= 0 } {
+            return 0
+        }
 
         append data $httpData
         if { $state == "TOPIC" } {
@@ -90,11 +92,7 @@ proc parseTopic {topic topicTextCommand messageCommand} {
     } $datavar $statevar $topicTextCommand $messageCommand
     if [ catch {
         set token [ ::http::geturl $url -blocksize 4096 -handler $handler ]
-        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            set data [ ::http::data $token ]
-#            ::lor::parseTopicText $data $topicTextCommand
-#            ::lor::parsePage $data $messageCommand
-        } else {
+        if { ! ( [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 ) } {
             set err [ ::http::code $token ]
             ::http::cleanup $token
             unset $datavar

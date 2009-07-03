@@ -652,38 +652,47 @@ proc setTopic {topic} {
 
         set currentTopic $topic
 
-        set loadTaskId [ loadTopicFromCache $topic {set loadTaskId ""} ]
-    }
-#TODO: !!!
-return
-    if { ! $autonomousMode } {
-        set parser [ ::mbox::initParser [ list insertMessage 0 ] ]
-        set onerror [ list errorProc [ mc "Error while getting messages" ] ]
-        deflambda oncomplete {parser onerror} {
-            global loadTaskId expandNewMessages messageTree
-
-            if [ catch {
-                ::mbox::closeParser $parser
-            } err ] {
-                lappend onerror $err $::errorInfo
-                uplevel #0 $onerror
-            }
+        set loadTaskId [ loadTopicFromCache $topic [ lambda {topic} {
             set loadTaskId ""
-            focus $messageTree
-            updateWindowTitle
-            if { $expandNewMessages == "1" } {
-                nextUnread $messageTree ""
-                focus $messageTree
-            }
-        } $parser $onerror
-
-        set loadTaskId [ callPlugin get [ list $topic ] \
-            -title [ mc "Getting new messages" ] \
-            -onoutput [ list ::mbox::parseLine $parser ] \
-            -oncomplete $oncomplete \
-            -onerror $onerror \
-        ]
+            getNewMessages $topic
+        } $topic ] ]
+    } else {
+        getNewMessages $topic
     }
+}
+
+proc getNewMessages {topic} {
+    global autonomousMode
+    if { $autonomousMode } {
+        return
+    }
+
+    set parser [ ::mbox::initParser [ list insertMessage 0 ] ]
+    set onerror [ list errorProc [ mc "Error while getting messages" ] ]
+    deflambda oncomplete {parser onerror} {
+        global loadTaskId expandNewMessages messageTree
+
+        if [ catch {
+            ::mbox::closeParser $parser
+        } err ] {
+            lappend onerror $err $::errorInfo
+            uplevel #0 $onerror
+        }
+        set loadTaskId ""
+        focus $messageTree
+        updateWindowTitle
+        if { $expandNewMessages == "1" } {
+            nextUnread $messageTree ""
+            focus $messageTree
+        }
+    } $parser $onerror
+
+    set loadTaskId [ callPlugin get [ list $topic ] \
+        -title [ mc "Getting new messages" ] \
+        -onoutput [ list ::mbox::parseLine $parser ] \
+        -oncomplete $oncomplete \
+        -onerror $onerror \
+    ]
 }
 
 proc insertMessage {replace letter} {
@@ -735,6 +744,8 @@ proc insertMessage {replace letter} {
     updateItemState $w $id
     if { $id == "topic" } {
         $w item $id -open 1
+#TODO: найти более удачное место
+        saveTopicTextToCache $::currentTopic $letter
     }
 }
 
@@ -879,7 +890,7 @@ proc initDirs {} {
 }
 
 proc saveTopicTextToCache {topic letter} {
-    global configDir cacheDir
+    global cacheDir
 
     set fname [ file join $cacheDir [ join [ list $topic ".topic" ] "" ] ]
     ::mbox::writeToFile $fname [ list $letter ] -encoding utf-8
@@ -899,7 +910,6 @@ proc loadTopicFromCache {topic oncomplete} {
         set topicHeader "$res(Subject)\($res(From)\)"
         array unset res
         insertMessage 1 $letter
-        saveTopicTextToCache $topic $letter
     } $topic
 
     if { ![ file exists $fname ] } {
@@ -909,6 +919,7 @@ proc loadTopicFromCache {topic oncomplete} {
     set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
     if [ catch {
         ::mbox::parseFile $fname $script -sync 1
+#TODO: рассмотреть случай, когда топикстарта нет
     } err ] {
         eval [ concat $onerr [ list $err $::errorInfo ] ]
     } else {
@@ -1079,13 +1090,38 @@ proc updateTopicList {{section ""}} {
         addTopicFromCache $section $id $lt(From) $header \
             [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
     } $section
-    set id [ ::mbox::initParser $fun ]
+    set onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
+    set parser [ ::mbox::initParser $fun ]
+    deflambda oncomplete {parser section onerror} {
+        upvar #0 topicTree w
+        global threadListSize
+
+        set isError 0
+        if [ catch {
+            ::mbox::closeParser $parser
+        } err ] {
+            set errInfo $::errorInfo
+            set isError 1
+        }
+
+        foreach item [ lrange [ $w children $section ] $threadListSize end ] {
+            set count [ expr [ getItemValue $w $item unreadChild ] + [ getItemValue $w $item unread ] ]
+            if { $count != "0" } {
+                addUnreadChild $w $section "-$count"
+            }
+            $w delete $item
+        }
+        if $isError {
+            lappend onerror $err $errInfo
+            uplevel #0 $onerror
+        }
+    } $parser $section $onerror
     set category [ getItemValue $topicTree $section text ]
     callPlugin list [ list $section ] \
         -title [ mc "Fetching new topics in category %s" $category ] \
-        -onoutput [ list ::mbox::parseLine $id ] \
-        -oncomplete [ list ::mbox::closeParser $id ] \
-        -onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
+        -onoutput [ list ::mbox::parseLine $parser ] \
+        -oncomplete $oncomplete \
+        -onerror $onerror
 }
 
 proc addTopicFromCache {parent id nick text unread} {

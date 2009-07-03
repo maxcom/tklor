@@ -69,6 +69,7 @@ proc parseLine {id line} {
             }
             BODY {
                 set state$id BODYSPACE
+                set lt(body) "$lt(body)\n"
             }
             BODYSPACE {
                 set lt(body) "$lt(body)\n"
