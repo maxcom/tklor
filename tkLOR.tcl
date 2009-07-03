@@ -366,7 +366,7 @@ proc initTopicText {} {
     set f [ ttk::frame $mf.textFrame ]
     switch -exact $htmlRenderer {
         "local" {
-            set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 15 ]
+            set topicTextWidget [ text $f.msg -state disabled -yscrollcommand "$f.scroll set" -setgrid true -wrap word -height 10 ]
             catch {
                 $topicTextWidget configure -font $messageTextFont
             }
@@ -443,7 +443,7 @@ proc initMessageWidget {} {
 
     switch -exact $htmlRenderer {
         "local" {
-            set messageWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 15 ]
+            set messageWidget [ text $mf.msg -state disabled -yscrollcommand "$mf.scroll set" -setgrid true -wrap word -height 10 ]
             catch {
                 $messageWidget configure -font $messageTextFont
             }
@@ -452,7 +452,7 @@ proc initMessageWidget {} {
             pack $messageWidget -expand yes -fill both
         }
         "iwidgets" {
-            set messageWidget [ iwidgets::scrolledhtml $mf.msg -state disabled ]
+            set messageWidget [ iwidgets::scrolledhtml $mf.msg -state disabled -linkcommand openUrl ]
             pack $messageWidget -expand yes -fill both
         }
     }
