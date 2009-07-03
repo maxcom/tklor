@@ -154,7 +154,7 @@ proc getMailHeaders {letter headers} {
         set arr($h) ""
     }
     foreach {h v} $letter {
-        if { [ lsearch $headers $h ] } {
+        if { [ lsearch -exact $headers $h ] >= 0 } {
             set arr($h) $v
         }
     }

@@ -814,7 +814,7 @@ proc insertMessage {replace letter} {
         } else {
             set parent "topic"
         }
-        if { $res(To) == "" } {
+        if { $parent == "" } {
             set parent "topic"
         }
     } else {

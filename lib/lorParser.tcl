@@ -67,7 +67,7 @@ proc parseTopic {topic topicTextCommand messageCommand lastId} {
         set token [ ::http::geturl "$url$page" ]
         if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
             set data [ ::http::data $token ]
-            parseTopicText $data $topicTextCommand
+            set from [ parseTopicText $data $topicTextCommand ]
             set maxPage [ parseMaxPageNumber $data ]
         } else {
             error [ parseError $token ]
@@ -83,12 +83,13 @@ proc parseTopic {topic topicTextCommand messageCommand lastId} {
         for {set page $maxPage} {$page >= 0} {incr page -1} {
             set token [ ::http::geturl "$url$page" ]
             if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-                set minId [ parsePage [ ::http::data $token ] [ lambda::closure {tree lastId} {id nick header time msg parent parentNick} {
+                set minId [ parsePage [ ::http::data $token ] [ lambda::closure {tree lastId from} {id nick header time msg parent parentNick} {
                     if { $id <= $lastId } {
                         return
                     }
                     if { $parent == "" } {
                         set p root
+                        set parentNick $from
                     } else {
                         set p $parent
                     }
@@ -139,6 +140,7 @@ proc parseMaxPageNumber {data} {
 proc parseTopicText {data command} {
     if [ regexp -- {<div class=msg>(?:<table><tr><td valign=top align=center><a [^>]*><img [^>]*></a></td><td valign=top>){0,1}<h1><a name=\d+>([^<]+)</a></h1>(.*?)<div class=sign>(?:<s>){0,1}([\w-]+)(?:</s>){0,1} +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)(?:<br><i>[^ ]+ ([\w-]+) \(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) ([^<]+)</i>){0,1}</div>.*?<table class=nav>} $data dummy header msg nick time approver approveTime ] {
         uplevel #0 [ concat $command [ list $nick $header $msg $time $approver $approveTime ] ]
+        return $nick
     } else {
         error "Unable to parse topic text"
     }
