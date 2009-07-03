@@ -147,7 +147,7 @@
         "Logging in"            "Логинюсь"
         "Login failed"          "Залогиниться не получилось"
         "Send"                  "Отправить"
-        "Compose message"       "Новое сообщение"
+        "Compose message"       "Редактирование сообщения"
         "Auto URL"              "Автораспознавание гиперссылок"
         "An error occured while posting '%s'"      "Произошла ошибка при отправке сообщения '%s'"
         "There are %s running tasks"            "Выполняется %s фоновых задач"

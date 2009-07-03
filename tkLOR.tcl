@@ -336,18 +336,16 @@ proc initMenu {} {
 #            -label [ mc "Send" ] \
 #            -command [ list $invoke $messageTree sendMessage ] \
 #            -accelerator "Ctrl-S"
-#        $m add command \
-#            -label [ mc "Edit" ] \
-#            -command [ list $invoke $messageTree edit ] \
-#            -accelerator "Ctrl-E"
-#        $m add command \
-#            -label [ mc "Reply" ] \
-#            -command [ list $invoke $messageTree reply ] \
-#            -accelerator "Ctrl-O"
+        $m add command \
+            -label [ mc "Edit" ] \
+            -command [ list $invoke $messageTree edit ]
+        $m add command \
+            -label [ mc "Reply" ] \
+            -command [ list $invoke $messageTree reply ] \
+            -accelerator "Ctrl-R"
         $m add command \
             -label [ mc "Delete" ] \
-            -command [ list $invoke $messageTree deleteMessage ] \
-            -accelerator "Del"
+            -command [ list $invoke $messageTree deleteMessage ]
     }
 }
 
@@ -702,9 +700,9 @@ proc setTopic {topic} {
     if { $currentTopic != "" } {
         saveTopicToCache $currentTopic
     }
-    set currentTopic $topic
 
     if { $topic == "sent" || $topic == "draft" || $topic == "outcoming" } {
+        set currentTopic $topic
         renderHtml $messageTextWidget ""
         clearTreeItemChildrens $messageTree ""
         showMessageQueue $topic
@@ -718,6 +716,7 @@ proc setTopic {topic} {
             set $item ""
         }
         set lastId 0
+        set currentTopic $topic
 
         set loadTaskId [ loadTopicFromCache $topic [ closure {topic} {} {
             global loadTaskId autonomousMode lastId
@@ -1915,7 +1914,7 @@ proc initBindings {} {
     bind $messageTree <Menu> {openContextMenu $messageTree $messageMenu}
 
     bind $messageTextWidget <ButtonPress-3> {popupMenu $messageTextMenu %X %Y %x %y}
-#TODO: add bindings to mailbox mode
+
     foreach w [ list $topicTree $messageTree ] {
         bind $w <Home> [ list $w yview moveto 0 ]
         bind $w <End> [ list $w yview moveto 1 ]
@@ -2305,7 +2304,7 @@ proc makeReplyToMessage {origLetter} {
         set letter(X-LOR-ReplyTo-Id) $currentTopic
     }
     set letter(X-Mailer) $appId
-    set letter(body) [ quoteText $orig(body) ]
+    set letter(body) [ quoteText [ htmlToText $orig(body) ] ]
     array unset orig
 
     return [ array get letter ]
@@ -2320,24 +2319,7 @@ proc postMessage {topic {item ""}} {
     editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ]
 }
 
-#TODO: beautifulize window(v 1.1)
-# buttons: save, send, close
 proc editMessage {letter} {
-#    goOnline
-#    if { $::autonomousMode } {
-#        return
-#    }
-
-#    global currentMessage
-#    if { $item == "" } {
-#        set currentMessage "topic"
-#        showMessageInMainWindow [ getItemValue $w "topic" msg ]
-#        set text [ $::messageTextWidget get 0.0 end ]
-#    } else {
-#        set currentMessage $item
-#        showMessageInMainWindow [ getItemValue $w $item msg ]
-#        set text [ $::messageTextWidget get 0.0 end ]
-#    }
     array set msg $letter
     set text $msg(body)
 
@@ -2345,25 +2327,28 @@ proc editMessage {letter} {
     wm withdraw $f
     wm title $f [ mc "Compose message" ]
 
-    set sendScript "[ list sendReply $f outcoming ]; [ list destroy $f ]"
-    set saveScript "[ list sendReply $f draft ]; [ list destroy $f ]"
+    set sendScript "[ list processDataFromEditWindow $f outcoming ]; [ list destroy $f ]"
+    set saveScript "[ list processDataFromEditWindow $f draft ]; [ list destroy $f ]"
     set cancelScript [ list destroy $f ]
 
     set w [ ttk::frame $f.headerFrame ]
     grid \
+        [ ttk::label $w.labelFrom -text [ mc "From: " ] -anchor w ] \
+        [ ttk::label $w.entryFrom -text $msg(From) ] \
+        -sticky we
+    grid \
         [ ttk::label $w.labelTo -text [ mc "To: " ] -anchor w ] \
-        [ ttk::label $w.entryTo -text $msg(From) ] \
+        [ ttk::label $w.entryTo -text $msg(To) ] \
         -sticky we
     grid \
         [ ttk::label $w.labelSubject -text [ mc "Subject: " ] -anchor w ] \
-        [ ttk::label $w.entrySubject -text $msg(Subject) ] \
+        [ ttk::entry $w.entrySubject ] \
         -sticky we
     grid columnconfigure $w 1 -weight 1
     grid $w -sticky nwse
 
     set w [ ttk::frame $f.textFrame ]
-    grid [ ttk::entry $w.header ] -sticky we
-    $w.header insert 0 $msg(Subject)
+    $f.headerFrame.entrySubject insert 0 $msg(Subject)
 
     set ww [ ttk::frame $w.textContainer ]
     grid \
@@ -2396,6 +2381,14 @@ proc editMessage {letter} {
     $w.format current 0
     set [ $w.autoUrl cget -variable ] 1
 
+    if [ info exists msg(X-LOR-Pre) ] {
+        $w.format current [ expr 1 - $msg(X-LOR-Pre) ]
+    }
+    if [ info exists msg(X-LOR-AutoUrl) ] {
+        set $w.autoUrl $msg(X-LOR-AutoUrl)
+    }
+    array unset msg
+
     grid columnconfigure $w 0 -weight 1
     grid columnconfigure $w 1 -weight 1
     grid $w -sticky nwse
@@ -2413,11 +2406,9 @@ proc editMessage {letter} {
     wm deiconify $f
     wm protocol $f WM_DELETE_WINDOW $cancelScript
     bind $f <Escape> $cancelScript
-    bind $f <Control-Return> $sendScript
-#    bind $f <Control-S> $sendScript
+    bind $f.textFrame.textContainer.text <Control-Return> "$sendScript;break"
 
     focus $f.textFrame.textContainer.text
-#    login
 }
 
 proc makeReplyHeader {header} {
@@ -2457,32 +2448,31 @@ proc putMailToQueue {queueName newLetter} {
     upvar #0 $queueName queue
 
     lappend queue $newLetter
+    if { $queue == "outcoming" } {
+        startDelivery
+    }
 }
 
-#TODO: remove
-proc sendReply {f queue} {
-    set header [ $f.textFrame.header get ]
+#TODO: put message editing into separate package
+proc processDataFromEditWindow {f queue} {
+    set header [ $f.headerFrame.entrySubject get ]
+    set to [ $f.headerFrame.entryTo cget -text ]
     set text [ $f.textFrame.textContainer.text get 0.0 end ]
     set preformattedText [ $f.optionsFrame.format current ]
     set autoUrl [ set ::$f.optionsFrame.autoUrl ]
-
-    if { !$preformattedText } {
-        set text [ normalizeText $text ]
-    }
+    unset ::$f.optionsFrame.autoUrl
 
     putMailToQueue $queue [ list \
         "From"      $::lorLogin \
-        "To"        "jopa" \
+        "To"        $to \
         "Subject"   $header \
-        "X-LOR-Time" "pox" \
+        "X-LOR-Time" [ clock format \
+            [ clock seconds ] -format {%d.%m.%Y %H:%M:%S} \
+        ] \
+        "X-LOR-AutoUrl" $autoUrl \
+        "X-LOR-Pre" $preformattedText \
         "body"      $text \
     ]
-
-#error "TODO: temporary disabled"
-#    defCallbackLambda finish {type} {
-#        taskCompleted $type
-#    } postMessage
-#    addTask postMessage remoting::sendRemote -async $backendId [ list lor::postMessage $topic $message $header $text $preformattedText $autoUrl deliveryErrorCallback $finish ]
 }
 
 proc normalizeText {text} {
@@ -2618,6 +2608,14 @@ proc deleteMessage {w item} {
     set q [ lreplace $q $item $item ]
     clearTreeItemChildrens $w ""
     showMessageQueue $currentTopic
+}
+
+proc edit {w item} {
+    editMessage [ getItemValue $w $item msg ]
+}
+
+proc startDelivery {} {
+#TODO
 }
 
 ############################################################################
