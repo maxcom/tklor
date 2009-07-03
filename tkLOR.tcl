@@ -1396,7 +1396,7 @@ proc saveOptions {} {
 
     foreach {category optList} $options {
         foreach {item type var opt} $optList {
-            puts $f "# $category :: $item"
+            puts $f "# [ mc $category ] :: [ mc $item ]"
             puts $f [ list "set" $var [ set ::$var ] ]
             puts $f ""
         }
