@@ -1342,11 +1342,7 @@ proc reply {w item} {
     if { $w == $topicTree } {
         openUrl [ ::lor::topicReply $item ]
     } else {
-        if { $item == "topic" } {
-            postMessage $currentTopic
-        } else {
-            postMessage $currentTopic $item
-        }
+        postMessage $currentTopic $item
     }
 }
 
@@ -1953,6 +1949,7 @@ proc initBindings {} {
     bind . <F2> updateTopicList
     bind . <F3> findNext
     bind . <F5> refreshTopic
+    bind . <Alt-F4> exitProc
 
     bind $topicTree <F4> [ list invokeMenuCommand $topicTree refreshTopicSubList ]
 
@@ -2093,6 +2090,7 @@ proc loadAppLibs {} {
     package require gaa_mbox 1.1
     package require lorParser 1.2
     package require tkLor_taskManager 1.1
+    package require gui_mailEditor 1.0
 
     namespace import ::lambda::*
     namespace import ::gaa::tileDialogs::*
@@ -2325,109 +2323,21 @@ proc makeReplyToMessage {origLetter} {
     return [ array get letter ]
 }
 
-proc postMessage {topic {item ""}} {
+proc postMessage {topic item} {
     upvar #0 messageTree w
 
     if { $item == "" } {
         set item topic
     }
-    editMessage [ makeReplyToMessage [ getItemValue $w $item msg ] ]
-}
-
-proc editMessage {letter} {
-    array set msg $letter
-    set text $msg(body)
-
-    set f [ toplevel ".messagePostWindow[ generateId ]" -class Dialog ]
-    wm withdraw $f
-    wm title $f [ mc "Compose message" ]
-
-    set sendScript "[ list processDataFromEditWindow $f outcoming ]; [ list destroy $f ]"
-    set saveScript "[ list processDataFromEditWindow $f draft ]; [ list destroy $f ]"
-    set cancelScript [ list destroy $f ]
-
-    set w [ ttk::frame $f.headerFrame ]
-    grid \
-        [ ttk::label $w.labelFrom -text [ mc "From: " ] -anchor w ] \
-        [ ttk::label $w.entryFrom -text $msg(From) ] \
-        -sticky we
-    grid \
-        [ ttk::label $w.labelTo -text [ mc "To: " ] -anchor w ] \
-        [ ttk::label $w.entryTo -text $msg(To) ] \
-        -sticky we
-    grid \
-        [ ttk::label $w.labelReplyTo -text [ mc "Reply to: " ] -anchor w ] \
-        [ ttk::label $w.entryReplyTo -text $msg(Reply-To) ] \
-        -sticky we
-    grid \
-        [ ttk::label $w.labelSubject -text [ mc "Subject: " ] -anchor w ] \
-        [ ttk::entry $w.entrySubject ] \
-        -sticky we
-    grid columnconfigure $w 1 -weight 1
-    grid $w -sticky nwse
-
-    set w [ ttk::frame $f.textFrame ]
-    $f.headerFrame.entrySubject insert 0 $msg(Subject)
-
-    set ww [ ttk::frame $w.textContainer ]
-    grid \
-        [ text $ww.text \
-            -yscrollcommand "$ww.scroll set" \
-            -height 25 \
-            -wrap word \
-            -undo true \
+    ::mailEditor::editMessage \
+        [ mc "Compose message" ] \
+        [ makeReplyToMessage [ getItemValue $w $item msg ] ] \
+        [ list \
+            outcoming   [ mc "Send" ] \
+            draft       [ mc "Save" ] \
         ] \
-        [ ttk::scrollbar $ww.scroll -command "$ww.text yview" ] \
-        -sticky nswe
-    $ww.text insert 0.0 $text
-    catch {$ww.text configure -font $::messageTextMonospaceFont}
-    catch {$ww.text configure -foreground $::color(htmlFg) -background $::color(htmlBg)}
-
-    grid columnconfigure $ww 0 -weight 1
-    grid rowconfigure $ww 0 -weight 1
-    grid $ww -sticky nwse
-
-    grid columnconfigure $w 0 -weight 1
-    grid rowconfigure $w 1 -weight 1
-    grid $w -sticky nwse
-
-    set w [ ttk::frame $f.optionsFrame ]
-    grid \
-        [ ttk::combobox $w.format -state readonly -values {"User line breaks w/quoting" "Preformatted text"} ] \
-        [ ttk::checkbutton $w.autoUrl -text [ mc "Auto URL" ] ] \
-        -sticky we
-    global [ $w.autoUrl cget -variable ]
-    $w.format current 0
-    set [ $w.autoUrl cget -variable ] 1
-
-    if [ info exists msg(X-LOR-Pre) ] {
-        $w.format current [ expr 1 - $msg(X-LOR-Pre) ]
-    }
-    if [ info exists msg(X-LOR-AutoUrl) ] {
-        set $w.autoUrl $msg(X-LOR-AutoUrl)
-    }
-    array unset msg
-
-    grid columnconfigure $w 0 -weight 1
-    grid columnconfigure $w 1 -weight 1
-    grid $w -sticky nwse
-
-    grid [ buttonBox $f \
-        [ list -text [ mc "Send" ] -command $sendScript ] \
-        [ list -text [ mc "Save" ] -command $saveScript ] \
-        [ list -text [ mc "Cancel" ] -command $cancelScript ] \
-    ] -sticky nswe
-
-    grid columnconfigure $f 0 -weight 1
-    grid rowconfigure $f 1 -weight 1
-
-    wm transient $f .
-    wm deiconify $f
-    wm protocol $f WM_DELETE_WINDOW $cancelScript
-    bind $f <Escape> $cancelScript
-    bind $f.textFrame.textContainer.text <Control-Return> "$sendScript;break"
-
-    focus $f.textFrame.textContainer.text
+        outcoming \
+        putMailToQueue
 }
 
 proc makeReplyHeader {header} {
@@ -2465,41 +2375,12 @@ proc quoteText {text} {
 
 proc putMailToQueue {queueName newLetter} {
     upvar #0 $queueName queue
+    global autonomousMode
 
     lappend queue $newLetter
-    if { $queueName == "outcoming" } {
+    if { $queueName == "outcoming" && !$autonomousMode } {
         startDelivery
     }
-}
-
-#TODO: put message editing into separate package
-proc processDataFromEditWindow {f queue} {
-    set header [ $f.headerFrame.entrySubject get ]
-    set to [ $f.headerFrame.entryTo cget -text ]
-    set replyTo [ $f.headerFrame.entryReplyTo cget -text ]
-    set text [ $f.textFrame.textContainer.text get 0.0 end ]
-    set preformattedText [ $f.optionsFrame.format current ]
-    set autoUrl [ set ::$f.optionsFrame.autoUrl ]
-    unset ::$f.optionsFrame.autoUrl
-
-    putMailToQueue $queue [ list \
-        "From"      $::lorLogin \
-        "To"        $to \
-        "Subject"   $header \
-        "X-LOR-Time" [ clock format \
-            [ clock seconds ] -format {%d.%m.%Y %H:%M:%S} \
-        ] \
-        "X-LOR-AutoUrl" $autoUrl \
-        "X-LOR-Pre" $preformattedText \
-        "Reply-To"  $replyTo \
-        "body"      $text \
-    ]
-}
-
-proc normalizeText {text} {
-    regsub -all {\n+} $text "\n" text
-    set text [ join [ split $text "\n" ] "\n\n" ]
-    return $text
 }
 
 proc messageBox {args} {
@@ -2617,12 +2498,28 @@ proc deleteMessage {w item} {
 }
 
 proc edit {w item} {
-    editMessage [ getItemValue $w $item msg ]
+    ::mailEditor::editMessage \
+        [ mc "Compose message" ] \
+        [ getItemValue $w $item msg ] \
+        [ list \
+            outcoming   [ mc "Send" ] \
+            draft       [ mc "Save" ] \
+        ] \
+        outcoming \
+        putMailToQueue
 }
 
 proc startDelivery {} {
+    global autonomousMode
     global deliverTaskId
     global loginCookie loggedIn
+
+    if $autonomousMode {
+        goOnline
+        if $autonomousMode {
+            return
+        }
+    }
 
     if { !$loggedIn } {
         login startDelivery
