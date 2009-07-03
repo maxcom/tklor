@@ -470,6 +470,8 @@ proc renderHtml {w msg} {
     $w tag configure br -background white
     $w tag configure i -font {-slant italic}
     $w tag configure hyperlink
+    $w tag configure pre -font {-family Courier}
+
     $w tag bind hyperlink <Enter> "$w configure -cursor hand1"
     $w tag bind hyperlink <Leave> "$w configure -cursor {}"
 
