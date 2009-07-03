@@ -22,8 +22,8 @@
 # \
 exec wish "$0" "$@"
 
-package require Tk
-package require tile
+package require Tk 8.4
+package require tile 0.8
 package require http 2.0
 
 set appName "tkLOR"
