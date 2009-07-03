@@ -412,9 +412,10 @@ proc initTopicTree {} {
 
     ttk::scrollbar $f.scrollx -command "$topicWidget xview" -orient horizontal
     ttk::scrollbar $f.scrolly -command "$topicWidget yview"
-    pack $f.scrollx -side bottom -fill x
-    pack $f.scrolly -side right -fill y
-    pack $topicWidget -expand yes -fill both
+    grid $topicWidget $f.scrolly -sticky nswe
+    grid $f.scrollx x -sticky nswe
+    grid rowconfigure $f 0 -weight 1
+    grid columnconfigure $f 0 -weight 1
 
     return $f
 }
@@ -587,6 +588,7 @@ proc setTopic {topic} {
     global autonomousMode
     global expandNewMessages
 
+    focus $topicWidget
     if { $currentTopic != "" } {
         saveTopicToCache $currentTopic
     }
@@ -1390,7 +1392,7 @@ proc showOptionsDialog {} {
 
         set i 0
         foreach {item type var opt} $optList {
-            set f [ ttk::frame "$page.item$i" -relief raised -borderwidth 1 -padding 1 ]
+            set f [ ttk::frame "$page.item$i" -relief flat -borderwidth 1 -padding 1 ]
 
             if { $type != "font" && $type != "fontPart" } {
                 array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
@@ -1779,7 +1781,9 @@ proc copyFavoritesCategory {from to item} {
 proc addToFavorites {w id} {
     global allTopicsWidget
 
-    showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ]
+    if { $id != "" && ![ regexp -lineanchor {^news\d*$} $id ] && ![ regexp -lineanchor {^forum\d*$} $id ] } {
+        showFavoritesTree {Select category and topic text} [ getItemValue $w $id text ] [ list addTopicToFavorites $allTopicsWidget $id ]
+    }
 }
 
 proc createCategory {categoryWidget parent name} {
@@ -1806,9 +1810,6 @@ proc fillCategoryWidget {categoryWidget} {
     global allTopicsWidget
 
     $categoryWidget insert {} end -id favorites -text Favorites
-    foreach item [ $allTopicsWidget children "favorites" ] {
-        puts "$item [getItemValue $allTopicsWidget $item text]"
-    }
     processItems $allTopicsWidget "favorites" [ list copyFavoritesCategory $allTopicsWidget $categoryWidget ]
     setFocusedItem $categoryWidget "favorites"
 }
