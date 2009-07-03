@@ -829,19 +829,19 @@ proc parseTopicList {forum data} {
     $w see "forum$forum"
 }
 
-proc addTopicFromCache {forum id nick text unread} {
+proc addTopicFromCache {parent id nick text unread} {
     upvar #0 allTopicsWidget w
 
     if { ! [ $w exists $id ] } {
-        $w insert "forum$forum" end -id $id
+        $w insert $parent end -id $id
         setItemValue $w $id nick $nick
         setItemValue $w $id text $text
         setItemValue $w $id unread $unread
         setItemValue $w $id unreadChild 0
-        setItemValue $w $id parent "forum$forum"
+        setItemValue $w $id parent $parent
         updateItemState $w $id
         if $unread {
-            addUnreadChild $w "forum$forum"
+            addUnreadChild $w $parent
         }
     }
 }
@@ -862,10 +862,15 @@ proc saveTopicListToCache {} {
         fconfigure $f -encoding utf-8
         foreach {forum title} $forumGroups {
             foreach id [ $w children "forum$forum" ] {
-                puts -nonewline $f "addTopicFromCache $forum $id [ getItemValue $w $id nick ] "
+                puts -nonewline $f "addTopicFromCache forum$forum $id [ getItemValue $w $id nick ] "
                 puts -nonewline $f [ list [ getItemValue $w $id text ] ]
                 puts $f " [ getItemValue $w $id unread ]"
             }
+        }
+        foreach id [ $w children "news" ] {
+            puts -nonewline $f "addTopicFromCache news $id [ getItemValue $w $id nick ] "
+            puts -nonewline $f [ list [ getItemValue $w $id text ] ]
+            puts $f " [ getItemValue $w $id unread ]"
         }
         close $f
     }
