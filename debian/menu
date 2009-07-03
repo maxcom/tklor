@@ -3,5 +3,5 @@
  section="Apps/Net"\
  title="tkLOR"\
  icon="/usr/share/pixmaps/tklor.xpm"\
- command="/usr/X11R6/bin/tkLOR"
+ command="/usr/bin/tkLOR"
  

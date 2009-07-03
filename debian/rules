@@ -1,9 +1,6 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
@@ -32,9 +29,6 @@ clean:
 	dh_testroot
 	rm -f build-indep-stamp configure-stamp
 
-	# Add here commands to clean up after the build process.
-	#$(MAKE) clean
-
 	dh_clean 
 
 install: install-indep
@@ -43,6 +37,10 @@ install-indep:
 	dh_testroot
 	dh_clean -k -i 
 	dh_installdirs -i
+	
+	# Add here commands to install the indep part of the package into
+		
+	install -m 755 $(CURDIR)/../tklor  $(CURDIR)/debian/tklor/usr/bin/tklor
 
 	dh_install -i
 
@@ -50,27 +48,10 @@ binary-common:
 	dh_testdir
 	dh_testroot
 	dh_installchangelogs 
-	dh_installdocs
-	dh_installexamples
 	dh_installmenu
-#	dh_installdebconf	
-#	dh_installlogrotate	
-#	dh_installemacsen
-#	dh_installpam
-#	dh_installmime
-#	dh_python
-#	dh_installinit
-#	dh_installcron
-#	dh_installinfo
-	dh_installman
-#	dh_link
-	dh_strip
 	dh_compress 
 	dh_fixperms
-#	dh_perl
-#	dh_makeshlibs
 	dh_installdeb
-#	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
