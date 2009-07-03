@@ -1653,13 +1653,6 @@ proc showFavoritesTree {title name script parent} {
     bind $f <Escape> $cancelScript
 }
 
-proc generateId {} {
-    global lastId
-
-    incr lastId
-    return $lastId
-}
-
 proc addToFavorites {w id} {
     global topicTree
 

@@ -30,6 +30,7 @@ namespace export \
     generateUniqueWidgetId \
     generateUniqueVariable \
     generateUniqueId \
+    generateId \
     centerToParent
 
 set lastGeneratedIdSuffix 0
@@ -63,6 +64,14 @@ proc centerToParent {window parent} {
         if { $y > "0" } {set y "+$y"}
         wm geometry $window [ join [ list $w "x" $h $x $y ] "" ]
     }
+}
+
+proc generateId {} {
+    upvar #0 ::gaa::tools::lastGeneratedIdSuffix lastGeneratedIdSuffix
+
+    set s $lastGeneratedIdSuffix
+    incr lastGeneratedIdSuffix
+    return $s
 }
 
 }
