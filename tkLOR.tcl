@@ -29,6 +29,7 @@ package require http 2.0
 set appName "tkLOR"
 set appVersion "0.3.0"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
+set appHome "http://code.google.com/p/tklor/"
 
 set configDir [ file join $::env(HOME) ".$appName" ]
 set threadSubDir "threads"
@@ -76,6 +77,8 @@ set topicMenu ""
 
 set autonomousMode 0
 set expandNewMessages 1
+
+set tileTheme "default"
 
 set forumGroups {
     126     General
@@ -130,8 +133,9 @@ array set fontPart {
 
 set options {
     "Global" {
+        "Widget theme"  readOnlyCombo   tileTheme   { ttk::style theme names }
         "Start in autonomous mode"    check   autonomousMode ""
-        "Browser"   editableCombo   browser { "x-www-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
+        "Browser"   editableCombo   browser { list "x-www-browser" "opera" "mozilla" "konqueror" "iexplore.exe" }
     }
     "Connection" {
         "Use proxy" check   useProxy ""
@@ -176,7 +180,7 @@ proc initMenu {} {
     $m add separator
     $m add checkbutton -label "Autonomous mode" -onvalue 1 -offvalue 0 -variable autonomousMode
     $m add separator
-    $m add command -label "Options" -command showOptionsDialog
+    $m add command -label "Options..." -command showOptionsDialog
     $m add separator
     $m add command -label "Exit" -command exitProc
 
@@ -210,8 +214,10 @@ proc initMenu {} {
     $m add command -label "Mark all as read" -command "markAllMessages 0"
     $m add command -label "Mark all as unread" -command "markAllMessages 1"
 
-    menu .menu.help -tearoff 0
-    .menu.help add command -label "About" -command helpAbout
+    set m [ menu .menu.help -tearoff 0 ]
+    $m add command -label "Project home" -command {openUrl $appHome}
+    $m add separator
+    $m add command -label "About" -command helpAbout -accelerator "F1"
 
     .  configure -menu .menu
 }
@@ -383,6 +389,7 @@ proc initMessageWidget {} {
 
 proc initMainWindow {} {
     global appName
+    global tileTheme
 
     wm protocol . WM_DELETE_WINDOW exitProc
     wm title . $appName
@@ -399,12 +406,15 @@ proc initMainWindow {} {
     .vertPaned add [ initTopicTree ] -weight 1
     .vertPaned add [ initMessageWidget ] -weight 3
 
+    bind . <F1> helpAbout
     bind . <F2> updateTopicList
     bind . <F5> refreshTopic
 
     bind . <Control-r> {invokeMenuCommand $topicWidget reply}
     bind . <Control-i> {invokeMenuCommand $topicWidget userInfo}
     bind . <Control-o> {invokeMenuCommand $topicWidget openMessage}
+
+    ttk::style theme use $tileTheme
 }
 
 proc helpAbout {} {
@@ -1236,9 +1246,11 @@ proc replaceHtmlEntities {text} {
         "<br>" "\n"
         "<p>" "\n"
         "</p>" ""
-        "<a [^>]*>" ""
-        "</a>" ""
+        "<a href=\"([^\"]+)\"[^>]*>[^<]*</a>" "\\1"
         "</{0,1}i>" ""
+        "</{0,1}(?:u|o)l>" ""
+        "<li>" "\n * "
+        "</li>" ""
         "&lt;" "<"
         "&gt;" ">"
         "&quot;" "\""
@@ -1346,7 +1358,7 @@ proc showOptionsDialog {} {
 
             if { $type != "font" } {
                 array set optionsTmp [ list "$n.$i" [ set ::$var ] ]
-                packOptionsItem $f.value $item $type "optionsTmp($n.$i)" $opt
+                packOptionsItem $f.value $item $type "optionsTmp($n.$i)" [ eval $opt ]
             } else {
                 array set ff [ set ::$var ]
                 set names [ array names ff ]
@@ -1386,6 +1398,7 @@ proc showOptionsDialog {} {
 proc acceptOptions {} {
     global options optionsTmp
     global allTopicsWidget topicWidget
+    global tileTheme
 
     catch {destroy .optionsDialog}
 
@@ -1413,6 +1426,7 @@ proc acceptOptions {} {
 
     configureTags $allTopicsWidget
     configureTags $topicWidget
+    ttk::style theme use $tileTheme
 }
 
 proc saveOptions {} {
