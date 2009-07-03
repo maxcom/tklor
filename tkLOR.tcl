@@ -119,6 +119,8 @@ proc initAllTopicsTree {} {
     configureTags $allTopicsWidget
     $allTopicsWidget heading #0 -text "Title" -anchor w
     $allTopicsWidget heading unreadChild -text "Messages" -anchor w
+    $allTopicsWidget column #0 -width 100
+    $allTopicsWidget column unreadChild -width 100
 
     $allTopicsWidget insert "" end -id news -text "News" -values [ list 0 0 0 "" ]
 
@@ -700,7 +702,7 @@ proc parseForum {forum} {
 proc parseTopicList {forum data} {
     upvar #0 allTopicsWidget w
 
-    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\(стр\.(?: <a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+&amp;page=\d+">\d+</a>)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
+    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td>(?:<img [^>]*> ){0,1}<a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\(стр\.(?: <a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+&amp;page=\d+">\d+</a>)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
         if { $id != "" } {
             catch {
                 $w insert "forum$forum" end -id $id -text $header
