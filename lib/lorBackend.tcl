@@ -83,12 +83,8 @@ proc loadAppLibs {} {
     package require gaa_lambda 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
-    package require gaa_remoting 1.2
-    package require tkLor_taskManager 1.0
 
     namespace import ::gaa::lambda::*
-    namespace import ::gaa::remoting::*
-    namespace import tkLor::taskManager::*
 }
 
 ############################################################################

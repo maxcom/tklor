@@ -977,6 +977,7 @@ proc updateTopicList {{section ""}} {
     global appName
     global topicTree
     global forumVisibleGroups
+    global backendId
 
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
@@ -1009,7 +1010,7 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    deflambda processTopic {parent id nick header} {
+    defCallbackLambda processTopic {parent id nick header} {
         global configDir threadSubDir
 
         set header [ htmlToText $header ]
@@ -1020,7 +1021,7 @@ proc updateTopicList {{section ""}} {
         addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
     } $section
 
-    deflambda onComplete {section} {
+    defCallbackLambda onComplete {section} {
         upvar #0 topicTree w
         global threadListSize
 
@@ -1034,7 +1035,7 @@ proc updateTopicList {{section ""}} {
         taskCompleted getTopicList
     } $section
 
-    addTask getTopicList lor::getTopicList $section $processTopic errorProc $onComplete
+    addTask getTopicList send -async $backendId [ list lor::getTopicList $section $processTopic errorProc $onComplete ]
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -1867,13 +1868,11 @@ proc loadAppLibs {} {
     package require gaa_tools 1.0
     package require gaa_mbox 1.0
     package require lorParser 1.0
-    package require gaa_remoting 1.1 ; #TODO: remove
     package require tkLor_taskManager 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
     namespace import ::gaa::tools::*
-    namespace import ::gaa::remoting::* ; #TODO: remove
     namespace import tkLor::taskManager::*
 }
 
