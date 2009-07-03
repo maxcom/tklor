@@ -31,7 +31,7 @@ This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 ## Hints:
 
-*   Install Tk 8.5 to get better look of fonts on X11 :(
+*   Install Tk 8.5 to get better look of fonts on X11
 *   You can specify variables in a command-line. For example, command:
 
     # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
