@@ -41,8 +41,7 @@ install-indep:
 	# Add here commands to install the indep part of the package into
 		
 	install -m 755 $(CURDIR)/tkLOR	$(CURDIR)/debian/tklor/usr/bin/tkLOR
-	ls -l $(CURDIR)/lib/lorBackend.tcl
-	mkdir - $(CURDIR)/debian/tklor/usr/lib/tkLOR
+	mkdir -p $(CURDIR)/debian/tklor/usr/lib/tkLOR
 	install -m 755 $(CURDIR)/lib/lorBackend.tcl	$(CURDIR)/debian/tklor/usr/lib/tkLOR/lorBackend.tcl
 
 	dh_install -i
