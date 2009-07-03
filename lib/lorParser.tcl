@@ -331,7 +331,6 @@ proc isLoggedIn {} {
 }
 
 proc postMessage {topic message title text preformattedText autoUrl onError onComplete} {
-    #TODO: process replies to topics
     variable lorUrl
     variable cookies
     variable loggedIn
@@ -348,25 +347,33 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
         set mode "quot"
     }
 
-    set url "$lorUrl/add_comment.jsp?topic=$topic&replyto=$message"
+    set url "$lorUrl/add_comment.jsp?topic=$topic"
     set s ""
     foreach {name value} $cookies {
         lappend s "$name=$value"
     }
     set headers [ list "Cookie" [ join $s "; " ] ]
 
+    set queryList [ list \
+        "topic"     $topic \
+        "title"     $title \
+        "msg"       $text \
+        "mode"      $mode \
+        "autourl"   $autoUrl \
+        "texttype"  0 \
+    ]
+    if [ catch {lappend queryList "session" $param(JSESSIONID)} err ] {
+        eval [ concat $onError [ list $err "$::errorInfo\ncookies=$cookies" ] ]
+        eval $onComplete
+    }
+    if { $message != "" } {
+        lappend queryList "replyto" $message
+        append url "&replyto=$message"
+    }
+
     if [ catch {::http::geturl $url \
         -headers $headers \
-        -query [ ::http::formatQuery \
-                "session"   $param(JSESSIONID) \
-                "topic"     $topic \
-                "replyto"   $message \
-                "title"     $title \
-                "msg"       $text \
-                "mode"      $mode \
-                "autourl"   $autoUrl \
-                "texttype"  0 \
-            ] \
+        -query [ eval [ concat ::http::formatQuery $queryList ] ] \
         -command [ ::gaa::lambda::lambda {onError onComplete token} {
             if [ catch {
                 # here 302 too :)
@@ -374,7 +381,7 @@ proc postMessage {topic message title text preformattedText autoUrl onError onCo
                     error [ ::http::code $token ]
                 }
             } err ] {
-                eval [ concat $onError [ list $err $::errorInfo ] ]
+                eval [ concat $onError [ list $err [ ::http::data $token ] ] ]
             }
             catch {::http::cleanup $token}
             eval $onComplete

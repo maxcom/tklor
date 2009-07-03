@@ -1171,12 +1171,12 @@ proc reply {w item} {
     global currentTopic
 
     if { $w == $topicTree } {
-        postMessage topic $item
+        openUrl [ ::lor::topicReply $item ]
     } else {
         if { $item == "topic" } {
-            postMessage topic $currentTopic
+            postMessage $currentTopic
         } else {
-            postMessage message $currentTopic $item
+            postMessage $currentTopic $item
         }
     }
 }
@@ -2172,31 +2172,30 @@ proc goOnline {} {
     }
 }
 
-proc postMessage {itemType topic {item ""}} {
+proc postMessage {topic {item ""}} {
     goOnline
     if { $::autonomousMode } {
         return
     }
     login
 
-#    if { $itemType == "topic" } {
-#        openUrl [ ::lor::topicReply $topic ]
-#    } else {
-#        openUrl [ ::lor::messageReply $item $topic ]
-#    }
-
-    #TODO: now works for message only
     global currentMessage
-    set currentMessage $item
-    updateMessage $item
-    set text [ $::messageTextWidget get 0.0 end ]
+    if { $item == "" } {
+        set currentMessage "topic"
+        updateMessage "topic"
+        set text [ $::messageTextWidget get 0.0 end ]
+    } else {
+        set currentMessage $item
+        updateMessage $item
+        set text [ $::messageTextWidget get 0.0 end ]
+    }
 
     set f [ toplevel .messagePostWindow -class Dialog ]
     wm withdraw $f
     wm title $f [ mc "Compose message" ]
 
-    set sendScript "sendReply $f $topic $item;destroy $f"
-    set cancelScript "destroy $f"
+    set sendScript "[ list sendReply $f $topic $item ]; [ list destroy $f ]"
+    set cancelScript [ list destroy $f ]
 
     set w [ ttk::frame $f.headerFrame ]
     grid \

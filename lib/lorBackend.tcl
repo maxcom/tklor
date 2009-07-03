@@ -102,10 +102,8 @@ proc bgerror {msg} {
 
 proc login {login password} {
     if [ catch {lor::login $login $password} ] {
-        logger::log "login failed"
         remoting::sendRemote -async tkLOR "loginCallback 0"
     } else {
-        logger::log "login success"
         remoting::sendRemote -async tkLOR "loginCallback 1"
     }
 }
