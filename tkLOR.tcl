@@ -1501,7 +1501,6 @@ proc updateWindowTitle {} {
 proc clearOldTopics {} {
     global configDir threadSubDir appName
     upvar #0 topicTree w
-    global backend
 
     set topics ""
 
@@ -1525,21 +1524,34 @@ proc clearOldTopics {} {
         return
     }
 
-    deflambda command {dir topics} {
-        foreach id $topics {
-            catch {
-                file delete [ file join $dir $id ]
-            }
-            catch {
-                file delete [ file join $dir "$id.topic" ]
-            }
+    set f [ toplevel .obsoleteTopicsRemovingWindow -class Dialog ]
+    update
+    grab $f
+    wm title $f $appName
+    wm withdraw $f
+    wm resizable $f 1 0
+    wm protocol $f WM_DELETE_WINDOW { }
+    wm transient $f .
+    pack [ ttk::label $f.label -text "Deleting obsolete topics. Please wait..." ] -fill x -expand yes
+    pack [ ttk::progressbar $f.p -maximum [ llength $topics ] -value 0 -orient horizontal -mode determinate -length 400 ] -fill x -expand yes
+    wm deiconify $f
+
+    set count 0
+    set dir [ file join $configDir $threadSubDir ]
+    foreach id $topics {
+        catch {
+            file delete [ file join $dir $id ]
         }
-    } [ file join $configDir $threadSubDir ] $topics
-    invokeSlave $backend $command \
-        -oncomplete updateStatusText \
-        -onerror    errorProc \
-        -statustext "Deleting obsolete topics"
-    updateStatusText
+        catch {
+            file delete [ file join $dir "$id.topic" ]
+        }
+        incr count
+        $f.p step
+        update
+    }
+    grab release $f
+    wm withdraw $f
+    destroy $f
 }
 
 proc ignoreUser {w item} {
