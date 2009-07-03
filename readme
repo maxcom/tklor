@@ -21,13 +21,14 @@
 
 ## tkLOR
 
-This is a stupid read-only client to LOR, written on versatile Tcl/Tk/Tile.
+This is a stupid client for reading LOR, written on versatile Tcl/Tk/Tile.
 
 ## To use it you must install:
 
 *   Tcl 8.4 or 8.5
 *   Tk
 *   Tile
+*   Tcllib
 *   (optional) Iwidgets v4 (will be used to display HTML if present)
 
 ## Hints:
@@ -37,14 +38,14 @@ This is a stupid read-only client to LOR, written on versatile Tcl/Tk/Tile.
 *   You can specify variables in a command-line. For example, command:
 
     # wish8.4 tkLOR.tcl -configDir=/home/jopa/prog/tkLOR
-    
+
     Will run tkLOR with specified config directory to /home/jopa/prog/tkLOR.
 
 ## For Debian GNU/Linux:
 
-# aptitude install tcl8.4 tk8.4 tk-tile iwidgets4
+# aptitude install tcl8.4 tk8.4 tcllib tk-tile iwidgets4
 or
-# aptitude install tcl8.5 tk8.5
+# aptitude install tcl8.5 tk8.5 tcllib
 
 ## For Micro$oft Window$:
 
