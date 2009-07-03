@@ -34,8 +34,6 @@ set configDir [ file join $::env(HOME) ".$appName" ]
 set threadSubDir "threads"
 
 #---------------- debug start --------------
-set currentTopic 2412284
-#set currentTopic 2418741
 set ignoreList {HEBECTb_KTO adminchik anonymous}
 #---------------- debug end ----------------
 
@@ -59,11 +57,13 @@ if { [ string equal -length 3 $tk_patchLevel "8.4" ] && ! [catch {package requir
 ############################################################################
 
 set messageWidget ""
+set allTopicsWidget ""
 set topicWidget ""
 set topicTextWidget ""
 
 set currentHeader ""
 set currentNick ""
+set currentTopic ""
 
 set topicNick ""
 set topicHeader ""
@@ -76,6 +76,26 @@ array set itemValuesMap {
     unreadChild 4
     parent 5
     parentNick 6
+}
+
+set forumGroups {
+    126     General
+    1339    Desktop
+    1340    Admin
+    1342    Linux-install
+    4066    Development
+    4068    Linux-org-ru
+    7300    Security
+    8403    Linux-hardware
+    8404    Talks
+    9326    Job
+    10161   Games
+    19109   Web-development
+}
+
+set forumGroups {
+    4068    Linux-org-ru
+    8404    Talks
 }
 
 ############################################################################
@@ -100,8 +120,24 @@ proc initMenu {} {
 }
 
 proc initAllTopicsTree {} {
-    set tree [ ttk::treeview .allTopicsTree ]
-    return $tree
+    global allTopicsWidget
+    global forumGroups
+
+    set allTopicsWidget [ ttk::treeview .allTopicsTree -columns {unread unreadChild} -displaycolumns {unreadChild} ]
+    configureTags $allTopicsWidget
+    $allTopicsWidget heading #0 -text "Title" -anchor w
+    $allTopicsWidget heading unreadChild -text "Messages" -anchor w
+
+    $allTopicsWidget insert "" end -id news -text "News" -values [ list 0 0 ]
+
+    $allTopicsWidget insert "" end -id forum -text "Forum" -values [ list 0 0 ]
+    foreach {id title} $forumGroups {
+        $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list 0 0 ]
+    }
+
+    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list 0 0 ]
+
+    return $allTopicsWidget
 }
 
 proc initTopicText {} {
@@ -280,13 +316,17 @@ proc configureTags {w} {
 proc setTopic {topic} {
     global currentTopic lorUrl appName
 
-    set curentTopic $topic
+    startWait
+
+    if { $currentTopic != "" } {
+        saveTopicToCache $currentTopic
+    }
+
+    set currentTopic $topic
     set err 1
     set errStr ""
     set url "http://pingu/lor.html"
     #set url "http://$lorUrl/view-message.jsp?msgid=$topic&page=-1"
-
-    startWait
 
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
@@ -334,7 +374,6 @@ proc parsePage {topic data} {
                 addUnreadChild $prev
                 updateItemState $id
             }
-#            after 100
         }
     }
 }
@@ -602,6 +641,70 @@ proc loadConfig {} {
     # TODO
 }
 
+proc updateTopicList {{section ""}} {
+    global forumGroups
+
+    if {$section == "" } {
+        updateTopicList news
+        foreach {id title} $forumGroups {
+            updateTopicList "forum$id"
+        }
+        return
+    }
+
+    switch -glob -- $section {
+        news {
+            
+        }
+        forum* {
+            parseForum [ string trimleft $section "forum" ]
+        }
+        default {
+            
+        }
+    }
+}
+
+proc parseForum {forum} {
+    global lorUrl
+
+    startWait
+
+    set url "http://$lorUrl/group.jsp?group=$forum"
+    set url "http://pingu/lor-group.html"
+    set err 0
+
+    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
+        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+            parseTopicList $forum [ ::http::data $token ]
+            set err 0
+        } else {
+            set errStr [ ::http::code $token ]
+        }
+        ::http::cleanup $token
+    }
+    if $err {
+        tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
+    }
+
+    stopWait
+}
+
+proc parseTopicList {forum data} {
+    global allTopicsWidget
+
+    foreach {dummy id header nick} [ regexp -all -inline -- {<tr><td><a href="view-message.jsp\?msgid=(\d+)(?:&amp;lastmod=\d+){0,1}" rev=contents>([^<]*)</a>(?:&nbsp;\(стр\.(?: <a href="view-message.jsp\?msgid=\d+&amp;lastmod=\d+&amp;page=\d+">\d+</a>)+\)){0,1} \(([\w-]+)\)</td><td align=center>(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)/(?:(?:<b>\d*</b>)|-)</td></tr>} $data ] {
+        if { $id != "" } {
+            catch {
+                $allTopicsWidget insert "forum$forum" end -id $id -text $header -values [ list 0 0 ]
+            }
+        }
+        #addUnreadChild $prev
+        #updateItemState $id
+    }
+    $allTopicsWidget see "forum$forum"
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -615,4 +718,7 @@ initMenu
 initMainWindow
 initHttp
 
-setTopic $currentTopic
+updateTopicList
+
+setTopic 2412284
+#setTopic 2418741
