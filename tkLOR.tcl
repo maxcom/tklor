@@ -987,13 +987,17 @@ proc updateTopicList {{section ""}} {
     }
 
     deflambda processTopic {parent id nick header} {
-        global configDir threadSubDir
+        invokeMaster [ ::gaa::lambda::lambda {parent id nick header} {
+            global configDir threadSubDir
 
-        set header [ htmlToText $header ]
-        addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
+            set header [ htmlToText $header ]
+            addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
+        } $parent $id $nick $header ]
     } $section
 
-    ::lor::getTopicList $section $processTopic
+    global configDir libDir
+    invokeSlave [ list ./lib/lorBackend.tcl -configDir $configDir -libDir $libDir ] stopWait [ list ::lor::getTopicList $section $processTopic ]
+
 
     set w $topicTree
     foreach item [ lrange [ $w children $section ] $threadListSize end ] {
@@ -1808,10 +1812,12 @@ proc loadAppLibs {} {
     package require gaa_mbox 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
+    package require gaa_remoting 1.0
 
     namespace import ::gaa::lambda::*
     namespace import ::gaa::tileDialogs::*
     namespace import ::gaa::tools::*
+    namespace import ::gaa::remoting::*
 }
 
 proc setPerspective {mode {force ""}} {

@@ -20,7 +20,7 @@
 ############################################################################
 
 # \
-exec wish "$0" "$@"
+exec tclsh "$0" "$@"
 
 package require Tcl 8.4
 package require cmdline 1.2.5
@@ -83,8 +83,10 @@ proc loadAppLibs {} {
     package require gaa_lambda 1.0
     package require lorParser 1.0
     package require gaa_httpTools 1.0
+    package require gaa_remoting 1.0
 
     namespace import ::gaa::lambda::*
+    namespace import ::gaa::remoting::*
 }
 
 ############################################################################
@@ -118,4 +120,5 @@ gaa::httpTools::init \
     -proxypassword  $proxyPassword \
     -charset        "utf-8"
 
+fconfigure stdin -encoding utf-8
 eval [ read stdin ]
