@@ -1,3 +1,6 @@
+# tkLOR russian localization
+# License: LGPLv3 or later
+
 ::msgcat::mcmset ru {
 	"LOR"		"ЛОР"
 	"View"		"Просмотр"
@@ -57,7 +60,6 @@
 	"Time: "		"Время: "
 	"About %s"		"О программе %s"
 	"Client for reading linux.org.ru written on Tcl/Tk/Tile.\nCopyright (c) 2008 Alexander Galanin (gaa at linux.org.ru)\nLicense: GPLv3"		"Клиент для чтения сайта linux.org.ru, написаный на Tcl/Tk/Tile.\nCopyright (c) 2008 Александр Галанин (gaa at linux.org.ru)\nЛицензия: GPLv3"
-	"Error while inserting item %s:\n%s"		"Ошибка при добавлении записи %s:\n%s"
 	"Add topic"		"Добавить тему"
 	"Enter topic ID or URL"		"Введите ID темы или адрес"
 	"Error loading file %s"		"Не могу прочитать файл %s"
@@ -148,7 +150,6 @@
         "Send"                  "Отправить"
         "Compose message"       "Новое сообщение"
         "Auto URL"              "Автораспознавание гиперссылок"
-        "Error while substituting signature:\n%s"       "Ошибка при подстановке переменных в подписи:\n%s"
         "An error occured while posting '%s'"      "Произошла ошибка при отправке сообщения '%s'"
         "There are %s running tasks"            "Выполняется %s фоновых задач"
         "Are you want to exit and stop it?"     "Хотите их остановить и выйти?"
@@ -156,4 +157,6 @@
         "Fetching topics list failed"   "Ошибка при получении списка тем"
         "Loading topic %s"              "Загрузка темы %s"
         "Error while loading topic %s"  "Ошибка при загрузке темы %s"
+        "Getting new messages"          "Получение новых сообщений"
+        "Error while getting messages"  "Ошибка про получении сообщений"
 }

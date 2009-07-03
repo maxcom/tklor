@@ -29,8 +29,7 @@ namespace export \
     addTask \
     stopTask \
     setUpdateHandler \
-    getTasks \
-    closeChannel
+    getTasks
 
 set updateScript ""
 
@@ -39,13 +38,25 @@ array set tasks ""
 proc readableHandler {f onoutput onerror oncomplete} {
     if { [ gets $f str ] < 0 } {
         if [ eof $f ] {
-            closeChannel $f $onerror
-            uplevel #0 $oncomplete
+            if [ catch {
+                closeChannel $f
+            } err ] {
+                lappend onerror $err
+                uplevel #0 $onerror
+            } else {
+                uplevel #0 $oncomplete
+            }
         }
     } else {
         if { $onoutput != "" } {
             lappend onoutput $str
-            uplevel #0 $onoutput
+            if [ catch {
+                uplevel #0 $onoutput
+            } err ] {
+                catch {closeChannel $f}
+                lappend onerror $err
+                uplevel #0 $onerror
+            }
         }
     }
 }
@@ -65,7 +76,7 @@ proc addTask {command args} {
     ] ]
 
     if { !$p(cat) } {
-        set command "!$command"
+        set command "|$command"
     }
     set f [ open $command $p(mode) ]
     if { $p(encoding) != ""} {
@@ -87,21 +98,14 @@ proc addTask {command args} {
     return $f
 }
 
-proc closeChannel {id {onerror ""}} {
+proc closeChannel {id} {
     variable updateScript
     variable tasks
 
     unset tasks($id)
     uplevel #0 $updateScript
     fconfigure $id -blocking 1
-    if [ catch {close $id} err ] {
-        if { $onerror != "" } {
-            lappend onerror $err
-            uplevel #0 $onerror
-        } else {
-            error $err $::errorInfo
-        }
-    }
+    close $id
 }
 
 proc stopTask {id} {

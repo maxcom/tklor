@@ -129,6 +129,8 @@ set forumVisibleGroups {126 1339 1340 1342 4066 4068 7300 8403 8404 9326 10161 1
 
 set tasksWidgetVisible 0
 
+set loadTaskId ""
+
 array set fontPart {
     none ""
     item "-family Sans"
@@ -623,8 +625,12 @@ proc setTopic {topic} {
     global currentTopic currentHeader currentNick currentPrevNick currentTime
     global autonomousMode
     global expandNewMessages
+    global loadTaskId
 
-#    stopAllTasks getMessageList
+    if { $loadTaskId != "" } {
+        ::taskManager::stopTask $loadTaskId
+        set loadTaskId ""
+    }
     update
 
     setPerspective reading
@@ -644,60 +650,36 @@ proc setTopic {topic} {
 
         set currentTopic $topic
 
-        loadTopicFromCache $topic ""
+        set loadTaskId [ loadTopicFromCache $topic {set loadTaskId ""} ]
     }
     if { ! $autonomousMode } {
-        #TODO here
-        #loadMessagesFromFile $topic
+        set parser [ ::mbox::initParser [ list insertMessage 0 ] ]
+        set onerror [ list errorProc [ mc "Error while getting messages" ] ]
+        deflambda oncomplete {parser onerror} {
+            global loadTaskId expandNewMessages messageTree
+
+            if [ catch {
+                ::mbox::closeParser $parser
+            } err ] {
+                lappend onerror $err $::errorInfo
+                uplevel #0 $onerror
+            }
+            set loadTaskId ""
+            focus $messageTree
+            updateWindowTitle
+            if { $expandNewMessages == "1" } {
+                nextUnread $messageTree ""
+                focus $messageTree
+            }
+        } $parser $onerror
+
+        set loadTaskId [ callPlugin get [ list $topic ] \
+            -title [ mc "Getting new messages" ] \
+            -onoutput [ list ::mbox::parseLine $parser ] \
+            -oncomplete $oncomplete \
+            -onerror $onerror \
+        ]
     }
-
-
-#    if { ! $autonomousMode } {
-#        defCallbackLambda processText {topic nick header text time approver approveTime} {
-#            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-#                return
-#            }
-#            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
-#            set header [ htmlToText $header ]
-#            updateTopicText $header
-#            insertMessage topic $nick $header $time $text {} {} 1 force
-#        } $topic
-#        defCallbackLambda processMessage {w id nick header time msg parent parentNick} {
-#            global appName
-#
-#            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-#                return
-#            }
-#            if [ catch {
-#                if { $parent == "" } {
-#                    set parent "topic"
-#                    set parentNick [ getItemValue $w "topic" nick ]
-#                }
-#                if { ![ $w exists $id ] } {
-#                    update
-#                    insertMessage $id $nick $header $time $msg $parent $parentNick 1
-#                }
-#            } err ] {
-#                errorProc [ mc "Error while inserting item %s:\n%s" $id $err ] $::errorInfo
-#            }
-#        } $messageTree
-#        defCallbackLambda finish {messageTree expandNewMessages} {
-#            if [ tkLor::taskManager::isTaskStopped getMessageList ] {
-#                taskCompleted getMessageList
-#                return
-#            }
-#            focus $messageTree
-#            update
-#            updateWindowTitle
-#            if { $expandNewMessages == "1" } {
-#                nextUnread $messageTree ""
-#                focus $messageTree
-#            }
-#            taskCompleted getMessageList
-#        } $messageTree $expandNewMessages
-#
-#        addTask getMessageList remoting::sendRemote -async $backendId [ list lor::parseTopic $topic $processText $processMessage errorProcCallback $finish ]
-#    }
 }
 
 proc insertMessage {replace letter} {
@@ -705,27 +687,32 @@ proc insertMessage {replace letter} {
     global markIgnoredMessagesAsRead
 
     array set res $letter
+    set nick $res(From)
+    set time $res(X-LOR-Time)
+    set msg $res(body)
+    set header [ htmlToText $res(Subject) ]
     if [ info exists res(To) ]  {
-        set parentNick $res(To)
-        set parent $res(X-LOR-ReplyTo-Id)
         set id $res(X-LOR-Id)
+        set parent $res(X-LOR-ReplyTo-Id)
+        if { $res(To) != "" } {
+            set parentNick $res(To)
+        } else {
+            set parent "topic"
+            set parentNick [ getItemValue $w "topic" nick ]
+        }
     } else {
-        set parentNick ""
-        set parent ""
         set id "topic"
+        set parent ""
+        set parentNick ""
     }
     if [ info exists res(X-LOR-Unread) ] {
         set unread $res(X-LOR-Unread)
     } else {
         set unread 1
     }
-    set nick $res(From)
-    set time $res(X-LOR-Time)
-    set msg $res(body)
-    set header [ htmlToText $res(Subject) ]
     array unset res
     if [ $w exists $id ] {
-        if { !$replace } {
+        if { !$replace && $id != "topic" } {
             return
         }
         set unread [ getItemValue $w $id unread ]
@@ -919,6 +906,10 @@ proc loadTopicFromCache {topic oncomplete} {
     }
 
     set onerr [ list errorProc [ mc "Error while loading topic %s" $topic ] ]
+    if { ![ file exists $fname ] } {
+        uplevel #0 $oncomplete
+        return
+    }
     if [ catch {
         ::mbox::parseFile $fname $script -sync 1
     } err ] {
@@ -926,8 +917,13 @@ proc loadTopicFromCache {topic oncomplete} {
     } else {
         setFocusedItem $messageTree "topic"
         update 
+        set fname [ file join $cacheDir $topic ]
+        if { ![ file exists $fname ] } {
+            uplevel #0 $oncomplete
+            return
+        }
         return [ loadMessagesFromFile \
-            [ file join $cacheDir $topic ] \
+            $fname \
             $topic \
             $oncomplete \
             -title [ mc "Loading topic %s" $topic ] \
@@ -1087,13 +1083,11 @@ proc updateTopicList {{section ""}} {
             [ expr ! [ file exists [ file join $cacheDir "$id.topic" ] ] ]
     } $section
     set id [ ::mbox::initParser $fun ]
-    set f [ callPlugin list [ list $section ] \
+    callPlugin list [ list $section ] \
         -title [ mc "Fetching new topics" ] \
         -onoutput [ list ::mbox::parseLine $id ] \
         -oncomplete [ list ::mbox::closeParser $id ] \
-        -onerror [ list errorProc [ mc "Fetching topics list failed" ] ] \
-    ]
-    return
+        -onerror [ list errorProc [ mc "Fetching topics list failed" ] ]
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -2102,7 +2096,7 @@ proc updateTaskList {} {
 #proc bgerror {msg} {
 #    logger::log "bgerror: $msg"
 #    logger::log "bgerror extended info: $::errorInfo"
-#    errorProc $msg $::errorInfo
+#    errorProc "bgerror" $msg $::errorInfo
 #}
 
 proc loginCallback {str} {
