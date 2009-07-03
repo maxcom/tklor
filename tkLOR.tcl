@@ -1330,6 +1330,8 @@ proc clearTopicCache {w item} {
         mark $w $item item 1
         catch {
             file delete [ file join $configDir $threadSubDir $item ]
+        }
+        catch {
             file delete [ file join $configDir $threadSubDir "$item.topic" ]
         }
     }
