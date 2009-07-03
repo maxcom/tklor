@@ -145,4 +145,8 @@
         "Message background"    "Цвет фона сообщения"
         "Forum groups"          "Группы форума"
         "Visible forum groups"  "Отображаемые группы форума"
+        "LOR login"             "Логин на ЛОРе"
+        "LOR password"          "Пароль на ЛОРе"
+        "Logging in. Please wait..."    "Логинюсь, ждите..."
+        "Login failed"          "Залогиниться не получилось"
 }

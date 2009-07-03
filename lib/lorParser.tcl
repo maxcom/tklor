@@ -34,7 +34,10 @@ namespace export \
     messageReply \
     userInfo \
     getTopicUrl \
-    getMessageUrl
+    getMessageUrl \
+    login \
+    logout \
+    isLoggedIn
 
 variable forumGroups {
     126     General
@@ -53,11 +56,12 @@ variable forumGroups {
 
 variable lorUrl "http://www.linux.org.ru"
 
+variable loggedIn 0
+variable cookies ""
+
 proc parseTopic {topic topicTextCommand messageCommand onError onComplete} {
     variable lorUrl
 
-    set err 1
-    set errStr ""
     set url "$lorUrl/view-message.jsp?msgid=$topic&page=-1"
 
     if [ catch {::http::geturl $url -command [ ::gaa::lambda::lambda {topicTextCommand messageCommand onError onComplete token} {
@@ -132,7 +136,6 @@ proc parseGroup {command section group onError onComplete} {
     if { $group != "" } {
         append url "&group=$group"
     }
-    set err 1
 
     ::gaa::lambda::deflambda processRssItem {command item} {
         array set v {
@@ -250,6 +253,81 @@ proc getMessageUrl {item topic} {
     variable lorUrl
 
     return "$lorUrl/jump-message.jsp?msgid=$topic&cid=$item"
+}
+
+# ::http::geturl in this function called synchronously because
+# there are no other tasks can be running in parallel while 'startSession' called.
+proc startSession {} {
+    variable lorUrl
+
+    set url "$lorUrl/server.jsp"
+    set token [ ::http::geturl $url ]
+    if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+        upvar #0 $token state
+        array set meta $state(meta)
+        ::http::cleanup $token
+        if [ regexp -lineanchor {^JSESSIONID=(\w+);} $meta(Set-Cookie) dummy session ] {
+            return $session
+        } else {
+            error "Unable to start LOR session!"
+        }
+    } else {
+        set err [ ::http::code $token ]
+        ::http::cleanup $token
+        error $err
+    }
+}
+
+# ::http::geturl in this function called synchronously because
+# there are no other tasks can be running in parallel while 'login' called.
+proc login {user password} {
+    variable lorUrl
+    variable loggedIn
+    variable cookies
+
+    set url "$lorUrl/login.jsp"
+
+    if [ catch {
+        set token [ ::http::geturl $url \
+            -query [ ::http::formatQuery "nick" $user "passwd" $password ] \
+            -headers [ list "JSESSIONID" [ startSession ] ] \
+        ]
+
+        set loggedIn 0
+        # Yes, ::http::ncode must be 302 :)
+        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 302 } {
+            upvar #0 $token state
+
+            set loggedIn 1
+            set cookies ""
+            foreach {key value} $state(meta) {
+                if { $key == "Set-Cookie" && \
+                    [ regexp -lineanchor {^(\w+)=(\w+); (?:Expires=[^;]+; ){0,1}Path=/$} $value dummy id val ] } {
+                    lappend cookies $id $val
+                }
+            }
+            ::http::cleanup $token
+        } else {
+            error [ ::http::code $token ]
+        }
+    } err ] {
+        ::http::cleanup $token
+        error $err
+    }
+}
+
+proc logout {} {
+    variable loggedIn
+    variable cookies
+
+    set loggedIn 0
+    set cookies ""
+}
+
+proc isLoggedIn {} {
+    variable loggedIn
+
+    return $loggedIn
 }
 
 }

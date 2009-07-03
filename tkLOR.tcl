@@ -32,7 +32,8 @@ package require msgcat 1.3
 namespace import ::msgcat::*
 
 set appName "tkLOR"
-set backendId "tkLOR-backend"
+# will be set by backend callback method
+set backendId ""
 
 set appVersion "APP_VERSION"
 set appId "$appName $appVersion $tcl_platform(os) $tcl_platform(osVersion) $tcl_platform(machine)"
@@ -78,6 +79,8 @@ set currentMessage ""
 
 set topicHeader ""
 
+set lorLogin ""
+set lorPassword ""
 set useProxy 0
 set proxyAutoSelect 0
 set proxyHost ""
@@ -124,6 +127,8 @@ set tasksWidgetVisible 0
 
 set debug 0
 
+set backendStarted 0
+
 array set fontPart {
     none ""
     item "-family Sans"
@@ -153,6 +158,8 @@ set options {
         "Sash position(reading), %" string readingSashPos ""
     }
     "Connection" {
+        "LOR login" string  lorLogin ""
+        "LOR password"  password    lorPassword ""
         "Use proxy" check   useProxy ""
         "Proxy auto-config" check   proxyAutoSelect ""
         "Proxy host"    string  proxyHost ""
@@ -1010,6 +1017,7 @@ proc updateTopicList {{section ""}} {
     if { $autonomousMode } {
         if { [ tk_messageBox -title $appName -message [ mc "Are you want to go to online mode?" ] -type yesno -icon question -default yes ] == yes } {
             set autonomousMode 0
+            login
         } else {
             return
         }
@@ -1548,7 +1556,6 @@ proc clearOldTopics {} {
 
     set f [ toplevel .obsoleteTopicsRemovingWindow -class Dialog ]
     update
-    grab $f
     wm title $f $appName
     wm withdraw $f
     wm resizable $f 1 0
@@ -1557,6 +1564,7 @@ proc clearOldTopics {} {
     pack [ ttk::label $f.label -text [ mc "Deleting obsolete topics. Please wait..." ] ] -fill x -expand yes
     pack [ ttk::progressbar $f.p -maximum [ llength $topics ] -value 0 -orient horizontal -mode determinate -length 400 ] -fill x -expand yes
     wm deiconify $f
+    grab $f
 
     set count 0
     set dir $cacheDir
@@ -1983,8 +1991,12 @@ proc updateForumGroups {} {
 
 proc runBackend {} {
     global backend configDir libDir appId wishPath debug
+    global backendId
 
     exec $wishPath [ file join $libDir lorBackend.tcl ] -configDir $configDir -libDir $libDir -appId $appId -debug $debug &
+
+    tkwait variable backendId
+    logger::log "backend id: $::backendId"
 }
 
 proc defCallbackLambda {name params script args} {
@@ -2095,6 +2107,63 @@ proc bgerror {msg} {
     logger::log "bgerror extended info: $::errorInfo"
 }
 
+proc openLoginWindow {} {
+    global backendId
+    global autonomousMode
+    global appName
+
+    set f [ toplevel .loginWindow -class Dialog ]
+    update
+    wm title $f $appName
+    wm withdraw $f
+    wm resizable $f 1 0
+    wm protocol $f WM_DELETE_WINDOW { }
+    pack [ ttk::label $f.label -text [ mc "Logging in. Please wait..." ] ] -fill x -expand yes
+    pack [ ttk::progressbar $f.p -value 0 -orient horizontal -mode indeterminate -length 400 ] -fill x -expand yes
+    wm transient $f .
+    wm deiconify $f
+    update
+    grab $f
+    $f.p start
+}
+
+proc closeLoginWindow {} {
+    set f .loginWindow
+
+    grab release $f
+    wm withdraw $f
+    destroy $f
+}
+
+proc loginCallback {loggedIn} {
+    global autonomousMode appName
+
+    closeLoginWindow
+    if { ! $loggedIn } {
+        if { [ tk_messageBox -title $appName -message [ mc "Login failed" ] -icon warning -parent . -type retrycancel ] == "cancel" } {
+            set autonomousMode 1
+        } else {
+            login
+        }
+    }
+}
+
+proc login {} {
+    global lorLogin lorPassword
+    global backendId
+
+    if { ![ remoting::sendRemote $backendId lor::isLoggedIn ] } {
+        openLoginWindow
+        remoting::sendRemote -async $backendId login $lorLogin $lorPassword
+    }
+}
+
+proc logout {} {
+    global backendId
+
+    remoting::sendRemote -async $backendId lor::logout
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -2114,11 +2183,13 @@ if { [ remoting::startServer $appName ] != $appName } {
     exit
 }
 
-runBackend
-
 initMainWindow
 initTasksWindow
 initMenu
+
+update
+
+runBackend
 
 applyOptions
 setUpdateHandler updateTaskList
@@ -2129,6 +2200,10 @@ loadTopicListFromCache
 
 if {! [ file exists [ file join $configDir "config" ] ] } {
     showOptionsDialog
+}
+
+if { ! $autonomousMode } {
+    login
 }
 
 if { $updateOnStart == "1" } {

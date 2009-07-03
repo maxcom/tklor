@@ -100,6 +100,16 @@ proc bgerror {msg} {
     logger::log "bgerror extended info: $::errorInfo"
 }
 
+proc login {login password} {
+    if [ catch {lor::login $login $password} ] {
+        logger::log "login failed"
+        remoting::sendRemote -async tkLOR "loginCallback 0"
+    } else {
+        logger::log "login success"
+        remoting::sendRemote -async tkLOR "loginCallback 1"
+    }
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
@@ -128,10 +138,9 @@ if {$debug != "0"} {
     logger::configure $processId
 }
 
-if { [ remoting::startServer $processId ] != $processId } {
-    logger::log "$processId: Backend process is already running. Exitting."
-    exit
-}
+set myId [ remoting::startServer $processId ]
+logger::log "backend id: $myId"
+remoting::sendRemote -async $appName [ list set backendId $myId ]
 
 gaa::httpTools::init \
     -useragent      $param(appId) \
