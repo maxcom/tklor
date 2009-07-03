@@ -34,7 +34,7 @@ src_install() {
 	doins tklor.desktop
 	
 	dosym tkLOR /usr/bin/tklor
-	dodoc readme
+	dodoc README UPGRADE
 	docinto examples
 	dodoc config userConfig
 }
