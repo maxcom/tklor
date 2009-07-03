@@ -304,6 +304,7 @@ proc renderHtml {w msg} {
 
     switch $htmlRenderer {
         "local" {
+            set msg [ replaceHtmlEntities $msg ]
             $w configure -state normal
             $w delete 0.0 end
             $w insert 0.0 $msg
@@ -1066,7 +1067,18 @@ proc parseNewsPage {data} {
 }
 
 proc replaceHtmlEntities {text} {
-    foreach {re s} { "&lt;" "<" "&gt;" ">" "&amp;" "&" "&quot;" "\"" } {
+    foreach {re s} {
+        "<br>" "\n"
+        "<p>" "\n"
+        "</p>" ""
+        "<a[^>]*>" ""
+        "</a>" ""
+        "</{0,1}i>" ""
+        "&lt;" "<"
+        "&gt;" ">"
+        "&amp;" "&"
+        "&quot;" "\""
+        "\n{3,}" "\n\n" } {
         regsub -all $re $text $s text
     }
     return $text
