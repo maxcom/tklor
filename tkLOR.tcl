@@ -1112,9 +1112,9 @@ proc saveTopicToCache {topic} {
 
     if { $topic != "" && [ $messageTree exists "topic" ] } {
         set fname [ file join $cacheDir $topic ]
-        set stream [ open $fname "w" ]
-        fconfigure $stream -encoding "utf-8"
         if [ catch {
+            set stream [ open $fname "w" ]
+            fconfigure $stream -encoding "utf-8"
             saveTopicRecursive $stream "topic"
         } err ] {
             set errInfo $::errorInfo
@@ -2423,10 +2423,12 @@ proc loadMessageQueuesFromCache {} {
 #TODO: do it asynchronously
     foreach q {sent draft outcoming} {
         set fname [ file join $cacheDir $q ]
-        ::mbox::parseFile $fname [ closure {q} {letter} {
-            upvar #0 $q queue
-            lappend queue $letter
-        } ] -sync 1
+        catch {
+            ::mbox::parseFile $fname [ closure {q} {letter} {
+                upvar #0 $q queue
+                lappend queue $letter
+            } ] -sync 1
+        }
     }
 }
 
