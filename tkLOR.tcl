@@ -280,7 +280,7 @@ proc initAllTopicsTree {} {
         $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
     }
 
-    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "favorites" ]
+    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
 
     bind $allTopicsWidget <<TreeviewSelect>> {invokeMenuCommand $allTopicsWidget click}
     bind $allTopicsWidget <ButtonPress-3> {popupMenu $topicMenu %X %Y %x %y}
@@ -574,6 +574,8 @@ proc parsePage {topic data} {
     upvar #0 topicWidget w
     global expandNewMessages
 
+    set first ""
+
     foreach {dummy1 message} [ regexp -all -inline -- {(?:<!-- \d+ -->.*(<div class=title>.*?</div></div>))+?} $data ] {
         if [ regexp -- {(?:<div class=title>[^<]+<a href="view-message.jsp\?msgid=\d+(?:&amp;lastmod=\d+){0,1}(?:&amp;page=\d+){0,1}#(\d+)">[^<]*</a> \w+ ([\w-]+) [^<]+</div>){0,1}<div class=msg id=(\d+)><h2>([^<]+)</h2>(.*?)<div class=sign>([\w-]+) +(?:<img [^>]+>)* ?\(<a href="whois.jsp\?nick=[\w-]+">\*</a>\) \(([^)]+)\)</div>} $message dummy2 parent parentNick id header msg nick time ] {
             if { ! [ $w exists $id ] } {
@@ -588,10 +590,20 @@ proc parsePage {topic data} {
                 updateItemState $w $id
 
                 if { $expandNewMessages } {
-                    if { [ getItemValue $w [ getItemValue $w $id parent ] unread ] != "1" } {$w see $id}
+                    if { [ getItemValue $w [ getItemValue $w $id parent ] unread ] != "1" } {
+                        $w see $id
+                        if { $first == "" } {
+                            set first $id
+                        }
+                    }
                 }
             }
         }
+    }
+    if { $first != "" } {
+        focus $w
+        $w focus $first
+        $w selection set $first
     }
 }
 
@@ -895,16 +907,11 @@ proc processArgv {} {
 }
 
 proc startWait {} {
-    set f .waitWindow
-    catch {destroy $f}
-    toplevel $f
-    pack [ ttk::label $f.label -text "Please, wait..." ] -fill both
+    catch {destroy .waitWindow}
+    set f [ ttk::label .waitWindow -text "Please, wait..." ]
+    place $f -x 100 -y 100 -width 200 -height 20
     update
-    catch {
-        centerToParent $f .
-        update
-        grab $f
-    }
+    grab $f
 }
 
 proc stopWait {} {
@@ -1515,10 +1522,11 @@ proc nextUnread {w item} {
         if { $next == "" } {
             set next [ $w next $cur ]
             if { $next == "" } {
-                set next [ $w parent $cur ]
-                set fromChild 1
-                if { $next == "" } {
+                if { [ $w parent $cur ] == "" } {
                     set next [ lindex [ $w children "" ] 0 ]
+                } else {
+                    set next [ $w parent $cur ]
+                    set fromChild 1
                 }
             }
         }
