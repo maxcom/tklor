@@ -173,6 +173,7 @@ proc initPopups {} {
     $topicMenu add command -label "Mark thread as unread" -command "markTopic thread 1"
     $topicMenu add separator
     $topicMenu add command -label "Move to favorites" -command "addToFavorites"
+    $topicMenu add command -label "Delete" -command "deleteTopic"
 }
 
 proc initAllTopicsTree {} {
@@ -198,7 +199,7 @@ proc initAllTopicsTree {} {
         $allTopicsWidget insert forum end -id "forum$id" -text $title -values [ list "" 0 0 "forum" $title ]
     }
 
-    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "Favorites" ]
+    $allTopicsWidget insert "" end -id favorites -text "Favorites" -values [ list "" 0 0 "" "favorites" ]
 
     bind $allTopicsWidget <<TreeviewSelect>> "topicClick"
     bind $allTopicsWidget <ButtonPress-3> "topicPopup %X %Y %x %y"
@@ -887,7 +888,6 @@ proc parseTopicList {forum data} {
             }
         }
     }
-    $w see "forum$forum"
 }
 
 proc addTopicFromCache {parent id nick text unread} {
@@ -934,6 +934,11 @@ proc saveTopicListToCache {} {
                 puts -nonewline $f [ list [ getItemValue $w $id text ] ]
                 puts $f " [ getItemValue $w $id unread ]"
             }
+        }
+        foreach id [ $w children "favorites" ] {
+            puts -nonewline $f "addTopicFromCache favorites $id [ getItemValue $w $id nick ] "
+            puts -nonewline $f [ list [ getItemValue $w $id text ] ]
+            puts $f " [ getItemValue $w $id unread ]"
         }
         close $f
     }
@@ -1171,7 +1176,6 @@ proc parseNewsPage {group data} {
             }
         }
     }
-    $w see "news$group"
 }
 
 proc replaceHtmlEntities {text} {
@@ -1192,6 +1196,38 @@ proc replaceHtmlEntities {text} {
         regsub -all $re $text $s text
     }
     return $text
+}
+
+proc addToFavorites {} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        $w detach $item
+        set childs [ $w children "favorites" ]
+        lappend childs $item
+        $w children "favorites" $childs
+        if [ getItemValue $w $item unread ] {
+            addUnreadChild $w [ getItemValue $w $item parent ] -1
+            addUnreadChild $w "favorites"
+        }
+        setItemValue $w $item parent "favorites"
+    }
+}
+
+proc deleteTopic {} {
+    upvar #0 allTopicsWidget w
+    global mouseX mouseY
+    global lorUrl
+    global currentTopic
+
+    set item [ $w identify row $mouseX $mouseY ]
+    if { $item != "" } {
+        $w delete $item
+    }
 }
 
 ############################################################################
