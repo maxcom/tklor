@@ -30,7 +30,8 @@ namespace eval remoting {
 namespace export \
     invokeSlave \
     invokeMaster \
-    killSlave
+    killSlave \
+    defMasterLambda
 
 proc invokeSlave {slave onComplete onError arg} {
     set f [ open [ concat "|$slave" [ list "<<" $arg ] ] "r" ]
@@ -61,6 +62,20 @@ proc invokeMaster {arg} {
 
 proc killSlave {slave} {
     close $f
+}
+
+proc addDollars {arg} {
+    set res ""
+    foreach i $arg {
+        append res " \$$i"
+    }
+    return $res
+}
+
+proc defMasterLambda {id params script args} {
+    uplevel [ concat [ list ::gaa::lambda::deflambda $id $params \
+        "::gaa::remoting::invokeMaster \[ ::gaa::lambda::lambda [ list $params $script ] [ ::gaa::remoting::addDollars $params ] \]" \
+    ] $args ]
 }
 
 }

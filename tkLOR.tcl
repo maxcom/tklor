@@ -598,24 +598,20 @@ proc setTopic {topic} {
     loadCachedMessages $topic
 
     if { ! $autonomousMode } {
-        deflambda processText {topic nick header text time approver approveTime} {
-            invokeMaster [ lambda {topic nick header text time approver approveTime} {
-                saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
-                set header [ htmlToText $header ]
-                updateTopicText $topic $header $nick
-                insertMessage "topic" $nick $header $time $text "" "" 1 force
-            } $topic $nick $header $text $time $approver $approveTime ]
+        defMasterLambda processText {topic nick header text time approver approveTime} {
+            saveTopicTextToCache $topic $header $text $nick $time $approver $approveTime
+            set header [ htmlToText $header ]
+            updateTopicText $topic $header $nick
+            insertMessage "topic" $nick $header $time $text "" "" 1 force
         } $topic
-        deflambda processMessage {w id nick header time msg parent parentNick} {
-            invokeMaster [ lambda {w id nick header time msg parent parentNick} {
-                if { $parent == "" } {
-                    set parent "topic"
-                    set parentNick [ getItemValue $w "topic" nick ]
-                }
-                if { ![ $w exists $id ] } {
-                    insertMessage $id $nick $header $time $msg $parent $parentNick 1
-                }
-            } $w $id $nick $header $time $msg $parent $parentNick ]
+        defMasterLambda processMessage {w id nick header time msg parent parentNick} {
+            if { $parent == "" } {
+                set parent "topic"
+                set parentNick [ getItemValue $w "topic" nick ]
+            }
+            if { ![ $w exists $id ] } {
+                insertMessage $id $nick $header $time $msg $parent $parentNick 1
+            }
         } $messageTree
 
         deflambda finish {messageTree expandNewMessages} {
@@ -995,13 +991,11 @@ proc updateTopicList {{section ""}} {
         return
     }
 
-    deflambda processTopic {parent id nick header} {
-        invokeMaster [ ::gaa::lambda::lambda {parent id nick header} {
-            global configDir threadSubDir
+    defMasterLambda processTopic {parent id nick header} {
+        global configDir threadSubDir
 
-            set header [ htmlToText $header ]
-            addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
-        } $parent $id $nick $header ]
+        set header [ htmlToText $header ]
+        addTopicFromCache $parent $id $nick $header [ expr ! [ file exists [ file join $configDir $threadSubDir "$id.topic" ] ] ]
     } $section
 
     global configDir libDir
