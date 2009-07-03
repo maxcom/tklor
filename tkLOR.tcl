@@ -1836,12 +1836,22 @@ proc setPerspective {mode {force ""}} {
     }
 }
 
+proc showWindow {} {
+    wm withdraw .
+    wm deiconify .
+}
+
 ############################################################################
 #                                   MAIN                                   #
 ############################################################################
 
 processArgv
 loadConfig
+
+if { [ tk appname $appName ] != $appName } {
+    send -async $appName {showWindow}
+    exit
+}
 
 initDirs
 loadAppLibs
