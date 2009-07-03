@@ -72,6 +72,8 @@ set ignoreList ""
 set messageMenu ""
 set topicMenu ""
 
+set autonomousMode 0
+
 set forumGroups {
     126     General
     1339    Desktop
@@ -134,10 +136,12 @@ proc initMenu {} {
     .menu add cascade -label "Message" -menu .menu.message
     .menu add cascade -label "Help" -menu .menu.help
 
-    menu .menu.lor -tearoff 0
-    .menu.lor add command -label "Search new topics" -accelerator "F2" -command updateTopicList
-    .menu.lor add separator
-    .menu.lor add command -label "Exit" -command exitProc
+    set m [ menu .menu.lor -tearoff 0 ]
+    $m add command -label "Search new topics" -accelerator "F2" -command updateTopicList
+    $m add separator
+    $m add checkbutton -label "Autonomous mode" -onvalue 1 -offvalue 0 -variable autonomousMode
+    $m add separator
+    $m add command -label "Exit" -command exitProc
 
     set m [ menu .menu.topic -tearoff 0 ]
     $m add command -label "Refresh sub-tree" -command {invokeMenuCommand $allTopicsWidget refreshTopicList}
@@ -441,6 +445,7 @@ proc setTopic {topic} {
     global currentTopic lorUrl appName
     global topicWidget messageWidget
     global currentHeader currentNick currentPrevNick currentTime topicNick topicTime
+    global autonomousMode
 
     startWait
 
@@ -469,18 +474,20 @@ proc setTopic {topic} {
     loadTopicTextFromCache $topic
     loadCachedMessages $topic
 
-    if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
-        if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
-            parseTopicText $topic [ ::http::data $token ]
-            parsePage $topic [ ::http::data $token ]
-            set err 0
-        } else {
-            set errStr [ ::http::code $token ]
+    if { ! $autonomousMode } {
+        if { [ catch { set token [ ::http::geturl $url ] } errStr ] == 0 } {
+            if { [ ::http::status $token ] == "ok" && [ ::http::ncode $token ] == 200 } {
+                parseTopicText $topic [ ::http::data $token ]
+                parsePage $topic [ ::http::data $token ]
+                set err 0
+            } else {
+                set errStr [ ::http::code $token ]
+            }
+            ::http::cleanup $token
         }
-        ::http::cleanup $token
-    }
-    if $err {
-        tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
+        if $err {
+            tk_messageBox -title "$appName error" -message "Unable to contact LOR\n$errStr" -parent . -type ok -icon error
+        }
     }
     stopWait
 }
@@ -867,6 +874,16 @@ proc loadConfig {} {
 
 proc updateTopicList {{section ""} {recursive ""}} {
     global forumGroups newsGroups
+    global autonomousMode
+    global appName
+
+    if { $autonomousMode } {
+        if { [ tk_messageBox -title $appName -message "Are you want to go to online mode?" -type yesno -icon question -default yes ] == yes } {
+            set autonomousMode 0
+        } else {
+            return
+        }
+    }
 
     if {$recursive == ""} startWait
     if {$section == "" } {
