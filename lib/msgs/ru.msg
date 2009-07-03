@@ -141,8 +141,6 @@
         "Message text"          "Текст сообщения"
         "Monospace font"        "Моноширинный шрифт"
         "Quote font"            "Текст цитаты"
-        "Message font color"    "Цвет текста сообщения"
-        "Message background"    "Цвет фона сообщения"
         "Forum groups"          "Группы форума"
         "Visible forum groups"  "Отображаемые группы форума"
         "LOR login"             "Логин на ЛОРе"

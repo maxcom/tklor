@@ -62,4 +62,4 @@ Tested on ActiveTcl 8.4.17(equipped with Tile) and ActiveTcl 8.4.13 with Tile in
 
 *   install ActiveTcl from http://www.activestate.com/store/freedownload.aspx?prdGuid=f0cd6399-fefb-466e-ba17-220dcd6f4078
 *   install tcllib from http://sourceforge.net/project/showfiles.php?group_id=12883
-*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib"
+*   run by command "/usr/local/bin/wish8.5 /path/to/tkLOR -libDir=/path/to/tkLOR/lib -wishPath=/usr/local/bin/wish8.5"

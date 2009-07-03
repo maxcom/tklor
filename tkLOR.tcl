@@ -190,8 +190,6 @@ set options {
         "Normal font"       font    messageTextFont ""
         "Monospace font"    font    messageTextMonospaceFont ""
         "Quote font"        font    messageTextQuoteFont ""
-        "Message font color"        color   color(htmlFg) ""
-        "Message background"        color   color(htmlBg) ""
     }
     "Forum groups" {
         "Visible forum groups"  selectList  forumVisibleGroups  {set lor::forumGroups}
@@ -1367,7 +1365,13 @@ proc applyOptions {} {
     configureTags $topicTree
     configureTags $messageTree
 
-    ttk::style theme use $tileTheme
+    ttk::setTheme $tileTheme
+    catch {
+    array set color [ list \
+        htmlFg  [ ttk::style lookup . -background ] \
+        htmlBg  [ ttk::style lookup Cell -background ] \
+    ]
+    }
 
     catch {$messageTextWidget configure -font $messageTextFont}
     catch {$messageTextWidget configure -foreground $color(htmlFg) -background $color(htmlBg)}
