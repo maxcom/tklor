@@ -1485,13 +1485,13 @@ proc packOptionsItem {w name item type val opt} {
             pack [ buttonBox $name \
                 [ list -text "Add..." -command [ concat $addScript [ list $v ] ] ] \
                 [ list -text "Modify..." -command [ concat $modifyScript [ list $v ] ] ] \
-                [ list -text "Remove" -command [ list lambda {w} {
+                [ list -text "Remove" -command [ lambda {w} {
                         foreach item [ $w selection ] {
                             $w delete $item
                         }
                     } $v ] \
                 ] \
-                [ list -text "Move up" -command [ list lambda {w} {
+                [ list -text "Move up" -command [ lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -1504,7 +1504,7 @@ proc packOptionsItem {w name item type val opt} {
                         }
                     } $v ] \
                 ] \
-                [ list -text "Move down" -command [ list lambda {w} {
+                [ list -text "Move down" -command [ lambda {w} {
                         set item [ $w focus ]
                         if { $item == "" } return
                         set parent [ $w parent $item ]
@@ -1532,7 +1532,7 @@ proc packOptionsItem {w name item type val opt} {
             $name insert end $val
         }
         color {
-            pack [ ttk::button $name -text $val -command [ list lambda {parent w} {
+            pack [ ttk::button $name -text $val -command [ lambda {parent w} {
                 if [ catch {set color [ tk_chooseColor -initialcolor [ $w cget -text ] -parent $parent ]} ] {
                     set color [ tk_chooseColor -parent $parent ]
                 }
@@ -1598,8 +1598,7 @@ proc showOptionsDialog {} {
             lappend o $item $type [ set ::$var ] $opt
         }
 
-        lappend okList [ list \
-            lambda {optList page ws} {
+        lappend okList [ lambda {optList page ws} {
                 set vals [ fetchOptionsFrameValues $optList $page $ws ]
                 for {set i 0} {$i < [ llength $vals ]} {incr i} {
                     set var [ lindex $optList [ expr $i*4+2 ] ]
@@ -1709,7 +1708,7 @@ proc modifyIgnoreListItem {w} {
 }
 
 proc nextUnread {w item} {
-    set cur [ processItems $w $item [ list lambda {w item} {
+    set cur [ processItems $w $item [ lambda {w item} {
         return [ expr [ getItemValue $w $item unread ] != "1" ]
     } $w ] ]
     if { $cur != "" } {
@@ -1748,7 +1747,7 @@ proc inputStringDialog {title label script {val ""}} {
 
     set okScript [ join \
         [ list \
-            [ list lambda {f script} {
+            [ lambda {f script} {
                 eval [ concat $script [ list [ $f.entry get ] ] ]
             } $f $script ] \
             [ list destroy $f ] \
@@ -1777,7 +1776,7 @@ proc find {} {
 
     set findPos [ $topicWidget focus ]
 
-    inputStringDialog "Search" "Search regexp:" [ list lambda {str} {
+    inputStringDialog "Search" "Search regexp:" [ lambda {str} {
         global findString
         set findString $str
         findNext
@@ -1792,7 +1791,7 @@ proc findNext {} {
     if { ![$w exists $findPos] } {
         set findPos ""
     }
-    set cur [ processItems $w $findPos [ list lambda {w findString item} {
+    set cur [ processItems $w $findPos [ lambda {w findString item} {
         return [ expr [ regexp -nocase -- $findString [ getItemValue $w $item msg ] ] == "0" ]
     } $w $findString ] ]
     set findPos $cur
@@ -1921,7 +1920,7 @@ proc showFavoritesTree {title name script parent} {
 
     set okScript [ join \
         [ list \
-            [ list lambda {script categoryWidget nameWidget} {
+            [ lambda {script categoryWidget nameWidget} {
                 eval [ concat \
                     $script \
                     [ list \
@@ -1934,8 +1933,7 @@ proc showFavoritesTree {title name script parent} {
         ] ";" \
     ]
     set cancelScript "destroy $f"
-    set newCategoryScript [ list \
-        lambda {f categoryWidget} {
+    set newCategoryScript [ lambda {f categoryWidget} {
             showFavoritesTree "Select new category name and location" "New category" [ list "createCategory" $categoryWidget $f ] [ $categoryWidget focus ]
         } $f $categoryWidget \
     ]
@@ -1996,7 +1994,7 @@ proc fillCategoryWidget {categoryWidget parent} {
     global allTopicsWidget
 
     $categoryWidget insert {} end -id favorites -text Favorites
-    processItems $allTopicsWidget "favorites" [ list lambda {from to item} {
+    processItems $allTopicsWidget "favorites" [ lambda {from to item} {
         if { ![ regexp -lineanchor {^\d+$} $item ] } {
             $to insert [ getItemValue $from $item parent ] end -id $item -text [ getItemValue $from $item text ]
         }
@@ -2125,8 +2123,7 @@ proc tagUser {w item} {
             onePageOptionsDialog "Modify user tag" [ list \
                 "Nick"  string nick $nick "" \
                 "Tag"   string tag  [ lindex $item 1 ] "" \
-            ] [ list \
-                lambda {w pos vals} {
+            ] [ lambda {w pos vals} {
                     global userTagList
                     array set arr $vals
                     lset userTagList $pos [ list $arr(nick) $arr(tag) ]
@@ -2139,8 +2136,7 @@ proc tagUser {w item} {
     onePageOptionsDialog "Add user tag" [ list \
         "Nick"  string nick $nick "" \
         "Tag"   string tag  "" "" \
-    ] [ list \
-        lambda {w vals} {
+    ] [ lambda {w vals} {
             global userTagList
             array set arr $vals
             lappend userTagList [ list $arr(nick) $arr(tag) ]
@@ -2153,8 +2149,7 @@ proc addUserTagListItem {w} {
     onePageOptionsDialog "Add user tag" {
         "Nick"  string nick "" ""
         "Tag"   string tag  "" ""
-    } [ list \
-        lambda {w vals} {
+    } [ lambda {w vals} {
             array set arr $vals
             $w insert {} end -text $arr(nick) -values [ list $arr(tag) ]
             array unset arr
@@ -2320,11 +2315,19 @@ proc lambdaLowlevel {paramsVar scriptVar argsVar} {
     uplevel [ list eval $script ]
 }
 
-proc lambda {params script args} {
+proc lambdaProc {params script args} {
     if { [ llength $params ] != [ llength $args ] } {
-        error "Arguments count mismatch!"
+        error "Arguments count mismatch: expected [ llength $params ], but [ llength $args ] passed."
     }
     lambdaLowlevel params script args
+}
+
+proc lambda {params script args} {
+    return [ concat [ list lambdaProc $params $script ] $args ]
+}
+
+proc deflambda {id params script args} {
+    uplevel [ list set $id [ concat [ list lambdaProc $params $script ] $args ] ]
 }
 
 proc isUserIgnored {nick} {
